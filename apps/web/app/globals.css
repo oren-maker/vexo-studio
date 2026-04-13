@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@500;700&display=swap");
+
+:root {
+  --sidebar-bg-gradient: radial-gradient(ellipse at top, #1a2d4a 0%, #0d1b2e 70%);
+}
+
+html, body { height: 100%; }
+body {
+  background: #f0f4f9;
+  color: #1a2540;
+  font-family: "Outfit", system-ui, sans-serif;
+}
+
+.num { font-family: "Inter", system-ui, sans-serif; font-variant-numeric: tabular-nums; }

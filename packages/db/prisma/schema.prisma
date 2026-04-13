@@ -1,0 +1,824 @@
+// VEXO Studio — Prisma schema
+// Source of truth: docs/SPEC.md
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// Enums
+// =====================================================================
+
+enum ContentType {
+  SERIES
+  COURSE
+  KIDS_CONTENT
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum AIMode {
+  MANUAL
+  ASSISTED
+  AUTOPILOT
+}
+
+enum EpisodeStatus {
+  DRAFT
+  PLANNING
+  IN_PRODUCTION
+  REVIEW
+  READY_FOR_PUBLISH
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SceneStatus {
+  DRAFT
+  PLANNING
+  STORYBOARD_GENERATING
+  STORYBOARD_REVIEW
+  STORYBOARD_APPROVED
+  VIDEO_GENERATING
+  VIDEO_REVIEW
+  APPROVED
+  LOCKED
+}
+
+// =====================================================================
+// 1. Users & Auth
+// =====================================================================
+
+model User {
+  id           String    @id @default(cuid())
+  fullName     String
+  email        String    @unique
+  username     String    @unique
+  passwordHash String
+  isActive     Boolean   @default(true)
+  roleId       String
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  role      Role          @relation(fields: [roleId], references: [id])
+  sessions  UserSession[]
+  auditLogs AuditLog[]
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  permissions RolePermission[]
+  users       User[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model UserSession {
+  id               String   @id @default(cuid())
+  userId           String
+  refreshTokenHash String
+  expiresAt        DateTime
+  ipAddress        String?
+  userAgent        String?
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  entityType  String
+  entityId    String
+  action      String
+  oldValue    Json?
+  newValue    Json?
+  createdAt   DateTime @default(now())
+
+  actor User @relation(fields: [actorUserId], references: [id])
+}
+
+// =====================================================================
+// 2. Providers & Wallets
+// =====================================================================
+
+model Provider {
+  id              String   @id @default(cuid())
+  name            String
+  category        String // VIDEO, IMAGE, AUDIO, DUBBING, MUSIC, SUBTITLE, DISTRIBUTION
+  apiUrl          String?
+  apiKeyEncrypted String?
+  isActive        Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  wallet     CreditWallet?
+  alertRules AlertRule[]
+}
+
+model CreditWallet {
+  id                       String   @id @default(cuid())
+  providerId               String   @unique
+  totalCreditsAdded        Float    @default(0)
+  availableCredits         Float    @default(0)
+  reservedCredits          Float    @default(0)
+  lowBalanceThreshold      Float?
+  criticalBalanceThreshold Float?
+  isTrackingEnabled        Boolean  @default(true)
+  notes                    String?
+  updatedAt                DateTime @updatedAt
+
+  provider     Provider            @relation(fields: [providerId], references: [id])
+  transactions CreditTransaction[]
+}
+
+model CreditTransaction {
+  id              String   @id @default(cuid())
+  walletId        String
+  transactionType String // ADD, DEDUCT, RESERVE, RELEASE
+  amount          Float
+  unitType        String // CREDITS, TOKENS, USD
+  sourceType      String // MANUAL, JOB, REFUND
+  description     String?
+  createdByUserId String?
+  referenceId     String?
+  createdAt       DateTime @default(now())
+
+  wallet CreditWallet @relation(fields: [walletId], references: [id])
+}
+
+model AlertRule {
+  id                   String   @id @default(cuid())
+  providerId           String
+  alertType            String // LOW_BALANCE, CRITICAL_BALANCE, JOB_FAILURE
+  thresholdValue       Float?
+  whatsappSystemNumber String?
+  targetPhone          String?
+  isEnabled            Boolean  @default(true)
+  cooldownMinutes      Int      @default(60)
+  createdAt            DateTime @default(now())
+
+  provider Provider     @relation(fields: [providerId], references: [id])
+  events   AlertEvent[]
+}
+
+model AlertEvent {
+  id              String    @id @default(cuid())
+  ruleId          String
+  title           String
+  message         String
+  status          String // SENT, FAILED, SUPPRESSED
+  deliveryChannel String // WHATSAPP, EMAIL
+  sentAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  rule AlertRule @relation(fields: [ruleId], references: [id])
+}
+
+// =====================================================================
+// 3. Projects
+// =====================================================================
+
+model Project {
+  id                          String        @id @default(cuid())
+  name                        String
+  contentType                 ContentType
+  description                 String?
+  language                    String        @default("he")
+  targetAudience              String?
+  status                      ProjectStatus @default(DRAFT)
+  createdByUserId             String
+  defaultDistributionPlatform String?       @default("YOUTUBE")
+  studioOpeningEnabled        Boolean       @default(false)
+  aiDirectorMode              AIMode        @default(MANUAL)
+  autopilotEnabled            Boolean       @default(false)
+  createdAt                   DateTime      @default(now())
+  updatedAt                   DateTime      @updatedAt
+
+  settings       ProjectSettings?
+  series         Series[]
+  courses        Course[]
+  characters     Character[]
+  memories       ProjectMemory[]
+  aiDirector     AIDirector?
+  aiLogs         AILog[]
+  distributions  ProjectDistribution[]
+  costEntries    CostEntry[]
+  revenueEntries RevenueEntry[]
+  revenueStreams RevenueStream[]
+  revenueSplits  RevenueSplit[]
+  recapCandidates RecapCandidate[]
+}
+
+model ProjectSettings {
+  id                           String   @id @default(cuid())
+  projectId                    String   @unique
+  defaultQualityMode           String   @default("STANDARD")
+  defaultResolution            String   @default("1080p")
+  defaultAspectRatio           String   @default("16:9")
+  defaultDurationPolicy        String   @default("FLEXIBLE")
+  requireSceneApproval         Boolean  @default(true)
+  lockNextSceneUntilApproved   Boolean  @default(false)
+  lockNextEpisodeUntilApproved Boolean  @default(false)
+  autoPublishEnabled           Boolean  @default(false)
+  subtitlesEnabled             Boolean  @default(true)
+  dubbingEnabled               Boolean  @default(false)
+  lipSyncEnabled               Boolean  @default(false)
+  criticEnabled                Boolean  @default(true)
+  memoryEnabled                Boolean  @default(true)
+  costStrategyEnabled          Boolean  @default(true)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+// =====================================================================
+// 4. Series / Seasons / Episodes
+// =====================================================================
+
+model Series {
+  id           String   @id @default(cuid())
+  projectId    String
+  title        String
+  summary      String?
+  totalSeasons Int      @default(0)
+  totalBudget  Float?
+  plannedCost  Float?
+  actualCost   Float    @default(0)
+  tokenCost    Float    @default(0)
+  serverCost   Float    @default(0)
+  storageCost  Float    @default(0)
+  manualCost   Float    @default(0)
+  revenueTotal Float    @default(0)
+  profitTotal  Float    @default(0)
+  roiPercent   Float?
+  budgetStatus String   @default("OK")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project Project  @relation(fields: [projectId], references: [id])
+  seasons Season[]
+}
+
+model Season {
+  id                    String   @id @default(cuid())
+  seriesId              String
+  seasonNumber          Int
+  title                 String?
+  description           String?
+  totalEpisodes         Int      @default(0)
+  targetDurationMinutes Int?
+  releaseYear           Int?
+  status                String   @default("DRAFT")
+  actualCost            Float    @default(0)
+  revenueTotal          Float    @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  series   Series    @relation(fields: [seriesId], references: [id])
+  episodes Episode[]
+
+  @@unique([seriesId, seasonNumber])
+}
+
+model Episode {
+  id                    String        @id @default(cuid())
+  seasonId              String
+  episodeNumber         Int
+  title                 String
+  synopsis              String?
+  targetDurationSeconds Int?
+  status                EpisodeStatus @default(DRAFT)
+  plannedBudget         Float?
+  actualCost            Float         @default(0)
+  tokenCost             Float         @default(0)
+  manualCost            Float         @default(0)
+  storageCost           Float         @default(0)
+  serverCost            Float         @default(0)
+  revenueTotal          Float         @default(0)
+  youtubeUrl            String?
+  publishedAt           DateTime?
+  currentSceneIndex     Int           @default(0)
+  exportStatus          String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  season             Season              @relation(fields: [seasonId], references: [id])
+  scenes             Scene[]
+  musicTracks        MusicTrack[]
+  subtitleTracks     SubtitleTrack[]
+  dubbingTracks      DubbingTrack[]
+  publishingJobs     PublishingJob[]
+  analyticsSnapshots AnalyticsSnapshot[]
+  criticReviews      AICriticReview[]
+  recapCandidates    RecapCandidate[]
+
+  @@unique([seasonId, episodeNumber])
+}
+
+// =====================================================================
+// 5. Course
+// =====================================================================
+
+model Course {
+  id              String   @id @default(cuid())
+  projectId       String
+  title           String
+  description     String?
+  difficultyLevel String?
+  durationMinutes Int?
+  instructorType  String?
+  actualCost      Float    @default(0)
+  revenueTotal    Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project        @relation(fields: [projectId], references: [id])
+  modules CourseModule[]
+}
+
+model CourseModule {
+  id          String   @id @default(cuid())
+  courseId    String
+  title       String
+  orderIndex  Int
+  description String?
+  createdAt   DateTime @default(now())
+
+  course  Course   @relation(fields: [courseId], references: [id])
+  lessons Lesson[]
+}
+
+model Lesson {
+  id              String   @id @default(cuid())
+  moduleId        String
+  title           String
+  summary         String?
+  durationSeconds Int?
+  status          String   @default("DRAFT")
+  actualCost      Float    @default(0)
+  revenueTotal    Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  module CourseModule @relation(fields: [moduleId], references: [id])
+  scenes Scene[]
+}
+
+// =====================================================================
+// 6. Scenes / Frames / Assets
+// =====================================================================
+
+model Scene {
+  id                    String      @id @default(cuid())
+  parentType            String // EPISODE, LESSON
+  parentId              String
+  episodeId             String?
+  lessonId              String?
+  sceneNumber           Int
+  title                 String?
+  summary               String?
+  scriptText            String?
+  targetDurationSeconds Int?
+  status                SceneStatus @default(DRAFT)
+  plannedBudget         Float?
+  actualCost            Float       @default(0)
+  tokenCost             Float       @default(0)
+  generationCost        Float       @default(0)
+  manualCost            Float       @default(0)
+  revisionCost          Float       @default(0)
+  memoryContext         Json?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  episode       Episode?         @relation(fields: [episodeId], references: [id])
+  lesson        Lesson?          @relation(fields: [lessonId], references: [id])
+  frames        SceneFrame[]
+  musicTracks   MusicTrack[]
+  lipSyncJobs   LipSyncJob[]
+  criticReviews AICriticReview[]
+  versions      SceneVersion[]
+}
+
+model SceneFrame {
+  id                String   @id @default(cuid())
+  sceneId           String
+  orderIndex        Int
+  beatSummary       String?
+  imagePrompt       String?
+  negativePrompt    String?
+  generatedImageUrl String?
+  approvedImageUrl  String?
+  status            String   @default("PENDING")
+  revisionCount     Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  scene Scene @relation(fields: [sceneId], references: [id])
+}
+
+model Asset {
+  id              String   @id @default(cuid())
+  projectId       String
+  entityType      String
+  entityId        String
+  assetType       String // IMAGE, VIDEO, AUDIO, MUSIC, SUBTITLE, THUMBNAIL
+  providerId      String?
+  fileUrl         String
+  thumbnailUrl    String?
+  mimeType        String?
+  durationSeconds Float?
+  sizeBytes       BigInt?
+  metadata        Json?
+  versionNumber   Int      @default(1)
+  status          String   @default("READY")
+  createdAt       DateTime @default(now())
+}
+
+model SceneVersion {
+  id              String   @id @default(cuid())
+  sceneId         String
+  versionNumber   Int
+  scriptSnapshot  String?
+  promptSnapshot  Json?
+  assetSnapshot   Json?
+  reviewNotes     String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  scene Scene @relation(fields: [sceneId], references: [id])
+}
+
+// =====================================================================
+// 7. Characters & Voices
+// =====================================================================
+
+model Character {
+  id                String   @id @default(cuid())
+  projectId         String
+  name              String
+  roleType          String?
+  characterType     String? // HUMAN, ANIMATED, NARRATOR
+  gender            String?
+  ageRange          String?
+  appearance        String?
+  personality       String?
+  wardrobeRules     String?
+  speechStyle       String?
+  continuityLock    Boolean  @default(false)
+  personalityPrompt String?
+  behaviorPrompt    String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project Project          @relation(fields: [projectId], references: [id])
+  media   CharacterMedia[]
+  voices  CharacterVoice[]
+}
+
+model CharacterMedia {
+  id               String   @id @default(cuid())
+  characterId      String
+  mediaType        String // IMAGE, VIDEO, REFERENCE
+  fileUrl          String
+  thumbnailUrl     String?
+  sourceProviderId String?
+  metadata         Json?
+  createdAt        DateTime @default(now())
+
+  character Character @relation(fields: [characterId], references: [id])
+}
+
+model CharacterVoice {
+  id          String   @id @default(cuid())
+  characterId String
+  providerId  String
+  voiceModel  String
+  language    String   @default("he")
+  tone        String?
+  pitch       Float?
+  speed       Float?
+  createdAt   DateTime @default(now())
+
+  character Character @relation(fields: [characterId], references: [id])
+}
+
+// =====================================================================
+// 8. Music / Subtitles / Dubbing / Lip Sync
+// =====================================================================
+
+model MusicTrack {
+  id              String   @id @default(cuid())
+  entityType      String
+  entityId        String
+  episodeId       String?
+  sceneId         String?
+  trackType       String // INTRO, BACKGROUND, TENSION, KIDS_SONG, EDUCATIONAL
+  sourceType      String // GENERATED, UPLOADED, LIBRARY
+  providerId      String?
+  prompt          String?
+  mood            String?
+  durationSeconds Float?
+  fileUrl         String?
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+
+  episode Episode? @relation(fields: [episodeId], references: [id])
+  scene   Scene?   @relation(fields: [sceneId], references: [id])
+}
+
+model SubtitleTrack {
+  id              String   @id @default(cuid())
+  entityType      String
+  entityId        String
+  episodeId       String?
+  language        String
+  content         Json?
+  isAutoGenerated Boolean  @default(true)
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+
+  episode Episode? @relation(fields: [episodeId], references: [id])
+}
+
+model DubbingTrack {
+  id           String   @id @default(cuid())
+  entityType   String
+  entityId     String
+  episodeId    String?
+  language     String
+  providerId   String?
+  audioFileUrl String?
+  synced       Boolean  @default(false)
+  status       String   @default("PENDING")
+  createdAt    DateTime @default(now())
+
+  episode Episode? @relation(fields: [episodeId], references: [id])
+}
+
+model LipSyncJob {
+  id                 String    @id @default(cuid())
+  entityType         String
+  entityId           String
+  sceneId            String?
+  providerId         String?
+  sourceVideoAssetId String?
+  sourceAudioAssetId String?
+  outputAssetId      String?
+  status             String    @default("PENDING")
+  actualCost         Float?
+  createdAt          DateTime  @default(now())
+  completedAt        DateTime?
+
+  scene Scene? @relation(fields: [sceneId], references: [id])
+}
+
+// =====================================================================
+// 9. AI Director / Critic / Memory
+// =====================================================================
+
+model AIDirector {
+  id                 String    @id @default(cuid())
+  projectId          String    @unique
+  mode               AIMode    @default(MANUAL)
+  learningEnabled    Boolean   @default(false)
+  experienceScore    Float     @default(0)
+  autopilotEnabled   Boolean   @default(false)
+  lastTrainingUpdate DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model AILog {
+  id             String   @id @default(cuid())
+  projectId      String
+  actorType      String // DIRECTOR, CRITIC, SYSTEM, USER
+  actionType     String
+  input          Json?
+  output         Json?
+  decisionReason String?
+  successScore   Float?
+  cost           Float?
+  createdAt      DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model AICriticReview {
+  id             String   @id @default(cuid())
+  entityType     String
+  entityId       String
+  episodeId      String?
+  sceneId        String?
+  contentType    String // SCRIPT, IMAGE, VIDEO, NARRATIVE, CONTINUITY
+  score          Float
+  feedback       String?
+  issuesDetected Json?
+  suggestions    Json?
+  createdAt      DateTime @default(now())
+
+  episode Episode? @relation(fields: [episodeId], references: [id])
+  scene   Scene?   @relation(fields: [sceneId], references: [id])
+}
+
+model ProjectMemory {
+  id               String   @id @default(cuid())
+  projectId        String
+  memoryType       String // PLOT_POINT, CHARACTER_STATE, EPISODE_SUMMARY, LOCATION, STYLE
+  title            String
+  content          Json
+  sourceEntityType String?
+  sourceEntityId   String?
+  importanceScore  Float    @default(0.5)
+  createdAt        DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model RecapCandidate {
+  id         String   @id @default(cuid())
+  projectId  String
+  episodeId  String
+  assetId    String?
+  recapScore Float
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+  episode Episode @relation(fields: [episodeId], references: [id])
+}
+
+// =====================================================================
+// 10. Distribution / Analytics / Finance
+// =====================================================================
+
+model ChannelIntegration {
+  id                    String    @id @default(cuid())
+  provider              String // YOUTUBE, TIKTOK, VIMEO
+  channelName           String
+  channelId             String
+  accessTokenEncrypted  String
+  refreshTokenEncrypted String?
+  tokenExpiry           DateTime?
+  isActive              Boolean   @default(true)
+  createdByUserId       String
+  createdAt             DateTime  @default(now())
+
+  distributions  ProjectDistribution[]
+  publishingJobs PublishingJob[]
+}
+
+model ProjectDistribution {
+  id                   String   @id @default(cuid())
+  projectId            String
+  platform             String
+  channelIntegrationId String
+  publishingMode       String   @default("MANUAL") // MANUAL, SEMI_AUTO, FULL_AUTO
+  autoPublishEnabled   Boolean  @default(false)
+  defaultPrivacy       String   @default("PRIVATE")
+  defaultCategory      String?
+  defaultTags          Json?
+  defaultLanguage      String?
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  project     Project            @relation(fields: [projectId], references: [id])
+  integration ChannelIntegration @relation(fields: [channelIntegrationId], references: [id])
+}
+
+model PublishingJob {
+  id                   String    @id @default(cuid())
+  entityType           String
+  entityId             String
+  episodeId            String?
+  platform             String
+  channelIntegrationId String
+  title                String
+  description          String?
+  tags                 Json?
+  thumbnailAssetId     String?
+  outputUrl            String?
+  externalId           String?
+  status               String    @default("PENDING")
+  scheduledAt          DateTime?
+  publishedAt          DateTime?
+  createdAt            DateTime  @default(now())
+
+  integration ChannelIntegration @relation(fields: [channelIntegrationId], references: [id])
+  episode     Episode?           @relation(fields: [episodeId], references: [id])
+}
+
+model AnalyticsSnapshot {
+  id                         String   @id @default(cuid())
+  entityType                 String
+  entityId                   String
+  episodeId                  String?
+  platform                   String
+  views                      Int      @default(0)
+  likes                      Int      @default(0)
+  comments                   Int      @default(0)
+  shares                     Int      @default(0)
+  subscribersGained          Int      @default(0)
+  watchTimeSeconds           Int      @default(0)
+  averageViewDurationSeconds Float?
+  revenueAmount              Float?
+  capturedAt                 DateTime @default(now())
+
+  episode Episode? @relation(fields: [episodeId], references: [id])
+}
+
+model CostEntry {
+  id              String   @id @default(cuid())
+  projectId       String?
+  entityType      String
+  entityId        String
+  costCategory    String // TOKEN, GENERATION, SERVER, STORAGE, MANUAL
+  providerId      String?
+  description     String?
+  unitCost        Float
+  quantity        Float    @default(1)
+  totalCost       Float
+  sourceType      String // JOB, MANUAL, SYSTEM
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id])
+}
+
+model RevenueEntry {
+  id          String   @id @default(cuid())
+  projectId   String?
+  entityType  String
+  entityId    String
+  platform    String
+  sourceType  String // AD, SUBSCRIPTION, SPONSORSHIP, OTHER
+  description String?
+  amount      Float
+  currency    String   @default("USD")
+  occurredAt  DateTime
+  createdAt   DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id])
+}
+
+model RevenueStream {
+  id                  String   @id @default(cuid())
+  projectId           String
+  platform            String
+  totalRevenue        Float    @default(0)
+  adRevenue           Float    @default(0)
+  subscriptionRevenue Float    @default(0)
+  sponsorshipRevenue  Float    @default(0)
+  otherRevenue        Float    @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model RevenueSplit {
+  id           String   @id @default(cuid())
+  projectId    String
+  entityType   String
+  entityName   String
+  percentage   Float
+  payoutMethod String?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+}

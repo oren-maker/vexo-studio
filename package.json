@@ -2,36 +2,32 @@
   "name": "vexo-studio",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
-  "dependencies": {
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.103.0",
-    "bcryptjs": "^3.0.3",
-    "jsonwebtoken": "^9.0.3",
-    "next": "14.2.35",
-    "next-auth": "^4.24.13",
-    "pg": "^8.20.0",
-    "qrcode": "^1.5.4",
-    "react": "^18",
-    "react-dom": "^18",
-    "react-qr-code": "^2.0.18"
+    "dev": "npm-run-all --parallel dev:*",
+    "dev:api": "npm --workspace @vexo/api run dev",
+    "dev:web": "npm --workspace @vexo/web run dev",
+    "dev:worker": "npm --workspace @vexo/worker run dev",
+    "build": "npm-run-all build:*",
+    "build:db": "npm --workspace @vexo/db run build",
+    "build:shared": "npm --workspace @vexo/shared run build",
+    "build:api": "npm --workspace @vexo/api run build",
+    "build:web": "npm --workspace @vexo/web run build",
+    "build:worker": "npm --workspace @vexo/worker run build",
+    "db:migrate": "npm --workspace @vexo/db run migrate",
+    "db:generate": "npm --workspace @vexo/db run generate",
+    "db:seed": "npm --workspace @vexo/db run seed",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^20",
-    "@types/qrcode": "^1.5.6",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.35",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

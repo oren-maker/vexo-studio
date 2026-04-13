@@ -1,0 +1,23 @@
+{
+  "name": "@vexo/worker",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@vexo/db": "*",
+    "@vexo/queue": "*",
+    "@vexo/shared": "*",
+    "bullmq": "^5.34.0",
+    "pino": "^9.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.4.5"
+  }
+}

@@ -9,8 +9,8 @@ const heebo = Heebo({
 });
 
 export const metadata: Metadata = {
-  title: "VEXO",
-  description: "VEXO - פלטפורמה",
+  title: "VEXO STUDIO",
+  description: "VEXO STUDIO",
 };
 
 export default function RootLayout({

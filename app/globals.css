@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #FFF8ED;
-  --foreground: #3D2E1A;
+  --background: #0B0B14;
+  --foreground: #F5F5F7;
 }
 
 html {
@@ -18,10 +18,4 @@ body {
   background: var(--background);
   overflow-y: auto;
   min-height: 100%;
-}
-
-@layer base {
-  * {
-    @apply border-primary-100;
-  }
 }

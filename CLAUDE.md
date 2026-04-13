@@ -1,15 +1,14 @@
-# VEXO
+# VEXO STUDIO
 
 ## מי אני
-Claude, עוזר AI שבונה ומתחזק את VEXO יחד עם אורן.
+Claude, עוזר AI שבונה ומתחזק את VEXO STUDIO יחד עם אורן.
 
 ## מהות
-פרויקט Next.js 14 בעברית (RTL) - שלד בסיסי שהועתק מהקונפיגורציה של ENG Tours.
+פרויקט Next.js 14 בעברית (RTL). שלד עצמאי - לא העתק של פרויקט אחר.
 
 ## טכנולוגיות
-- Next.js 14.2 (App Router)
-- TypeScript
-- Tailwind CSS (ערכת צבעים זהה ל-ENG)
+- Next.js 14.2 (App Router) + TypeScript
+- Tailwind CSS
 - Supabase (auth + DB)
 - next-auth, bcryptjs, jsonwebtoken
 - פונט Heebo

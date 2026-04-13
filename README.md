@@ -1,6 +1,6 @@
-# VEXO
+# VEXO STUDIO
 
-פרויקט Next.js 14 עם TypeScript, Tailwind, Supabase.
+פרויקט Next.js 14 עם TypeScript, Tailwind ו-Supabase.
 
 ## התקנה
 

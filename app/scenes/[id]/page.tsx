@@ -89,6 +89,12 @@ export default function ScenePage() {
   async function saveScript(text: string) {
     await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { scriptText: text } });
   }
+  async function saveField(field: "title" | "summary", value: string) {
+    await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { [field]: value } });
+    load();
+  }
+  const [editTitle, setEditTitle] = useState(false);
+  const [editSummary, setEditSummary] = useState(false);
 
   if (!scene) return <div className="text-text-muted">{he ? "טוען…" : "Loading…"}</div>;
 
@@ -102,10 +108,34 @@ export default function ScenePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-6">
         <div className="flex justify-between items-start">
-          <div>
-            <div className="text-xs text-text-muted font-mono">SC{String(scene.sceneNumber).padStart(2, "0")}</div>
-            <h1 className="text-2xl font-bold">{scene.title ?? (he ? "סצנה ללא שם" : "Untitled scene")}</h1>
-            {scene.summary && <p className="text-text-secondary text-sm mt-1">{scene.summary}</p>}
+          <div className="flex-1 min-w-0">
+            <div data-no-translate className="text-xs text-text-muted font-mono">SC{String(scene.sceneNumber).padStart(2, "0")}</div>
+            {editTitle ? (
+              <input autoFocus defaultValue={scene.title ?? ""}
+                onBlur={(e) => { setEditTitle(false); saveField("title", e.target.value); }}
+                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditTitle(false); }}
+                className="text-2xl font-bold bg-bg-main rounded-lg px-2 py-1 w-full" />
+            ) : (
+              <h1 className="text-2xl font-bold group cursor-text" onClick={() => setEditTitle(true)} title={he ? "לחץ לעריכה" : "Click to edit"}>
+                {scene.title ?? (he ? "סצנה ללא שם" : "Untitled scene")}
+                <span className="opacity-0 group-hover:opacity-50 text-base ms-2">✎</span>
+              </h1>
+            )}
+            {editSummary ? (
+              <textarea autoFocus defaultValue={scene.summary ?? ""} rows={2}
+                onBlur={(e) => { setEditSummary(false); saveField("summary", e.target.value); }}
+                onKeyDown={(e) => { if (e.key === "Escape") setEditSummary(false); }}
+                placeholder={he ? "תיאור הסצנה" : "Scene summary"}
+                className="w-full bg-bg-main rounded-lg px-3 py-2 text-sm mt-1" />
+            ) : (
+              <div className="mt-1 group">
+                {scene.summary ? (
+                  <p className="text-text-secondary text-sm cursor-text inline" onClick={() => setEditSummary(true)}>{scene.summary}<span className="opacity-0 group-hover:opacity-50 text-xs ms-2">✎</span></p>
+                ) : (
+                  <button onClick={() => setEditSummary(true)} className="text-xs text-text-muted hover:text-accent">+ {he ? "הוסף תיאור" : "Add summary"}</button>
+                )}
+              </div>
+            )}
           </div>
           <span className="text-xs px-3 py-1 rounded-full bg-bg-main font-bold whitespace-nowrap">{scene.status}</span>
         </div>

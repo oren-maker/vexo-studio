@@ -55,8 +55,14 @@ export default function EpisodePage() {
 
   async function generateSEO() {
     await api(`/api/v1/episodes/${id}/seo/generate`, { method: "POST" });
-    alert("SEO regenerated");
+    alert(he ? "ה-SEO נוצר מחדש" : "SEO regenerated");
   }
+  async function saveField(field: "title" | "synopsis", value: string) {
+    await api(`/api/v1/episodes/${id}`, { method: "PATCH", body: { [field]: value } });
+    load();
+  }
+  const [editTitle, setEditTitle] = useState(false);
+  const [editSyn, setEditSyn] = useState(false);
 
   if (!ep) return <div className="text-text-muted">Loading…</div>;
 
@@ -65,13 +71,36 @@ export default function EpisodePage() {
       {ep.seasonId && (
         <Link href={`/seasons/${ep.seasonId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">{lang === "he" ? "→ חזרה לעונה" : "← Back to season"}</Link>
       )}
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="text-xs text-text-muted font-mono">EP{String(ep.episodeNumber).padStart(2, "0")}</div>
-          <h1 className="text-3xl font-bold">{ep.title}</h1>
-          {ep.synopsis && <p className="text-text-secondary mt-1">{ep.synopsis}</p>}
+      <div className="flex justify-between items-start gap-4">
+        <div className="flex-1 min-w-0">
+          <div data-no-translate className="text-xs text-text-muted font-mono">EP{String(ep.episodeNumber).padStart(2, "0")}</div>
+          {editTitle ? (
+            <input autoFocus defaultValue={ep.title}
+              onBlur={(e) => { setEditTitle(false); if (e.target.value !== ep.title) saveField("title", e.target.value || ep.title); }}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditTitle(false); }}
+              className="text-3xl font-bold bg-bg-main rounded-lg px-2 py-1 w-full" />
+          ) : (
+            <h1 className="text-3xl font-bold group cursor-text" onClick={() => setEditTitle(true)} title={he ? "לחץ לעריכה" : "Click to edit"}>
+              {ep.title}<span className="opacity-0 group-hover:opacity-50 text-base ms-2">✎</span>
+            </h1>
+          )}
+          {editSyn ? (
+            <textarea autoFocus defaultValue={ep.synopsis ?? ""} rows={3}
+              onBlur={(e) => { setEditSyn(false); saveField("synopsis", e.target.value); }}
+              onKeyDown={(e) => { if (e.key === "Escape") setEditSyn(false); }}
+              placeholder={he ? "סינופסיס הפרק" : "Episode synopsis"}
+              className="w-full bg-bg-main rounded-lg px-3 py-2 text-sm mt-1" />
+          ) : (
+            <div className="mt-1 group">
+              {ep.synopsis ? (
+                <p className="text-text-secondary cursor-text inline" onClick={() => setEditSyn(true)}>{ep.synopsis}<span className="opacity-0 group-hover:opacity-50 text-xs ms-2">✎</span></p>
+              ) : (
+                <button onClick={() => setEditSyn(true)} className="text-xs text-text-muted hover:text-accent">+ {he ? "הוסף סינופסיס" : "Add synopsis"}</button>
+              )}
+            </div>
+          )}
         </div>
-        <span className={`text-xs px-3 py-1 rounded-full font-bold ${STATUS_COLOR[ep.status] ?? "bg-bg-main"}`}>{ep.status}</span>
+        <span className={`text-xs px-3 py-1 rounded-full font-bold whitespace-nowrap ${STATUS_COLOR[ep.status] ?? "bg-bg-main"}`}>{ep.status}</span>
       </div>
 
       {ep.characters && ep.characters.length > 0 && (

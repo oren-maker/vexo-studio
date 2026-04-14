@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, OrgPlan } from "@prisma/client";
 import argon2 from "argon2";
 
 const prisma = new PrismaClient();
@@ -32,6 +32,12 @@ const PERMISSION_KEYS = [
   "manage_music",
   "manage_subtitles",
   "manage_dubbing",
+  "manage_api_keys",
+  "manage_webhooks",
+  "manage_organization",
+  "manage_templates",
+  "manage_calendar",
+  "view_audience_insights",
 ];
 
 const ROLE_PERMISSION_MAP: Record<string, string[]> = {
@@ -47,13 +53,23 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "manage_music",
     "manage_subtitles",
     "manage_dubbing",
+    "manage_calendar",
+    "manage_templates",
     "view_finance",
     "view_logs",
+    "view_audience_insights",
   ],
-  CONTENT_EDITOR: ["edit_project", "generate_assets", "approve_scene", "manage_music", "manage_subtitles"],
+  CONTENT_EDITOR: [
+    "edit_project",
+    "generate_assets",
+    "approve_scene",
+    "manage_music",
+    "manage_subtitles",
+    "manage_calendar",
+  ],
   AI_OPERATOR: ["generate_assets", "manage_ai_director", "view_logs"],
   FINANCE_VIEWER: ["view_finance"],
-  VIEWER: ["view_logs"],
+  VIEWER: ["view_logs", "view_audience_insights"],
 };
 
 async function main() {
@@ -88,6 +104,21 @@ async function main() {
     }
   }
 
+  console.log("[seed] default organization");
+  const orgSlug = "vexo-default";
+  const org = await prisma.organization.upsert({
+    where: { slug: orgSlug },
+    update: {},
+    create: {
+      name: "VEXO Default",
+      slug: orgSlug,
+      plan: OrgPlan.STUDIO,
+      maxProjects: 9999,
+      maxEpisodes: 9999,
+      whitelabelEnabled: true,
+    },
+  });
+
   console.log("[seed] super admin");
   const superAdminRole = await prisma.role.findUniqueOrThrow({ where: { name: "SUPER_ADMIN" } });
   const email = process.env.SEED_ADMIN_EMAIL ?? "admin@vexo.studio";
@@ -96,13 +127,19 @@ async function main() {
   const password = process.env.SEED_ADMIN_PASSWORD ?? "Vexo@2025!";
   const passwordHash = await argon2.hash(password);
 
-  await prisma.user.upsert({
+  const user = await prisma.user.upsert({
     where: { email },
-    update: { passwordHash, isActive: true, roleId: superAdminRole.id, fullName, username },
-    create: { email, username, fullName, passwordHash, isActive: true, roleId: superAdminRole.id },
+    update: { passwordHash, isActive: true, fullName, username },
+    create: { email, username, fullName, passwordHash, isActive: true },
   });
 
-  console.log(`[seed] done. super admin: ${email}`);
+  await prisma.organizationUser.upsert({
+    where: { organizationId_userId: { organizationId: org.id, userId: user.id } },
+    update: { roleId: superAdminRole.id, isOwner: true },
+    create: { organizationId: org.id, userId: user.id, roleId: superAdminRole.id, isOwner: true },
+  });
+
+  console.log(`[seed] done. super admin: ${email} / org slug: ${org.slug}`);
 }
 
 main()

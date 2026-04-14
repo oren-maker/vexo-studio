@@ -2,13 +2,31 @@ import type { FastifyPluginAsync } from "fastify";
 import { prisma } from "@vexo/db";
 import { CreateWalletSchema, WalletAdjustmentSchema } from "@vexo/shared";
 
+async function assertProviderInOrg(providerId: string, orgId?: string) {
+  const provider = await prisma.provider.findFirst({ where: { id: providerId, organizationId: orgId } });
+  if (!provider) throw new Error("provider not in org");
+  return provider;
+}
+
+async function assertWalletInOrg(walletId: string, orgId?: string) {
+  const wallet = await prisma.creditWallet.findFirst({
+    where: { id: walletId, provider: { organizationId: orgId } },
+  });
+  if (!wallet) throw new Error("wallet not in org");
+  return wallet;
+}
+
 export const walletRoutes: FastifyPluginAsync = async (app) => {
-  app.get("/", { preHandler: [app.requirePermission("manage_tokens")] }, async () =>
-    prisma.creditWallet.findMany({ include: { provider: true } }),
+  app.get("/", { preHandler: [app.requirePermission("manage_tokens")] }, async (req) =>
+    prisma.creditWallet.findMany({
+      where: { provider: { organizationId: req.organizationId } },
+      include: { provider: true },
+    }),
   );
 
   app.post("/", { preHandler: [app.requirePermission("manage_tokens")] }, async (req, reply) => {
     const body = CreateWalletSchema.parse(req.body);
+    await assertProviderInOrg(body.providerId, req.organizationId);
     const wallet = await prisma.creditWallet.create({
       data: {
         providerId: body.providerId,
@@ -28,6 +46,7 @@ export const walletRoutes: FastifyPluginAsync = async (app) => {
     "/:id/add",
     { preHandler: [app.requirePermission("manage_tokens")] },
     async (req) => {
+      await assertWalletInOrg(req.params.id, req.organizationId);
       const body = WalletAdjustmentSchema.parse(req.body);
       return prisma.$transaction(async (tx) => {
         const w = await tx.creditWallet.update({
@@ -58,6 +77,7 @@ export const walletRoutes: FastifyPluginAsync = async (app) => {
     "/:id/reduce",
     { preHandler: [app.requirePermission("manage_tokens")] },
     async (req) => {
+      await assertWalletInOrg(req.params.id, req.organizationId);
       const body = WalletAdjustmentSchema.parse(req.body);
       return prisma.$transaction(async (tx) => {
         const w = await tx.creditWallet.update({
@@ -84,11 +104,13 @@ export const walletRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { id: string } }>(
     "/:id/transactions",
     { preHandler: [app.requirePermission("manage_tokens")] },
-    async (req) =>
-      prisma.creditTransaction.findMany({
+    async (req) => {
+      await assertWalletInOrg(req.params.id, req.organizationId);
+      return prisma.creditTransaction.findMany({
         where: { walletId: req.params.id },
         orderBy: { createdAt: "desc" },
         take: 200,
-      }),
+      });
+    },
   );
 };

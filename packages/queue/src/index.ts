@@ -1,6 +1,6 @@
 import { Queue, QueueEvents, type JobsOptions } from "bullmq";
 import IORedis from "ioredis";
-import { QUEUE_NAMES } from "@vexo/shared";
+import { QUEUE_NAMES, QUEUE_PRIORITY } from "@vexo/shared";
 
 export const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -20,7 +20,10 @@ const registry = new Map<QueueName, Queue>();
 export function getQueue(name: QueueName): Queue {
   let q = registry.get(name);
   if (!q) {
-    q = new Queue(name, { connection, defaultJobOptions });
+    q = new Queue(name, {
+      connection,
+      defaultJobOptions: { ...defaultJobOptions, priority: QUEUE_PRIORITY[name] ?? 5 },
+    });
     registry.set(name, q);
   }
   return q;
@@ -35,8 +38,10 @@ export interface BaseJob {
   jobType: string;
   entityType: string;
   entityId: string;
+  organizationId: string;
   providerId?: string;
   payload: Record<string, unknown>;
+  priority?: number;
   estimatedCost?: number;
   actualCost?: number;
   status: "PENDING" | "RUNNING" | "DONE" | "FAILED";
@@ -45,4 +50,4 @@ export interface BaseJob {
   failedReason?: string;
 }
 
-export { QUEUE_NAMES };
+export { QUEUE_NAMES, QUEUE_PRIORITY };

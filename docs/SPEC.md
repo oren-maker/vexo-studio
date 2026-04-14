@@ -1,254 +1,206 @@
-# VEXO STUDIO — Full Technical Specification
+# VEXO STUDIO — Full Technical Specification (v2)
 
-> Canonical product/architecture spec. Source of truth for schema, endpoints, queues, services, frontend screens, design system, security and dev standards.
+> Multi-tenant SaaS. Every resource belongs to `Organization`.
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Backend | TypeScript (Node.js) |
-| Frontend | Next.js 14 (App Router) + React |
-| ORM | Prisma |
-| Database | PostgreSQL |
-| Queue | BullMQ + Redis |
-| Auth | JWT + Refresh Tokens |
-| Storage | S3-compatible (presigned URLs) |
-| Realtime | WebSocket / SSE for job updates |
-| Validation | Zod |
-| API Style | REST |
-| Password Hashing | Argon2 |
-| Encryption | AES-256 for provider keys and OAuth tokens |
+Backend: TypeScript / Fastify · Frontend: Next.js 14 App Router · ORM: Prisma · DB: PostgreSQL · Queue: BullMQ + Redis · Auth: JWT + Refresh + TOTP · Storage: S3 + CDN · Realtime: SSE · Validation: Zod · API: REST `/api/v1/` · Hashing: Argon2 + AES-256-GCM · Rate limiting: per-route.
 
-## Architecture
+## Layer Separation
+`routes → middleware (auth + permissions + rate-limit + org-scope) → controllers → services → repositories → Prisma`
 
-### Layer Separation
-`routes → middleware (auth + permissions) → controllers → services → repositories → Prisma`
-
-### Module Structure
+## Modules
 ```
-/apps
-  /api      — Express/Fastify backend
-  /web      — Next.js frontend
-  /worker   — BullMQ worker process
-/packages
-  /db       — Prisma schema + migrations
-  /queue    — BullMQ workers + job definitions
-  /shared   — Zod schemas, types, constants
+apps/api · apps/web · apps/worker
+packages/db · packages/queue · packages/shared
 ```
 
 ---
 
-## Database Schema (Prisma)
+## Database Schema
 
-See [packages/db/prisma/schema.prisma](../packages/db/prisma/schema.prisma) — all models live there. Sections:
+Source of truth: [packages/db/prisma/schema.prisma](../packages/db/prisma/schema.prisma).
 
-1. Users & Auth — `User`, `Role`, `Permission`, `RolePermission`, `UserSession`, `AuditLog`
-2. Providers & Wallets — `Provider`, `CreditWallet`, `CreditTransaction`, `AlertRule`, `AlertEvent`
-3. Projects — `Project`, `ProjectSettings`
-4. Series / Seasons / Episodes — `Series`, `Season`, `Episode`
-5. Course — `Course`, `CourseModule`, `Lesson`
-6. Scenes / Frames / Assets — `Scene`, `SceneFrame`, `Asset`, `SceneVersion`
-7. Characters & Voices — `Character`, `CharacterMedia`, `CharacterVoice`
-8. Music / Subtitles / Dubbing / Lip Sync — `MusicTrack`, `SubtitleTrack`, `DubbingTrack`, `LipSyncJob`
-9. AI Director / Critic / Memory — `AIDirector`, `AILog`, `AICriticReview`, `ProjectMemory`, `RecapCandidate`
-10. Distribution / Analytics / Finance — `ChannelIntegration`, `ProjectDistribution`, `PublishingJob`, `AnalyticsSnapshot`, `CostEntry`, `RevenueEntry`, `RevenueStream`, `RevenueSplit`
+### Sections
+1. **Organizations** — `Organization`, `OrganizationUser` · plan limits enforced in service layer
+2. **Users & Auth** — `User`, `Role`, `Permission`, `RolePermission`, `UserSession`, `AuditLog`
+3. **2FA / TOTP** — `TotpChallenge`
+4. **API Keys** — `ApiKey` (SHA-256 hashed, prefix shown in UI, scope JSON)
+5. **Webhook Endpoints** — `WebhookEndpoint`, `WebhookDelivery` (HMAC-SHA256)
+6. **In-App Notifications** — `NotificationEvent`
+7. **Providers & Wallets** — `Provider` (org-scoped), `CreditWallet`, `CreditTransaction`, `AlertRule`, `AlertEvent`
+8. **Incoming Webhooks** — `IncomingWebhook` (provider callbacks, HMAC verified)
+9. **Projects** — `Project` (org-scoped), `ProjectSettings` (with new feature flags)
+10. **Series / Seasons / Episodes** — with SEO fields, scheduledPublishAt, previewVideoUrl
+11. **Content Calendar** — `ContentCalendarEntry`
+12. **Thumbnail A/B** — `ThumbnailVariant`
+13. **Course** — `Course`, `CourseModule`, `Lesson`
+14. **Scenes / Frames / Assets** — `Scene` (with styleConstraints, dialogueJson), `SceneFrame`, `Asset` (CDN URL), `SceneVersion`
+15. **Collaboration** — `SceneComment`, `TaskAssignment`
+16. **Templates** — `ProjectTemplate` (marketplace, public/premium)
+17. **Characters & Voices** — `Character` (with visualFingerprint), `CharacterMedia`, `CharacterVoice`
+18. **Music / Subtitles / Dubbing / Lip Sync**
+19. **AI Director / Critic / Memory / Style Engine** — `AIDirector`, `AILog`, `AICriticReview`, `ProjectMemory`, `StyleConsistencySnapshot`, `RecapCandidate`, `ScriptBreakdown`
+20. **Distribution / Analytics / Finance** — `ChannelIntegration` (org-scoped), `ProjectDistribution`, `PublishingJob`, `AnalyticsSnapshot` (with dropOffPoints, sentimentScore), `AudienceInsight`, `CostEntry`, `RevenueEntry`, `RevenueStream`, `RevenueSplit`
 
 ### Enums
-`ContentType` (SERIES, COURSE, KIDS_CONTENT) · `ProjectStatus` (DRAFT, ACTIVE, PAUSED, ARCHIVED) · `AIMode` (MANUAL, ASSISTED, AUTOPILOT) · `EpisodeStatus` (DRAFT, PLANNING, IN_PRODUCTION, REVIEW, READY_FOR_PUBLISH, PUBLISHED, ARCHIVED) · `SceneStatus` (DRAFT, PLANNING, STORYBOARD_GENERATING, STORYBOARD_REVIEW, STORYBOARD_APPROVED, VIDEO_GENERATING, VIDEO_REVIEW, APPROVED, LOCKED)
+`ContentType` (SERIES, COURSE, KIDS_CONTENT) · `ProjectStatus` (DRAFT, ACTIVE, PAUSED, ARCHIVED) · `AIMode` (MANUAL, ASSISTED, AUTOPILOT) · `EpisodeStatus` (DRAFT, PLANNING, IN_PRODUCTION, REVIEW, READY_FOR_PUBLISH, PUBLISHED, ARCHIVED) · `SceneStatus` (DRAFT, PLANNING, STORYBOARD_GENERATING, STORYBOARD_REVIEW, STORYBOARD_APPROVED, VIDEO_GENERATING, VIDEO_REVIEW, APPROVED, LOCKED) · `OrgPlan` (FREE, PRO, STUDIO, ENTERPRISE)
 
 ---
 
 ## Roles & Permissions
 
-**Roles**: `SUPER_ADMIN`, `ADMIN`, `DIRECTOR`, `CONTENT_EDITOR`, `AI_OPERATOR`, `FINANCE_VIEWER`, `VIEWER`
+Roles (per org): `SUPER_ADMIN`, `ADMIN`, `DIRECTOR`, `CONTENT_EDITOR`, `AI_OPERATOR`, `FINANCE_VIEWER`, `VIEWER`
 
-**Permission keys**: `manage_users`, `manage_roles`, `manage_providers`, `manage_tokens`, `view_finance`, `manage_finance`, `create_project`, `edit_project`, `delete_project`, `manage_distribution`, `generate_assets`, `approve_scene`, `publish_episode`, `manage_ai_director`, `view_logs`, `manage_music`, `manage_subtitles`, `manage_dubbing`
+Permissions:
+```
+manage_users, manage_roles, manage_providers, manage_tokens,
+view_finance, manage_finance, create_project, edit_project,
+delete_project, manage_distribution, generate_assets,
+approve_scene, publish_episode, manage_ai_director,
+view_logs, manage_music, manage_subtitles, manage_dubbing,
+manage_api_keys, manage_webhooks, manage_organization,
+manage_templates, manage_calendar, view_audience_insights
+```
 
 ---
 
-## API Endpoints
+## API Endpoints (`/api/v1/`)
+
+### System
+```
+GET /health · GET /ready
+```
 
 ### Auth
 ```
-POST   /api/auth/login
-POST   /api/auth/logout
-POST   /api/auth/refresh
-POST   /api/auth/forgot-password
-POST   /api/auth/reset-password
-GET    /api/auth/me
+POST /auth/login · /auth/logout · /auth/refresh · /auth/forgot-password · /auth/reset-password
+GET  /auth/me
+POST /auth/2fa/setup · /auth/2fa/verify · /auth/2fa/disable · /auth/2fa/challenge
+GET  /auth/sessions · DELETE /auth/sessions/:id
 ```
 
-### Users
+### Organizations
 ```
-GET    /api/users
-POST   /api/users
-GET    /api/users/:id
-PATCH  /api/users/:id
-DELETE /api/users/:id
+GET   /organizations/me · PATCH /organizations/me
+GET   /organizations/me/members · POST /organizations/me/invite
+DELETE /organizations/me/members/:userId
 ```
 
-### Roles & Permissions
+### API Keys
 ```
-GET    /api/roles
-POST   /api/roles
-PATCH  /api/roles/:id
-GET    /api/permissions
+GET /api-keys · POST /api-keys · DELETE /api-keys/:id
 ```
 
-### Providers
+### Webhooks (outbound)
 ```
-GET    /api/providers
-POST   /api/providers
-PATCH  /api/providers/:id
-DELETE /api/providers/:id
+GET /webhooks/endpoints · POST /webhooks/endpoints · DELETE /webhooks/endpoints/:id
+GET /webhooks/endpoints/:id/deliveries
 ```
 
-### Finance / Wallets
+### Webhooks (incoming, provider callbacks)
 ```
-GET    /api/finance/wallets
-POST   /api/finance/wallets
-POST   /api/finance/wallets/:id/add
-POST   /api/finance/wallets/:id/reduce
-GET    /api/finance/wallets/:id/transactions
+POST /webhooks/incoming/:providerId    (HMAC verified)
 ```
+
+### Notifications
+```
+GET /notifications · PATCH /notifications/read-all · PATCH /notifications/:id/read
+GET /notifications/stream    (SSE)
+```
+
+### Users / Roles / Providers / Wallets
+Standard CRUD per spec. Plus `POST /providers/:id/test`.
 
 ### Projects
 ```
-GET    /api/projects
-POST   /api/projects
-GET    /api/projects/:id
-PATCH  /api/projects/:id
-DELETE /api/projects/:id
-GET    /api/projects/:id/settings
-PATCH  /api/projects/:id/settings
+GET/POST /projects · GET/PATCH/DELETE /projects/:id
+GET/PATCH /projects/:id/settings
+GET/PATCH /projects/:id/style-guide
+```
+
+### Templates
+```
+GET/POST /templates · GET/PATCH/DELETE /templates/:id
+POST /templates/:id/apply
+```
+
+### Calendar
+```
+GET/POST /projects/:id/calendar
+PATCH/DELETE /calendar/:id
 ```
 
 ### Series / Seasons / Episodes
+Standard nested CRUD + `POST /episodes/:id/export · /publish`, `GET /episodes/:id/preview`.
+
+### Episode SEO
 ```
-GET    /api/projects/:projectId/series
-POST   /api/projects/:projectId/series
-GET    /api/series/:id
-PATCH  /api/series/:id
-
-GET    /api/series/:seriesId/seasons
-POST   /api/series/:seriesId/seasons
-PATCH  /api/seasons/:id
-
-GET    /api/seasons/:seasonId/episodes
-POST   /api/seasons/:seasonId/episodes
-GET    /api/episodes/:id
-PATCH  /api/episodes/:id
-POST   /api/episodes/:id/export
-POST   /api/episodes/:id/publish
+POST /episodes/:id/seo/generate · GET/PATCH /episodes/:id/seo
 ```
 
-### Courses
+### Thumbnail A/B
 ```
-GET    /api/projects/:projectId/courses
-POST   /api/projects/:projectId/courses
-POST   /api/courses/:id/modules
-POST   /api/modules/:id/lessons
+GET/POST /episodes/:id/thumbnails
+POST /thumbnails/:id/activate · /thumbnails/:id/winner
 ```
 
 ### Scenes & Frames
-```
-GET    /api/episodes/:episodeId/scenes
-POST   /api/episodes/:episodeId/scenes
-GET    /api/scenes/:id
-PATCH  /api/scenes/:id
-POST   /api/scenes/:id/approve
-POST   /api/scenes/:id/generate-storyboard
-POST   /api/scenes/:id/generate-video
+Standard CRUD + `POST /scenes/:id/approve · /generate-storyboard · /generate-video · /breakdown`, `POST /frames/:id/regenerate`.
 
-GET    /api/scenes/:sceneId/frames
-POST   /api/scenes/:sceneId/frames
-PATCH  /api/frames/:id
-POST   /api/frames/:id/regenerate
+### Collaboration
+```
+GET/POST /scenes/:id/comments · PATCH/DELETE /comments/:id · POST /comments/:id/resolve
+GET/POST /scenes/:id/tasks · PATCH /tasks/:id
 ```
 
-### Characters
-```
-GET    /api/projects/:projectId/characters
-POST   /api/projects/:projectId/characters
-PATCH  /api/characters/:id
-POST   /api/characters/:id/generate-gallery
-```
+### Characters / Media Generation / AI Director / Critic / Style / Memory / Distribution / Analytics / Audience / Finance
+See full route list in v2 master doc.
 
-### Media Generation
-```
-POST   /api/scenes/:sceneId/music/generate
-PATCH  /api/music/:id
-POST   /api/episodes/:id/subtitles/generate
-POST   /api/episodes/:id/dubbing/generate
-POST   /api/scenes/:id/lipsync/generate
-```
+---
 
-### AI Director / Critic / Memory
-```
-GET    /api/projects/:projectId/ai-director
-PATCH  /api/projects/:projectId/ai-director
-POST   /api/projects/:projectId/ai-director/run
-GET    /api/projects/:projectId/ai-logs
+## Rate Limiting
 
-POST   /api/scenes/:id/critic/review
-POST   /api/episodes/:id/critic/review
+| Endpoint Group | Limit |
+|---|---|
+| `POST /auth/login` | 10 / 15 min / IP |
+| `POST /auth/*` | 20 / hour / IP |
+| `POST /*/generate-*` | 30 / min / org |
+| `POST /*/publish` | 10 / min / org |
+| `GET /*` general | 300 / min / org |
+| External API Keys | 60 / min / key |
 
-GET    /api/projects/:projectId/memory
-POST   /api/projects/:projectId/recap/generate
-```
-
-### Distribution / Analytics
-```
-GET    /api/integrations/channels
-POST   /api/integrations/youtube/connect
-GET    /api/projects/:projectId/distribution
-PATCH  /api/projects/:projectId/distribution
-POST   /api/episodes/:id/publish/youtube
-
-GET    /api/projects/:id/analytics
-GET    /api/series/:id/dashboard
-GET    /api/episodes/:id/analytics
-```
-
-### Finance (project level)
-```
-GET    /api/projects/:id/finance/summary
-GET    /api/projects/:id/finance/costs
-POST   /api/projects/:id/finance/costs
-GET    /api/projects/:id/finance/revenues
-POST   /api/projects/:id/finance/revenues
-GET    /api/projects/:id/finance/splits
-POST   /api/projects/:id/finance/splits
-```
+Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After`.
 
 ---
 
 ## BullMQ Queues
 
-| Queue | Purpose |
-|---|---|
-| `storyboard-generation` | Generate scene storyboard frames |
-| `video-generation` | Generate scene/episode video |
-| `music-generation` | Generate music track |
-| `subtitle-generation` | Generate subtitles |
-| `dubbing-generation` | Generate dubbing audio |
-| `lip-sync-generation` | Run lip sync job |
-| `avatar-generation` | Generate character gallery |
-| `critic-review` | Run AI Critic on entity |
-| `publishing` | Publish to YouTube/platform |
-| `analytics-sync` | Sync YouTube analytics |
-| `memory-refresh` | Update project memory |
-| `recap-generation` | Generate episode recap |
+Retry: 3 attempts, exp backoff 5s / 30s / 120s.
 
-### Base Job Schema
+| Queue | Priority |
+|---|---|
+| `publishing` | 1 |
+| `lip-sync-generation`, `incoming-webhook` | 2 |
+| `video-generation`, `webhook-delivery` | 3 |
+| `storyboard-generation`, `dubbing-generation` | 4 |
+| `music-generation`, `subtitle-generation`, `avatar-generation`, `dialogue-generation` | 5 |
+| `critic-review`, `seo-generation` | 6 |
+| `style-snapshot`, `script-breakdown` | 7 |
+| `analytics-sync`, `audience-insights` | 8 |
+| `memory-refresh`, `recap-generation` | 9 |
+
+### Base Job
 ```ts
 interface BaseJob {
   jobId: string;
   jobType: string;
   entityType: string;
   entityId: string;
+  organizationId: string;
   providerId?: string;
   payload: Record<string, unknown>;
+  priority?: number;
   estimatedCost?: number;
   actualCost?: number;
   status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
@@ -258,7 +210,7 @@ interface BaseJob {
 }
 ```
 
-Retry policy: 3 attempts, exponential backoff 5s / 30s / 120s.
+On completion/failure → fire `NotificationEvent` + deliver to registered `WebhookEndpoint`.
 
 ---
 
@@ -272,20 +224,17 @@ interface ProviderAdapter {
   getJobStatus(jobId: string): Promise<JobStatus>;
   fetchResult(jobId: string): Promise<unknown>;
   cancelJob(jobId: string): Promise<void>;
+  handleWebhook?(payload: unknown, signature: string): Promise<void>;
 }
 ```
 
-Stubs to implement: `fal`, `elevenlabs`, `suno`, `openai-tts`, `youtube`.
+Stubs: `fal`, `elevenlabs`, `suno`, `openai-tts`, `youtube`, `runwayml`.
 
 ---
 
-## Core Services
+## Services
 
-- **CostStrategyService** — `estimateSceneStoryboardCost`, `estimateSceneVideoCost`, `recommendQualityMode`, `recommendProvider`, `canAffordOperation`, `checkBudgetRisk`
-- **RevenueEngine** — `calculateProfit`, `calculateROI`, `aggregateByEpisode`, `calculateSplitPayouts`
-- **MemoryEngine** — `addMemory`, `getRelevantMemories`, `generateRecap`, `refreshProjectMemory`
-- **AIDirectorService** — `runNextStep`, `buildEpisodeOutline`, `proposeScenes`, `triggerGeneration`, `preparePublishingPackage`
-- **AICriticService** — `reviewScene`, `reviewEpisode`, `scoreNarrativeQuality`, `scoreContinuity`
+`CostStrategyService`, `RevenueEngine`, `MemoryEngine`, `StyleConsistencyEngine`, `AIDirectorService`, `AICriticService`, `SEOOptimizerService`, `ScriptBreakdownService`, `DialogueGeneratorService`, `AudienceInsightService`, `NotificationService` (with SSE), `WebhookService` (deliver + verify incoming).
 
 ---
 
@@ -293,62 +242,60 @@ Stubs to implement: `fal`, `elevenlabs`, `suno`, `openai-tts`, `youtube`.
 
 ### Scene Flow
 1. Created → `DRAFT`
-2. `generate-storyboard` → `STORYBOARD_GENERATING` → job queued
-3. Job done → `STORYBOARD_REVIEW`
-4. User approves frames → `STORYBOARD_APPROVED`
-5. `generate-video` → `VIDEO_GENERATING` → job queued
-6. Job done → `VIDEO_REVIEW`
-7. User approves → `APPROVED`
-8. Lock → `LOCKED`
+2. `generate-storyboard` → `STORYBOARD_GENERATING` (StyleConsistencyEngine injects constraints)
+3. Done → `STORYBOARD_REVIEW`
+4. Approve frames → `STORYBOARD_APPROVED` (frames feed StyleConsistencyEngine snapshot)
+5. `generate-video` → `VIDEO_GENERATING`
+6. Done → `VIDEO_REVIEW`
+7. Approve → `APPROVED` → optionally `LOCKED`
 
 ### Budget Rules
-- Before every generation job → run `canAffordOperation()`
-- If `budget_status = CRITICAL` → block job, return 402
-- Only `ADMIN` can override budget block
+- Every generation job runs `canAffordOperation()` first
+- `budget_status = CRITICAL` → block, return 402
+- Only `ADMIN` can override
 
-### AI Director Autopilot Rules
-- Every autonomous action logged to `ai_logs`
-- Cannot publish without valid `ProjectDistribution` config
+### Autopilot Rules
+- All actions logged to `ai_logs`
+- Cannot publish without valid `ProjectDistribution`
 - Cannot exceed user permission scope
-- Stoppable per project via `autopilotEnabled = false`
+- Stoppable per-project via `autopilotEnabled = false`
+- SEO runs auto before publish if `seoOptimizerEnabled = true`
+
+### 2FA Rules
+- SUPER_ADMIN + ADMIN: 2FA enforced
+- Other roles: optional
+- Login with 2FA on → returns `{ requiresTotpChallenge: true }`, client follows up with `/auth/2fa/challenge`
+
+### Plan Limits
+| Plan | maxProjects | maxEpisodes | Autopilot | White-label |
+|---|---|---|---|---|
+| FREE | 1 | 3 | × | × |
+| PRO | 5 | ∞ | ✓ | × |
+| STUDIO | ∞ | ∞ | ✓ | × |
+| ENTERPRISE | ∞ | ∞ | ✓ | ✓ |
 
 ---
 
-## Frontend Screens (Next.js App Router)
+## Frontend Screens
 
-1. `/login`
-2. `/admin` — admin dashboard
-3. `/admin/users`
-4. `/admin/roles`
-5. `/admin/providers` — providers + wallets
-6. `/projects`
-7. `/projects/new`
-8. `/projects/[id]`
-9. `/projects/[id]/series/[seriesId]`
-10. `/projects/[id]/series/[seriesId]/seasons/[seasonId]`
-11. `/episodes/[id]`
-12. `/scenes/[id]`
-13. `/characters/[projectId]`
-14. `/projects/[id]/finance`
-15. `/projects/[id]/distribution`
-16. `/projects/[id]/analytics`
-17. `/projects/[id]/ai-director`
-18. `/admin/logs`
+`/login` (with TOTP step), `/onboarding`, `/admin`, `/admin/users`, `/admin/roles`, `/admin/providers`, `/admin/api-keys`, `/admin/webhooks`, `/admin/notifications`, `/admin/logs`, `/projects`, `/projects/new`, `/templates`, `/projects/[id]`, `/projects/[id]/calendar`, `/projects/[id]/series/[seriesId]`, `/projects/[id]/series/[seriesId]/seasons/[seasonId]`, `/episodes/[id]`, `/episodes/[id]/seo`, `/episodes/[id]/thumbnails`, `/scenes/[id]`, `/characters/[projectId]`, `/projects/[id]/finance`, `/projects/[id]/distribution`, `/projects/[id]/analytics`, `/projects/[id]/ai-director`, `/account/sessions`, `/account/2fa`.
+
+UI requirements: empty states, skeleton loaders, inline error states, onboarding tour (driver.js).
 
 ---
 
 ## Design System
 
 ### Branding
-- Product name: **VEXO Studio**
-- Logo: "VEXO" bold dark-navy-to-blue gradient, "STUDIO" electric cyan below, metallic camera lens replacing the "O" wrapped in cyan orbital film-strip ring
-- Logo placement: top-left of sidebar, always visible
+- Name: VEXO Studio
+- Logo: "VEXO" navy-to-blue gradient, "STUDIO" cyan, metallic camera lens replaces "O", cyan orbital film-strip ring
+- Logo top-left of sidebar, always visible
 
 ### Layout
-- **Sidebar**: fixed left, 260px, dark navy with subtle space/galaxy radial gradient
-- **Topbar**: white, 64px, page title (left), search (center-right), notifications, avatar
-- **Main**: white / `#f4f7fb`, scrollable, padding 24px
-- **Cards**: white, `border-radius: 12px`, `box-shadow: 0 2px 12px rgba(0,0,0,0.06)`, 1px border `#e8edf5`
+- Sidebar 260px, `radial-gradient(ellipse at top, #1a2d4a 0%, #0d1b2e 70%)`
+- Topbar 64px white, page title + search + notification bell (unread count) + avatar
+- Main `#f0f4f9`, scrollable, 24px pad
+- Cards `border-radius: 12px`, `box-shadow: 0 2px 12px rgba(0,0,0,0.06)`
 
 ### Color Tokens
 ```css
@@ -364,7 +311,6 @@ Stubs to implement: `fal`, `elevenlabs`, `suno`, `openai-tts`, `youtube`.
 
   --bg-main: #f0f4f9;
   --bg-card: #ffffff;
-  --bg-topbar: #ffffff;
   --border-card: #e2e8f2;
   --text-primary: #1a2540;
   --text-secondary: #556280;
@@ -373,115 +319,116 @@ Stubs to implement: `fal`, `elevenlabs`, `suno`, `openai-tts`, `youtube`.
   --accent-primary: #0091d4;
   --accent-primary-light: #00b4e8;
   --accent-cyan: #00c8f0;
-  --accent-cyan-glow: rgba(0, 200, 240, 0.25);
 
-  --status-normal-bg: #e6f9f0;
-  --status-normal-text: #1db868;
-  --status-error-bg: #ffeef0;
-  --status-error-text: #e03a4e;
-  --status-warning-bg: #fff8e6;
-  --status-warning-text: #f0a500;
+  --status-normal-bg: #e6f9f0; --status-normal-text: #1db868;
+  --status-error-bg: #ffeef0;  --status-error-text: #e03a4e;
+  --status-warning-bg: #fff8e6; --status-warning-text: #f0a500;
 
-  --chart-bar-budgeted: #1a6fba;
-  --chart-bar-actual: #4bb8e8;
+  --chart-bar-budgeted: #1a6fba; --chart-bar-actual: #4bb8e8;
   --chart-line-revenue: #00c896;
-  --chart-bar-variance-pos: #1db868;
-  --chart-bar-variance-neg: #e03a4e;
 
-  --kpi-cost-color: #e03a4e;
-  --kpi-revenue-color: #1db868;
-  --kpi-profit-color: #0091d4;
-  --kpi-views-color: #1a2540;
+  --kpi-cost: #e03a4e; --kpi-revenue: #1db868; --kpi-profit: #0091d4; --kpi-views: #1a2540;
 }
 ```
 
 ### Typography
-- Family: `Outfit` (primary) + `Inter` (numbers)
-- Logo: SVG/image, not text
-- Headings: Outfit 600–700
-- Body: Outfit 400
-- Numbers/KPIs: Inter 700, `font-variant-numeric: tabular-nums`
-- Sidebar items: Outfit 500, 14px
+- Outfit (UI) + Inter (numbers, tabular-nums)
+- Logo: SVG/image
+- Headings: Outfit 600–700 · Body: Outfit 400 · Sidebar: Outfit 500 14px · Numbers: Inter 700
 - Table headers: uppercase, 11px, letter-spacing 0.08em, `--text-muted`
 
 ### Component Patterns
-Sidebar nav item · KPI summary card · Status badge (normal/error/warning) · Provider/series table row · Cost & revenue chart (bars + line) · Series dashboard hero header · Episode breakdown card · Revenue share panel.
+Sidebar nav · KPI cards · status badge (normal/error/warning) · provider/series row · cost+revenue chart (bars + line) · **notification bell with SSE-driven badge** · **session management table** · series hero header · **content calendar (month/week, drag-drop)** · episode breakdown card · **A/B thumbnail panel** · revenue share panel.
 
 ### Sidebar Structure
 ```
-[VEXO Studio Logo]
-[User Avatar + Name + Role]
-─────────────────────────
+[Logo] [User]
+─────────────
 🏠 Dashboard
-👤 Users               >
+👤 Users >
 🔑 Providers & Tokens
 💰 Budgets & Tokens
-🎬 TV Series           >
+🎬 TV Series >
+📅 Content Calendar
+🧩 Templates
+🔔 Notifications
 📋 Audit Logs
-⚙️ Providers
-🎥 TV Series           >
+🔗 API Keys & Webhooks
+⚙️ Settings
 ```
 
 ### Responsive
-- <768px: sidebar collapses to 56px icon rail with hamburger overlay
-- Cards stack to single column
+- <768px: sidebar → 56px icon rail + hamburger
+- Cards stack
 - KPI cards horizontal snap-scroll
-- Tables → card-list views
+- Tables → card lists
+- Touch targets ≥44px
 
 ---
 
 ## Security
 
-- Argon2 password hashing
-- AES-256-GCM for provider API keys + OAuth tokens
-- Row-level permission checks in every service method
-- Signed S3 URLs (24h expiry) for asset access
-- ADMIN-only access to finance internals
-- Audit log on: user create/delete, role change, budget override, publish, provider key update
+- Argon2 passwords · AES-256-GCM for provider keys, OAuth tokens, TOTP secrets
+- Row-level `organizationId` checks on every service call — never trust client-provided org id
+- Signed CDN URLs (24h) — never expose raw S3
+- 2FA enforced for SUPER_ADMIN + ADMIN
+- Audit log on user/role/budget/publish/key/session changes
+- HMAC-SHA256 verification on every incoming provider webhook
+- API key auth: SHA-256 hash compare, never store plaintext
+- Rate limiting on auth + generation
+- CSRF on state-changing routes · CSP headers on web
+- No hard deletes on financial records
 
 ---
 
 ## Infra Files
 
-- `docker-compose.yml` — postgres, redis, api, web, worker
-- `.env.example` — all required env vars
-- `prisma/seed.ts` — roles, permissions, super admin user
-- `prisma/migrations/` — initial migrations
-- `README.md` — setup, run, deploy
+`docker-compose.yml` (postgres + redis + api + web + worker + nginx/caddy) · `.env.example` (commented) · `prisma/seed.ts` (roles, perms, default org, super admin) · `prisma/migrations/` · `README.md` · `scripts/health-check.sh`
 
 ---
 
-## Build Order (MVP Phases)
+## Build Phases
 
-1. **Foundation** — Auth, Users, Roles, Permissions, Providers, Wallets, Cost Entries, Admin Dashboard
-2. **Content Structure** — Projects, Project Settings, Series, Seasons, Episodes, Series Dashboard
-3. **Production Layer** — Storyboard Frames, Asset System, Characters, Cost Estimation
-4. **Media Generation** — Video Jobs, Music, Subtitles, Dubbing, Lip Sync
-5. **Distribution & Revenue** — YouTube OAuth, Publishing Jobs, Analytics Sync, Revenue Engine
-6. **AI Layer** — AI Director, AI Critic, Memory Engine, Recap Generator, Autopilot
-7. **Extended Types** — Course Support, Kids Content, Advanced Dashboards, Revenue Splits
+1. Foundation — Orgs, Auth+2FA, Users, Roles, Sessions, Audit, Health, Admin
+2. Providers & Finance — Providers, Wallets, Transactions, Alerts, Notifications
+3. Content Structure — Projects (org-scoped), Settings, Series, Seasons, Episodes
+4. Production — Scenes, Frames, Assets, Characters, Cost Estimation, Style Engine basic
+5. Media Generation — Video, Music, Subtitles, Dubbing, Lip Sync, Dialogue
+6. Distribution — YouTube OAuth, Publishing, SEO, A/B Thumbnails, Analytics, Calendar
+7. AI Layer — Director, Critic, Memory, Script Breakdown, Recap, Autopilot, Audience Insights
+8. Collaboration & Platform — Comments, Tasks, Templates/Marketplace, API Keys, Webhooks, White-label
+9. Extended & Polish — Course, Kids, Onboarding tour, empty states, mobile
 
 ---
 
 ## Development Standards
 
-1. `routes → middleware → controllers → services → repositories` — no skipping layers
-2. Zod validation on all request bodies
-3. Every Prisma migration named descriptively
-4. Every provider call wrapped in try/catch with timeout + retry (3× exp backoff)
-5. No blocking generation in request/response — always queue
-6. Permissions middleware on every protected route
-7. Every financial mutation → audit log
-8. Every AI action → `ai_logs` entry
-9. Soft delete (or `ARCHIVED`) — no hard deletes
-10. Dashboards use dedicated aggregation endpoints, not raw tables
-11. All uploads stored as `Asset` linked to parent entity
-12. Job retry: 3 attempts, 5s/30s/120s
-13. SSE endpoint for real-time job status: `GET /api/jobs/:id/stream`
-14. State transitions validated in service layer before DB write
-15. Feature flags via `ProjectSettings` — never hardcoded
+1. `routes → middleware → controllers → services → repositories` — no skipping
+2. All endpoints under `/api/v1/`
+3. Zod validation on all bodies
+4. Every Prisma query filtered by `organizationId` — never cross-org
+5. Migrations named descriptively
+6. Provider calls: try/catch + 30s timeout + 3× exp backoff
+7. No blocking generation in request cycle — always queue
+8. Permissions middleware on every protected route
+9. Financial mutations → audit log
+10. AI actions → `ai_logs`
+11. Soft delete or `ARCHIVED` only — no hard deletes
+12. Dashboards via dedicated aggregation endpoints
+13. Uploads → `Asset` records with CDN URL
+14. Job retry: 3 attempts, 5s/30s/120s
+15. SSE for job status: `GET /api/v1/jobs/:id/stream`
+16. State transitions validated in service layer
+17. Feature flags via `ProjectSettings`
+18. Rate-limit headers on limited routes
+19. `@@index` on all FK WHERE columns
+20. HMAC verification on every incoming provider webhook
+21. NotificationService on every job done/failed
+22. WebhookService.deliver on publishable events
+23. Plan limits enforced in service layer
+24. 2FA enforced in middleware for ADMIN/SUPER_ADMIN
 
----
-
-## Default Super Admin
-`admin@vexo.studio` / `Vexo@2025!`
+## Defaults
+- Super Admin: `admin@vexo.studio` / `Vexo@2025!`
+- Default org slug: `vexo-default`
+- 2FA setup forced on first SUPER_ADMIN login

@@ -1,4 +1,4 @@
-// VEXO Studio — Prisma schema
+// VEXO Studio — Prisma schema (v2, multi-tenant)
 // Source of truth: docs/SPEC.md
 
 generator client {
@@ -56,33 +56,90 @@ enum SceneStatus {
   LOCKED
 }
 
+enum OrgPlan {
+  FREE
+  PRO
+  STUDIO
+  ENTERPRISE
+}
+
 // =====================================================================
-// 1. Users & Auth
+// 1. Organizations
+// =====================================================================
+
+model Organization {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  plan              OrgPlan  @default(FREE)
+  isActive          Boolean  @default(true)
+  maxProjects       Int      @default(1)
+  maxEpisodes       Int      @default(3)
+  whitelabelEnabled Boolean  @default(false)
+  customDomain      String?
+  logoUrl           String?
+  primaryColor      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  users            OrganizationUser[]
+  projects         Project[]
+  providers        Provider[]
+  apiKeys          ApiKey[]
+  notifications    NotificationEvent[]
+  webhookEndpoints WebhookEndpoint[]
+  channels         ChannelIntegration[]
+}
+
+model OrganizationUser {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  roleId         String
+  isOwner        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+// =====================================================================
+// 2. Users & Auth
 // =====================================================================
 
 model User {
-  id           String    @id @default(cuid())
-  fullName     String
-  email        String    @unique
-  username     String    @unique
-  passwordHash String
-  isActive     Boolean   @default(true)
-  roleId       String
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  fullName       String
+  email          String    @unique
+  username       String    @unique
+  passwordHash   String
+  isActive       Boolean   @default(true)
+  totpSecret     String?
+  totpEnabled    Boolean   @default(false)
+  totpVerifiedAt DateTime?
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  role      Role          @relation(fields: [roleId], references: [id])
-  sessions  UserSession[]
-  auditLogs AuditLog[]
+  sessions        UserSession[]
+  auditLogs       AuditLog[]
+  organizations   OrganizationUser[]
+  notifications   NotificationEvent[]
+  comments        SceneComment[]
+  taskAssignments TaskAssignment[]
 }
 
 model Role {
-  id          String           @id @default(cuid())
-  name        String           @unique
+  id          String   @id @default(cuid())
+  name        String   @unique
   description String?
+
   permissions RolePermission[]
-  users       User[]
+  orgUsers    OrganizationUser[]
 }
 
 model Permission {
@@ -96,8 +153,9 @@ model RolePermission {
   id           String     @id @default(cuid())
   roleId       String
   permissionId String
-  role         Role       @relation(fields: [roleId], references: [id])
-  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
 
   @@unique([roleId, permissionId])
 }
@@ -109,32 +167,137 @@ model UserSession {
   expiresAt        DateTime
   ipAddress        String?
   userAgent        String?
+  deviceName       String?
+  isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  actorUserId String
-  entityType  String
-  entityId    String
-  action      String
-  oldValue    Json?
-  newValue    Json?
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  organizationId String
+  actorUserId    String
+  entityType     String
+  entityId       String
+  action         String
+  oldValue       Json?
+  newValue       Json?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
 
   actor User @relation(fields: [actorUserId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
 }
 
 // =====================================================================
-// 2. Providers & Wallets
+// 3. 2FA / TOTP
+// =====================================================================
+
+model TotpChallenge {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// =====================================================================
+// 4. API Keys
+// =====================================================================
+
+model ApiKey {
+  id              String    @id @default(cuid())
+  organizationId  String
+  name            String
+  keyHash         String    @unique
+  keyPrefix       String
+  scopes          Json
+  lastUsedAt      DateTime?
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+}
+
+// =====================================================================
+// 5. Webhook Endpoints (outbound)
+// =====================================================================
+
+model WebhookEndpoint {
+  id             String   @id @default(cuid())
+  organizationId String
+  url            String
+  secret         String
+  events         Json
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  deliveries   WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id             String    @id @default(cuid())
+  endpointId     String
+  eventType      String
+  payload        Json
+  responseStatus Int?
+  responseBody   String?
+  attemptCount   Int       @default(1)
+  success        Boolean   @default(false)
+  deliveredAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id])
+
+  @@index([endpointId, createdAt])
+}
+
+// =====================================================================
+// 6. In-App Notifications
+// =====================================================================
+
+model NotificationEvent {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String
+  type           String
+  title          String
+  body           String
+  entityType     String?
+  entityId       String?
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([organizationId, createdAt])
+}
+
+// =====================================================================
+// 7. Providers & Wallets
 // =====================================================================
 
 model Provider {
   id              String   @id @default(cuid())
+  organizationId  String
   name            String
-  category        String // VIDEO, IMAGE, AUDIO, DUBBING, MUSIC, SUBTITLE, DISTRIBUTION
+  category        String
   apiUrl          String?
   apiKeyEncrypted String?
   isActive        Boolean  @default(true)
@@ -142,8 +305,11 @@ model Provider {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  wallet     CreditWallet?
-  alertRules AlertRule[]
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  wallet       CreditWallet?
+  alertRules   AlertRule[]
+
+  @@index([organizationId])
 }
 
 model CreditWallet {
@@ -165,22 +331,24 @@ model CreditWallet {
 model CreditTransaction {
   id              String   @id @default(cuid())
   walletId        String
-  transactionType String // ADD, DEDUCT, RESERVE, RELEASE
+  transactionType String
   amount          Float
-  unitType        String // CREDITS, TOKENS, USD
-  sourceType      String // MANUAL, JOB, REFUND
+  unitType        String
+  sourceType      String
   description     String?
   createdByUserId String?
   referenceId     String?
   createdAt       DateTime @default(now())
 
   wallet CreditWallet @relation(fields: [walletId], references: [id])
+
+  @@index([walletId, createdAt])
 }
 
 model AlertRule {
   id                   String   @id @default(cuid())
   providerId           String
-  alertType            String // LOW_BALANCE, CRITICAL_BALANCE, JOB_FAILURE
+  alertType            String
   thresholdValue       Float?
   whatsappSystemNumber String?
   targetPhone          String?
@@ -197,8 +365,8 @@ model AlertEvent {
   ruleId          String
   title           String
   message         String
-  status          String // SENT, FAILED, SUPPRESSED
-  deliveryChannel String // WHATSAPP, EMAIL
+  status          String
+  deliveryChannel String
   sentAt          DateTime?
   createdAt       DateTime  @default(now())
 
@@ -206,11 +374,30 @@ model AlertEvent {
 }
 
 // =====================================================================
-// 3. Projects
+// 8. Incoming Webhook Receiver
+// =====================================================================
+
+model IncomingWebhook {
+  id         String   @id @default(cuid())
+  providerId String
+  eventType  String
+  payload    Json
+  signature  String?
+  verified   Boolean  @default(false)
+  processed  Boolean  @default(false)
+  jobId      String?
+  createdAt  DateTime @default(now())
+
+  @@index([providerId, processed])
+}
+
+// =====================================================================
+// 9. Projects
 // =====================================================================
 
 model Project {
   id                          String        @id @default(cuid())
+  organizationId              String
   name                        String
   contentType                 ContentType
   description                 String?
@@ -222,22 +409,29 @@ model Project {
   studioOpeningEnabled        Boolean       @default(false)
   aiDirectorMode              AIMode        @default(MANUAL)
   autopilotEnabled            Boolean       @default(false)
+  thumbnailUrl                String?
+  genreTag                    String?
+  styleGuide                  Json?
   createdAt                   DateTime      @default(now())
   updatedAt                   DateTime      @updatedAt
 
-  settings       ProjectSettings?
-  series         Series[]
-  courses        Course[]
-  characters     Character[]
-  memories       ProjectMemory[]
-  aiDirector     AIDirector?
-  aiLogs         AILog[]
-  distributions  ProjectDistribution[]
-  costEntries    CostEntry[]
-  revenueEntries RevenueEntry[]
-  revenueStreams RevenueStream[]
-  revenueSplits  RevenueSplit[]
-  recapCandidates RecapCandidate[]
+  organization    Organization           @relation(fields: [organizationId], references: [id])
+  settings        ProjectSettings?
+  series          Series[]
+  courses         Course[]
+  characters      Character[]
+  memories        ProjectMemory[]
+  aiDirector      AIDirector?
+  aiLogs          AILog[]
+  distributions   ProjectDistribution[]
+  costEntries     CostEntry[]
+  revenueEntries  RevenueEntry[]
+  revenueStreams  RevenueStream[]
+  revenueSplits   RevenueSplit[]
+  contentCalendar ContentCalendarEntry[]
+  templates       ProjectTemplate[]
+
+  @@index([organizationId, status])
 }
 
 model ProjectSettings {
@@ -257,6 +451,9 @@ model ProjectSettings {
   criticEnabled                Boolean  @default(true)
   memoryEnabled                Boolean  @default(true)
   costStrategyEnabled          Boolean  @default(true)
+  styleConsistencyEnabled      Boolean  @default(true)
+  collaborationEnabled         Boolean  @default(true)
+  seoOptimizerEnabled          Boolean  @default(false)
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 
@@ -264,31 +461,35 @@ model ProjectSettings {
 }
 
 // =====================================================================
-// 4. Series / Seasons / Episodes
+// 10. Series / Seasons / Episodes
 // =====================================================================
 
 model Series {
-  id           String   @id @default(cuid())
-  projectId    String
-  title        String
-  summary      String?
-  totalSeasons Int      @default(0)
-  totalBudget  Float?
-  plannedCost  Float?
-  actualCost   Float    @default(0)
-  tokenCost    Float    @default(0)
-  serverCost   Float    @default(0)
-  storageCost  Float    @default(0)
-  manualCost   Float    @default(0)
-  revenueTotal Float    @default(0)
-  profitTotal  Float    @default(0)
-  roiPercent   Float?
-  budgetStatus String   @default("OK")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  projectId     String
+  title         String
+  summary       String?
+  genre         String?
+  coverImageUrl String?
+  totalSeasons  Int      @default(0)
+  totalBudget   Float?
+  plannedCost   Float?
+  actualCost    Float    @default(0)
+  tokenCost     Float    @default(0)
+  serverCost    Float    @default(0)
+  storageCost   Float    @default(0)
+  manualCost    Float    @default(0)
+  revenueTotal  Float    @default(0)
+  profitTotal   Float    @default(0)
+  roiPercent    Float?
+  budgetStatus  String   @default("OK")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   project Project  @relation(fields: [projectId], references: [id])
   seasons Season[]
+
+  @@index([projectId])
 }
 
 model Season {
@@ -328,13 +529,19 @@ model Episode {
   serverCost            Float         @default(0)
   revenueTotal          Float         @default(0)
   youtubeUrl            String?
+  youtubeVideoId        String?
   publishedAt           DateTime?
+  scheduledPublishAt    DateTime?
   currentSceneIndex     Int           @default(0)
   exportStatus          String?
+  previewVideoUrl       String?
+  seoTitle              String?
+  seoDescription        String?
+  seoTags               Json?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
-  season             Season              @relation(fields: [seasonId], references: [id])
+  season             Season                 @relation(fields: [seasonId], references: [id])
   scenes             Scene[]
   musicTracks        MusicTrack[]
   subtitleTracks     SubtitleTrack[]
@@ -343,12 +550,60 @@ model Episode {
   analyticsSnapshots AnalyticsSnapshot[]
   criticReviews      AICriticReview[]
   recapCandidates    RecapCandidate[]
+  thumbnailVariants  ThumbnailVariant[]
+  calendarEntries    ContentCalendarEntry[]
 
   @@unique([seasonId, episodeNumber])
+  @@index([seasonId, status])
 }
 
 // =====================================================================
-// 5. Course
+// 11. Content Calendar
+// =====================================================================
+
+model ContentCalendarEntry {
+  id          String    @id @default(cuid())
+  projectId   String
+  episodeId   String?
+  lessonId    String?
+  title       String
+  scheduledAt DateTime
+  publishedAt DateTime?
+  platform    String
+  status      String    @default("SCHEDULED")
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  project Project  @relation(fields: [projectId], references: [id])
+  episode Episode? @relation(fields: [episodeId], references: [id])
+
+  @@index([projectId, scheduledAt])
+}
+
+// =====================================================================
+// 12. A/B Thumbnail Testing
+// =====================================================================
+
+model ThumbnailVariant {
+  id          String    @id @default(cuid())
+  episodeId   String
+  assetId     String
+  label       String
+  isActive    Boolean   @default(false)
+  isWinner    Boolean   @default(false)
+  impressions Int       @default(0)
+  clickRate   Float?
+  youtubeId   String?
+  activatedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  episode Episode @relation(fields: [episodeId], references: [id])
+
+  @@index([episodeId])
+}
+
+// =====================================================================
+// 13. Course
 // =====================================================================
 
 model Course {
@@ -397,12 +652,12 @@ model Lesson {
 }
 
 // =====================================================================
-// 6. Scenes / Frames / Assets
+// 14. Scenes / Frames / Assets
 // =====================================================================
 
 model Scene {
   id                    String      @id @default(cuid())
-  parentType            String // EPISODE, LESSON
+  parentType            String
   parentId              String
   episodeId             String?
   lessonId              String?
@@ -410,6 +665,8 @@ model Scene {
   title                 String?
   summary               String?
   scriptText            String?
+  scriptSource          String?
+  dialogueJson          Json?
   targetDurationSeconds Int?
   status                SceneStatus @default(DRAFT)
   plannedBudget         Float?
@@ -419,16 +676,21 @@ model Scene {
   manualCost            Float       @default(0)
   revisionCost          Float       @default(0)
   memoryContext         Json?
+  styleConstraints      Json?
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
-  episode       Episode?         @relation(fields: [episodeId], references: [id])
-  lesson        Lesson?          @relation(fields: [lessonId], references: [id])
-  frames        SceneFrame[]
-  musicTracks   MusicTrack[]
-  lipSyncJobs   LipSyncJob[]
-  criticReviews AICriticReview[]
-  versions      SceneVersion[]
+  episode         Episode?         @relation(fields: [episodeId], references: [id])
+  lesson          Lesson?          @relation(fields: [lessonId], references: [id])
+  frames          SceneFrame[]
+  musicTracks     MusicTrack[]
+  lipSyncJobs     LipSyncJob[]
+  criticReviews   AICriticReview[]
+  versions        SceneVersion[]
+  comments        SceneComment[]
+  taskAssignments TaskAssignment[]
+
+  @@index([parentType, parentId])
 }
 
 model SceneFrame {
@@ -438,6 +700,7 @@ model SceneFrame {
   beatSummary       String?
   imagePrompt       String?
   negativePrompt    String?
+  styleConstraints  String?
   generatedImageUrl String?
   approvedImageUrl  String?
   status            String   @default("PENDING")
@@ -446,6 +709,8 @@ model SceneFrame {
   updatedAt         DateTime @updatedAt
 
   scene Scene @relation(fields: [sceneId], references: [id])
+
+  @@index([sceneId])
 }
 
 model Asset {
@@ -453,9 +718,10 @@ model Asset {
   projectId       String
   entityType      String
   entityId        String
-  assetType       String // IMAGE, VIDEO, AUDIO, MUSIC, SUBTITLE, THUMBNAIL
+  assetType       String
   providerId      String?
   fileUrl         String
+  originUrl       String?
   thumbnailUrl    String?
   mimeType        String?
   durationSeconds Float?
@@ -464,6 +730,9 @@ model Asset {
   versionNumber   Int      @default(1)
   status          String   @default("READY")
   createdAt       DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([projectId, assetType])
 }
 
 model SceneVersion {
@@ -478,10 +747,79 @@ model SceneVersion {
   createdAt       DateTime @default(now())
 
   scene Scene @relation(fields: [sceneId], references: [id])
+
+  @@index([sceneId])
 }
 
 // =====================================================================
-// 7. Characters & Voices
+// 15. Collaboration
+// =====================================================================
+
+model SceneComment {
+  id         String    @id @default(cuid())
+  sceneId    String
+  userId     String
+  frameId    String?
+  body       String
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+  resolvedBy String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  scene Scene @relation(fields: [sceneId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([sceneId])
+}
+
+model TaskAssignment {
+  id          String    @id @default(cuid())
+  sceneId     String?
+  episodeId   String?
+  assignedTo  String
+  assignedBy  String
+  taskType    String
+  dueAt       DateTime?
+  completedAt DateTime?
+  status      String    @default("OPEN")
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  scene Scene? @relation(fields: [sceneId], references: [id])
+  user  User   @relation(fields: [assignedTo], references: [id])
+
+  @@index([assignedTo, status])
+}
+
+// =====================================================================
+// 16. Templates
+// =====================================================================
+
+model ProjectTemplate {
+  id               String      @id @default(cuid())
+  projectId        String?
+  organizationId   String?
+  name             String
+  contentType      ContentType
+  description      String?
+  thumbnailUrl     String?
+  episodeStructure Json?
+  characterPresets Json?
+  isPublic         Boolean     @default(false)
+  isPremium        Boolean     @default(false)
+  price            Float?
+  usageCount       Int         @default(0)
+  createdByUserId  String
+  createdAt        DateTime    @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([contentType, isPublic])
+}
+
+// =====================================================================
+// 17. Characters & Voices
 // =====================================================================
 
 model Character {
@@ -489,7 +827,7 @@ model Character {
   projectId         String
   name              String
   roleType          String?
-  characterType     String? // HUMAN, ANIMATED, NARRATOR
+  characterType     String?
   gender            String?
   ageRange          String?
   appearance        String?
@@ -499,6 +837,7 @@ model Character {
   continuityLock    Boolean  @default(false)
   personalityPrompt String?
   behaviorPrompt    String?
+  visualFingerprint Json?
   notes             String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -506,12 +845,14 @@ model Character {
   project Project          @relation(fields: [projectId], references: [id])
   media   CharacterMedia[]
   voices  CharacterVoice[]
+
+  @@index([projectId])
 }
 
 model CharacterMedia {
   id               String   @id @default(cuid())
   characterId      String
-  mediaType        String // IMAGE, VIDEO, REFERENCE
+  mediaType        String
   fileUrl          String
   thumbnailUrl     String?
   sourceProviderId String?
@@ -536,7 +877,7 @@ model CharacterVoice {
 }
 
 // =====================================================================
-// 8. Music / Subtitles / Dubbing / Lip Sync
+// 18. Music / Subtitles / Dubbing / Lip Sync
 // =====================================================================
 
 model MusicTrack {
@@ -545,8 +886,8 @@ model MusicTrack {
   entityId        String
   episodeId       String?
   sceneId         String?
-  trackType       String // INTRO, BACKGROUND, TENSION, KIDS_SONG, EDUCATIONAL
-  sourceType      String // GENERATED, UPLOADED, LIBRARY
+  trackType       String
+  sourceType      String
   providerId      String?
   prompt          String?
   mood            String?
@@ -557,6 +898,8 @@ model MusicTrack {
 
   episode Episode? @relation(fields: [episodeId], references: [id])
   scene   Scene?   @relation(fields: [sceneId], references: [id])
+
+  @@index([entityType, entityId])
 }
 
 model SubtitleTrack {
@@ -571,6 +914,8 @@ model SubtitleTrack {
   createdAt       DateTime @default(now())
 
   episode Episode? @relation(fields: [episodeId], references: [id])
+
+  @@index([entityType, entityId])
 }
 
 model DubbingTrack {
@@ -606,7 +951,7 @@ model LipSyncJob {
 }
 
 // =====================================================================
-// 9. AI Director / Critic / Memory
+// 19. AI Director / Critic / Memory / Style Engine
 // =====================================================================
 
 model AIDirector {
@@ -626,7 +971,7 @@ model AIDirector {
 model AILog {
   id             String   @id @default(cuid())
   projectId      String
-  actorType      String // DIRECTOR, CRITIC, SYSTEM, USER
+  actorType      String
   actionType     String
   input          Json?
   output         Json?
@@ -636,6 +981,8 @@ model AILog {
   createdAt      DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId, createdAt])
 }
 
 model AICriticReview {
@@ -644,7 +991,7 @@ model AICriticReview {
   entityId       String
   episodeId      String?
   sceneId        String?
-  contentType    String // SCRIPT, IMAGE, VIDEO, NARRATIVE, CONTINUITY
+  contentType    String
   score          Float
   feedback       String?
   issuesDetected Json?
@@ -653,12 +1000,14 @@ model AICriticReview {
 
   episode Episode? @relation(fields: [episodeId], references: [id])
   scene   Scene?   @relation(fields: [sceneId], references: [id])
+
+  @@index([entityType, entityId])
 }
 
 model ProjectMemory {
   id               String   @id @default(cuid())
   projectId        String
-  memoryType       String // PLOT_POINT, CHARACTER_STATE, EPISODE_SUMMARY, LOCATION, STYLE
+  memoryType       String
   title            String
   content          Json
   sourceEntityType String?
@@ -667,6 +1016,22 @@ model ProjectMemory {
   createdAt        DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId, memoryType])
+}
+
+model StyleConsistencySnapshot {
+  id            String   @id @default(cuid())
+  projectId     String
+  episodeId     String?
+  sceneId       String?
+  colorPalette  Json?
+  lightingNotes String?
+  cameraStyle   String?
+  prompt        String?
+  createdAt     DateTime @default(now())
+
+  @@index([projectId])
 }
 
 model RecapCandidate {
@@ -678,17 +1043,30 @@ model RecapCandidate {
   reason     String?
   createdAt  DateTime @default(now())
 
-  project Project @relation(fields: [projectId], references: [id])
   episode Episode @relation(fields: [episodeId], references: [id])
+
+  @@index([projectId])
+}
+
+model ScriptBreakdown {
+  id             String   @id @default(cuid())
+  sceneId        String   @unique
+  characters     Json
+  locations      Json
+  props          Json
+  toneAnalysis   String?
+  dialogueParsed Json?
+  generatedAt    DateTime @default(now())
 }
 
 // =====================================================================
-// 10. Distribution / Analytics / Finance
+// 20. Distribution / Analytics / Finance
 // =====================================================================
 
 model ChannelIntegration {
   id                    String    @id @default(cuid())
-  provider              String // YOUTUBE, TIKTOK, VIMEO
+  organizationId        String
+  provider              String
   channelName           String
   channelId             String
   accessTokenEncrypted  String
@@ -698,8 +1076,11 @@ model ChannelIntegration {
   createdByUserId       String
   createdAt             DateTime  @default(now())
 
+  organization   Organization          @relation(fields: [organizationId], references: [id])
   distributions  ProjectDistribution[]
   publishingJobs PublishingJob[]
+
+  @@index([organizationId])
 }
 
 model ProjectDistribution {
@@ -707,7 +1088,7 @@ model ProjectDistribution {
   projectId            String
   platform             String
   channelIntegrationId String
-  publishingMode       String   @default("MANUAL") // MANUAL, SEMI_AUTO, FULL_AUTO
+  publishingMode       String   @default("MANUAL")
   autoPublishEnabled   Boolean  @default(false)
   defaultPrivacy       String   @default("PRIVATE")
   defaultCategory      String?
@@ -721,25 +1102,28 @@ model ProjectDistribution {
 }
 
 model PublishingJob {
-  id                   String    @id @default(cuid())
-  entityType           String
-  entityId             String
-  episodeId            String?
-  platform             String
-  channelIntegrationId String
-  title                String
-  description          String?
-  tags                 Json?
-  thumbnailAssetId     String?
-  outputUrl            String?
-  externalId           String?
-  status               String    @default("PENDING")
-  scheduledAt          DateTime?
-  publishedAt          DateTime?
-  createdAt            DateTime  @default(now())
+  id                         String    @id @default(cuid())
+  entityType                 String
+  entityId                   String
+  episodeId                  String?
+  platform                   String
+  channelIntegrationId       String
+  title                      String
+  description                String?
+  tags                       Json?
+  thumbnailAssetId           String?
+  selectedThumbnailVariantId String?
+  outputUrl                  String?
+  externalId                 String?
+  status                     String    @default("PENDING")
+  scheduledAt                DateTime?
+  publishedAt                DateTime?
+  createdAt                  DateTime  @default(now())
 
   integration ChannelIntegration @relation(fields: [channelIntegrationId], references: [id])
   episode     Episode?           @relation(fields: [episodeId], references: [id])
+
+  @@index([entityType, entityId])
 }
 
 model AnalyticsSnapshot {
@@ -755,10 +1139,26 @@ model AnalyticsSnapshot {
   subscribersGained          Int      @default(0)
   watchTimeSeconds           Int      @default(0)
   averageViewDurationSeconds Float?
+  dropOffPoints              Json?
+  sentimentScore             Float?
   revenueAmount              Float?
   capturedAt                 DateTime @default(now())
 
   episode Episode? @relation(fields: [episodeId], references: [id])
+
+  @@index([entityType, entityId, capturedAt])
+}
+
+model AudienceInsight {
+  id             String   @id @default(cuid())
+  projectId      String
+  episodeId      String?
+  insightType    String
+  content        Json
+  recommendation String?
+  generatedAt    DateTime @default(now())
+
+  @@index([projectId])
 }
 
 model CostEntry {
@@ -766,17 +1166,19 @@ model CostEntry {
   projectId       String?
   entityType      String
   entityId        String
-  costCategory    String // TOKEN, GENERATION, SERVER, STORAGE, MANUAL
+  costCategory    String
   providerId      String?
   description     String?
   unitCost        Float
   quantity        Float    @default(1)
   totalCost       Float
-  sourceType      String // JOB, MANUAL, SYSTEM
+  sourceType      String
   createdByUserId String?
   createdAt       DateTime @default(now())
 
   project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([entityType, entityId])
 }
 
 model RevenueEntry {
@@ -785,7 +1187,7 @@ model RevenueEntry {
   entityType  String
   entityId    String
   platform    String
-  sourceType  String // AD, SUBSCRIPTION, SPONSORSHIP, OTHER
+  sourceType  String
   description String?
   amount      Float
   currency    String   @default("USD")
@@ -793,6 +1195,8 @@ model RevenueEntry {
   createdAt   DateTime @default(now())
 
   project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([entityType, entityId])
 }
 
 model RevenueStream {

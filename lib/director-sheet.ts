@@ -7,7 +7,7 @@
  * video model when we actually shoot.
  */
 import { prisma } from "./prisma";
-import { groqJson } from "./groq";
+import { groqChat, groqJson } from "./groq";
 import { getContext } from "./project-context";
 
 export interface DirectorSheet {
@@ -110,15 +110,58 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
     critics.length > 0 && `LATEST CRITIC FEEDBACK (address these in the sheet):\n${critics.map((c) => `- ${c.contentType} ${(c.score * 100).toFixed(0)}%: ${(c.feedback ?? "").slice(0, 200)}`).join("\n")}`,
   ].filter(Boolean).join("\n\n");
 
-  let sheet: Omit<DirectorSheet, "generatedAt">;
+  // Plain-text mode is ~30% faster than json mode in Gemini and never throws on
+  // malformed JSON. Output uses STYLE: / SCENE: / etc. labels we parse below.
+  const PLAIN_SYSTEM = `Output 8 sections in this EXACT format. Each section is one or two lines max. Use the labels EXACTLY as shown:
+STYLE: …
+SCENE: …
+CHARACTER: …
+SHOTS: …
+CAMERA: …
+EFFECTS: …
+AUDIO: …
+TECHNICAL: …
+Ground every section in the actual script text provided. Name the characters by name. Honor director notes > sound notes > critic feedback in priority. Keep each section under 350 chars.`;
+
+  let raw: string;
   try {
-    sheet = await groqJson<Omit<DirectorSheet, "generatedAt">>(
-      SYSTEM,
-      user,
-      { temperature: 0.4, maxTokens: 2000, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
+    raw = await groqChat(
+      [
+        { role: "system", content: PLAIN_SYSTEM },
+        { role: "user", content: user },
+      ],
+      { temperature: 0.4, maxTokens: 1400, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
     );
   } catch (e) {
     throw new Error(`AI failed: ${(e as Error).message.slice(0, 200)}`);
+  }
+
+  function pick(label: string): string {
+    const re = new RegExp(`^${label}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`, "im");
+    const m = raw.match(re);
+    return (m?.[1] ?? "").trim();
+  }
+
+  const sheet: Omit<DirectorSheet, "generatedAt"> = {
+    style:     pick("STYLE"),
+    scene:     pick("SCENE"),
+    character: pick("CHARACTER"),
+    shots:     pick("SHOTS"),
+    camera:    pick("CAMERA"),
+    effects:   pick("EFFECTS"),
+    audio:     pick("AUDIO"),
+    technical: pick("TECHNICAL"),
+  };
+
+  // If the model botched parsing entirely, try once more in JSON mode as a fallback
+  if (!sheet.style && !sheet.scene && !sheet.character) {
+    try {
+      const json = await groqJson<Omit<DirectorSheet, "generatedAt">>(
+        SYSTEM, user,
+        { temperature: 0.4, maxTokens: 2000, projectId: projectId ?? undefined, description: `Director sheet retry · scene ${scene.sceneNumber}` },
+      );
+      Object.assign(sheet, json);
+    } catch { /* keep partial */ }
   }
 
   // Ensure every key exists as a string — Gemini sometimes drops one

@@ -580,22 +580,6 @@ export default function ScenePage() {
             placeholder={he ? "למשל: מוזיקה מתמתחת ברקע · תקתוקי שעון · נשימות כבדות של הדמות · קול טלפון מצלצל לעצירה חדה" : "e.g. tense music builds under · clock ticking · heavy breathing · phone ring, sharp cut"}
             className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm"
           />
-          {scene.criticReviews.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-bg-main">
-              <div className="text-[10px] uppercase tracking-widest text-text-muted mb-2">{he ? "הערות המבקר שיועברו לבמאי" : "Critic notes the director will consume"}</div>
-              <ul className="space-y-1 text-xs">
-                {scene.criticReviews.slice(0, 3).map((r) => (
-                  <li key={r.id} className="bg-bg-main rounded p-2">
-                    <div className="flex justify-between">
-                      <span className="font-semibold">{r.contentType}</span>
-                      <span className="num font-bold" style={{ color: r.score > 0.7 ? "#1db868" : r.score > 0.4 ? "#f0a500" : "#e03a4e" }}>{(r.score * 100).toFixed(0)}%</span>
-                    </div>
-                    <div className="text-text-secondary mt-0.5 line-clamp-2">{r.feedback ?? "—"}</div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           <div className="text-[11px] text-text-muted mt-2">{he ? "יציאה שומרת · שינויים נשמרים לצמיתות ללמידה עתידית" : "Blur saves · history preserved for future learning"}</div>
         </Card>
 

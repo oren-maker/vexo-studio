@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { useLang } from "@/lib/i18n";
@@ -8,7 +9,7 @@ import { useLang } from "@/lib/i18n";
 type Frame = { id: string; orderIndex: number; beatSummary: string | null; imagePrompt: string | null; status: string; generatedImageUrl: string | null; approvedImageUrl: string | null };
 type Comment = { id: string; body: string; resolved: boolean; createdAt: string; user: { id: string; fullName: string; email: string } };
 type Critic = { id: string; contentType: string; score: number; feedback: string | null; createdAt: string };
-type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; frames: Frame[]; criticReviews: Critic[]; comments: Comment[] };
+type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[] };
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +27,7 @@ export default function ScenePage() {
   }
   useEffect(() => { load(); }, [id]);
 
+  const [lightbox, setLightbox] = useState<{ url: string; title: string; sub: string } | null>(null);
   const [imageModel, setImageModel] = useState<"nano-banana">("nano-banana");
   const [videoModel, setVideoModel] = useState<"seedance" | "kling">("seedance");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
@@ -84,7 +86,13 @@ export default function ScenePage() {
   if (!scene) return <div className="text-text-muted">{he ? "טוען…" : "Loading…"}</div>;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-4">
+      {scene.episodeId && (
+        <Link href={`/episodes/${scene.episodeId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">
+          {he ? "→ חזרה לפרק" : "← Back to episode"}
+        </Link>
+      )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-6">
         <div className="flex justify-between items-start">
           <div>
@@ -136,16 +144,28 @@ export default function ScenePage() {
             <div className="text-text-muted text-sm">{he ? "אין מסגרות עדיין. לחץ \"צור תשריט\" להתחיל." : "No frames yet. Click \"Generate storyboard\" to start."}</div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {scene.frames.map((f) => (
-                <div key={f.id} className="bg-bg-main rounded-lg p-3 text-xs">
-                  <div className="aspect-video bg-bg-card rounded mb-2 grid place-items-center text-text-muted">
-                    {f.approvedImageUrl || f.generatedImageUrl ? "🖼️" : "—"}
+              {scene.frames.map((f) => {
+                const url = f.approvedImageUrl || f.generatedImageUrl;
+                return (
+                  <div key={f.id} className="bg-bg-main rounded-lg p-3 text-xs">
+                    {url ? (
+                      <button onClick={() => setLightbox({ url, title: f.beatSummary ?? "", sub: `${he ? "מסגרת" : "Frame"} ${f.orderIndex + 1}` })} className="block w-full aspect-video bg-bg-card rounded mb-2 overflow-hidden group">
+                        <img src={url} alt={f.beatSummary ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      </button>
+                    ) : (
+                      <div className="aspect-video bg-bg-card rounded mb-2 grid place-items-center text-text-muted">
+                        <div className="text-center">
+                          <div className="text-2xl mb-1">—</div>
+                          <div className="text-[10px]">{he ? "ממתין לתמונה" : "pending image"}</div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="font-semibold">{he ? `מסגרת ${f.orderIndex + 1}` : `Frame ${f.orderIndex + 1}`}</div>
+                    <div className="text-text-secondary line-clamp-2">{f.beatSummary ?? "—"}</div>
+                    <div className="text-text-muted mt-1">{f.status}</div>
                   </div>
-                  <div className="font-semibold">{he ? `מסגרת ${f.orderIndex + 1}` : `Frame ${f.orderIndex + 1}`}</div>
-                  <div className="text-text-secondary line-clamp-2">{f.beatSummary ?? "—"}</div>
-                  <div className="text-text-muted mt-1">{f.status}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>
@@ -190,6 +210,19 @@ export default function ScenePage() {
           )}
         </Card>
       </div>
+      </div>
+
+      {lightbox && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setLightbox(null)}>
+          <div className="relative max-w-5xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <img src={lightbox.url} alt={lightbox.title} className="max-w-full max-h-[85vh] rounded-lg" />
+            <div className="absolute top-2 end-2 flex gap-2">
+              <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full max-w-md truncate">{lightbox.sub} · {lightbox.title}</span>
+              <button onClick={() => setLightbox(null)} className="bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

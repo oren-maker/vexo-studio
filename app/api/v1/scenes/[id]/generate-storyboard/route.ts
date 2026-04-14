@@ -105,7 +105,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             providerName: "fal.ai", category: "GENERATION",
             description: `Image · ${body.imageModel ?? "nano-banana"} · ${body.aspectRatio ?? "16:9"}`,
             unitCost: priceImage(body.imageModel ?? "nano-banana"), quantity: 1,
-            userId: ctx.user.id, meta: { sceneId: scene.id },
+            userId: ctx.user.id, meta: { sceneId: scene.id, model: body.imageModel ?? "nano-banana", references: charReferences.map((r) => r.name) },
           });
           generated.push({ frameId: frame.id, imageUrl: r.imageUrl });
         } catch (e) {

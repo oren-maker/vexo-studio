@@ -58,34 +58,34 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
     const data = await res.json();
     const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-    // Track cost — Google Gemini direct is paid (Google Cloud billing), same per-token rates as fal passthrough
-    try {
-      const usage = data.usageMetadata ?? {};
-      const inputTokens = usage.promptTokenCount ?? Math.ceil((system.length + userTurns.reduce((a, t) => a + t.parts[0].text.length, 0)) / 4);
-      const outputTokens = usage.candidatesTokenCount ?? Math.ceil(text.length / 4);
-      const costUsd = +(((inputTokens / 1_000_000) * GEMINI_DIRECT_PRICING.perMillionInput) + ((outputTokens / 1_000_000) * GEMINI_DIRECT_PRICING.perMillionOutput)).toFixed(6);
-      if (costUsd > 0) {
+    // Track cost FIRE-AND-FORGET so a billing hiccup never breaks the AI call.
+    void (async () => {
+      try {
+        const usage = data.usageMetadata ?? {};
+        const inputTokens = usage.promptTokenCount ?? Math.ceil((system.length + userTurns.reduce((a, t) => a + t.parts[0].text.length, 0)) / 4);
+        const outputTokens = usage.candidatesTokenCount ?? Math.ceil(text.length / 4);
+        const costUsd = +(((inputTokens / 1_000_000) * GEMINI_DIRECT_PRICING.perMillionInput) + ((outputTokens / 1_000_000) * GEMINI_DIRECT_PRICING.perMillionOutput)).toFixed(6);
+        if (costUsd <= 0) return;
         const { chargeUsd } = await import("./billing");
         const { getRequestActor } = await import("./request-context");
         const actor = getRequestActor();
         const orgId = opts.organizationId ?? actor?.organizationId;
-        if (orgId) {
-          await chargeUsd({
-            organizationId: orgId,
-            projectId: opts.projectId ?? actor?.projectId ?? null,
-            entityType: "AI_TEXT",
-            entityId: opts.projectId ?? actor?.projectId ?? "global",
-            providerName: "Google Gemini",
-            category: "TOKEN",
-            description: opts.description ?? `Gemini direct · in:${inputTokens} out:${outputTokens}`,
-            unitCost: costUsd,
-            quantity: 1,
-            userId: actor?.userId,
-            meta: { inputTokens, outputTokens, model: "gemini-2.5-flash", source: "google-direct" },
-          });
-        }
-      }
-    } catch { /* never throw from billing path */ }
+        if (!orgId) return;
+        await chargeUsd({
+          organizationId: orgId,
+          projectId: opts.projectId ?? actor?.projectId ?? null,
+          entityType: "AI_TEXT",
+          entityId: opts.projectId ?? actor?.projectId ?? "global",
+          providerName: "Google Gemini",
+          category: "TOKEN",
+          description: opts.description ?? `Gemini direct · in:${inputTokens} out:${outputTokens}`,
+          unitCost: costUsd,
+          quantity: 1,
+          userId: actor?.userId,
+          meta: { inputTokens, outputTokens, model: "gemini-2.5-flash", source: "google-direct" },
+        });
+      } catch (e) { console.warn("[gemini-cost-track]", (e as Error).message); }
+    })();
 
     return text;
   } finally { clearTimeout(timer); }
@@ -133,10 +133,9 @@ async function callGeminiViaFal(messages: ChatMessage[], opts: AiOptions): Promi
     responseFormat: opts.responseFormat,
   });
 
-  // Persist cost — fire-and-forget. Goes to the fal.ai provider so it shows up
-  // in the wallet + financial report alongside image / video charges.
+  // Persist cost FIRE-AND-FORGET so a billing hiccup never breaks the AI call.
   if (r.costUsd > 0) {
-    try {
+    void (async () => { try {
       const { chargeUsd } = await import("./billing");
       const { getRequestActor } = await import("./request-context");
       const actor = getRequestActor();
@@ -156,7 +155,7 @@ async function callGeminiViaFal(messages: ChatMessage[], opts: AiOptions): Promi
           meta: { inputTokens: r.inputTokens, outputTokens: r.outputTokens, model: "gemini-2.5-flash", source: "fal-any-llm" },
         });
       }
-    } catch { /* never throw from billing path */ }
+    } catch (e) { console.warn("[fal-gemini-cost-track]", (e as Error).message); } })();
   }
 
   return r.text;

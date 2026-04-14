@@ -21,9 +21,14 @@ function loadCache() {
   if (typeof window === "undefined") return;
   try { cache = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"); } catch { cache = {}; }
   // Purge entries that never should have been translated (codes, versions, short alphanumerics)
+  // and any obviously-wrong translations like 'EP01' → 'פורטוגזית01'.
   let dirty = false;
   for (const k of Object.keys(cache)) {
-    if (!shouldTranslate(k)) { delete cache[k]; dirty = true; }
+    const v = cache[k];
+    if (!shouldTranslate(k)) { delete cache[k]; dirty = true; continue; }
+    if (typeof v === "string" && /פורטוגזית|אנגלית|ספרדית|צרפתית/.test(v) && /^[A-Z]/.test(k)) {
+      delete cache[k]; dirty = true;
+    }
   }
   if (dirty) saveCacheSoon();
 }

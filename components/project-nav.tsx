@@ -88,7 +88,7 @@ export function ProjectNav({ projectId }: { projectId: string | null | undefined
                         className={`block py-1 text-[12px] truncate ${activeEp ? "text-white font-semibold bg-white/5 rounded px-2" : "text-sidebar-text/80 hover:text-white"}`}
                         title={e.title}
                       >
-                        <span className="font-mono text-[10px] text-sidebar-text/60 me-1">EP{String(e.episodeNumber).padStart(2, "0")}</span>
+                        <span data-no-translate className="font-mono text-[10px] text-sidebar-text/60 me-1">EP{String(e.episodeNumber).padStart(2, "0")}</span>
                         {e.title}
                       </Link>
                     );

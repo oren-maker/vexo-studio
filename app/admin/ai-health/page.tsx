@@ -21,6 +21,23 @@ export default function AiHealthPage() {
     finally { setBusy(false); }
   }
 
+  const [backfillBusy, setBackfillBusy] = useState(false);
+  async function backfillSheets() {
+    if (!confirm(he ? "לייצר דף במאי לכל הסצנות בארגון שעדיין אין להן? (כל סצנה עולה ~$0.001 ב-Gemini)" : "Generate Director Sheet for every scene missing one? (~\$0.001 per scene)")) return;
+    setBackfillBusy(true);
+    try {
+      let pending = Infinity, total = 0;
+      while (pending !== 0) {
+        const r = await api<{ succeeded: number; pending: number }>("/api/v1/admin/backfill-sheets", { method: "POST" });
+        total += r.succeeded;
+        pending = r.pending;
+        if (r.succeeded === 0 && r.pending === 0) break;
+      }
+      alert((he ? "הושלם. נוצרו דפי במאי ל-" : "Done. Generated sheets for ") + total + (he ? " סצנות." : " scenes."));
+    } catch (e) { alert((e as Error).message); }
+    finally { setBackfillBusy(false); }
+  }
+
   return (
     <Card title={he ? "בדיקת תקינות AI" : "AI health check"} subtitle={he ? "בודק שכל האשפים עונים דרך הספק הנוכחי" : "Verifies every wizard calls through the current provider"}>
       <div className="flex items-center justify-between mb-4">
@@ -33,9 +50,14 @@ export default function AiHealthPage() {
             </span>
           )}
         </div>
-        <button disabled={busy} onClick={run} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">
-          {busy ? (he ? "בודק…" : "Running…") : (he ? "▶ הפעל בדיקה" : "▶ Run check")}
-        </button>
+        <div className="flex gap-2">
+          <button disabled={backfillBusy} onClick={backfillSheets} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
+            {backfillBusy ? (he ? "ממלא…" : "Filling…") : (he ? "📋 דפי במאי לכל הסצנות" : "📋 Director Sheets for all scenes")}
+          </button>
+          <button disabled={busy} onClick={run} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">
+            {busy ? (he ? "בודק…" : "Running…") : (he ? "▶ הפעל בדיקה" : "▶ Run check")}
+          </button>
+        </div>
       </div>
 
       {err && <div className="text-status-errText text-sm mb-3">{err}</div>}

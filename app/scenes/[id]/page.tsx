@@ -11,7 +11,8 @@ type Comment = { id: string; body: string; resolved: boolean; createdAt: string;
 type Critic = { id: string; contentType: string; score: number; feedback: string | null; createdAt: string };
 type SceneChar = { id: string; name: string; roleType: string | null; media: { fileUrl: string }[] };
 type SceneVideo = { id: string; fileUrl: string; createdAt: string; metadata?: { model?: string; durationSeconds?: number; costUsd?: number } };
-type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[] } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[] };
+type DirectorSheet = { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string; generatedAt: string };
+type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[] };
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
@@ -119,6 +120,16 @@ export default function ScenePage() {
       load();
     } catch (e) { alert((e as Error).message); }
     finally { setBusy(false); }
+  }
+
+  const [sheetBusy, setSheetBusy] = useState(false);
+  async function buildSheet() {
+    setSheetBusy(true);
+    try {
+      await api(`/api/v1/scenes/${id}/director-sheet`, { method: "POST" });
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setSheetBusy(false); }
   }
 
   async function breakdown() {
@@ -278,6 +289,43 @@ export default function ScenePage() {
 
         <Card title={he ? "תסריט" : "Script"}>
           <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder={he ? "מספר: פעם אחת..." : "NARRATOR: Once upon a time…"} />
+        </Card>
+
+        <Card title={he ? "דף הבמאי · Director Sheet" : "Director Sheet"} subtitle={he ? "8 סעיפים שמוזנים לפרומפט של ייצור הוידאו" : "8 sections fed into the video generation prompt"}>
+          <div className="flex justify-end mb-3">
+            <button disabled={sheetBusy} onClick={buildSheet} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-50">
+              {sheetBusy ? (he ? "מייצר…" : "Generating…") : scene.memoryContext?.directorSheet ? (he ? "🔁 ייצר מחדש" : "🔁 Regenerate") : (he ? "✨ ייצר עם AI" : "✨ Generate with AI")}
+            </button>
+          </div>
+          {scene.memoryContext?.directorSheet ? (() => {
+            const s = scene.memoryContext!.directorSheet!;
+            const rows = [
+              { k: "style",     label: he ? "סגנון" : "Style",     v: s.style },
+              { k: "scene",     label: he ? "סצנה" : "Scene",     v: s.scene },
+              { k: "character", label: he ? "דמויות" : "Character", v: s.character },
+              { k: "camera",    label: he ? "מצלמה" : "Camera",     v: s.camera },
+              { k: "shots",     label: he ? "שוטים" : "Shots",     v: s.shots },
+              { k: "effects",   label: he ? "אפקטים" : "Effects",   v: s.effects },
+              { k: "audio",     label: he ? "סאונד" : "Audio",     v: s.audio },
+              { k: "technical", label: he ? "טכני" : "Technical",  v: s.technical },
+            ];
+            return (
+              <div className="space-y-2 text-sm">
+                {rows.map((r) => (
+                  <div key={r.k} className="bg-bg-main rounded-lg p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-accent font-bold mb-1">[{r.label}]</div>
+                    <div className="text-text-secondary whitespace-pre-wrap">{r.v || "—"}</div>
+                  </div>
+                ))}
+                <div className="text-[10px] text-text-muted">{he ? "נוצר: " : "Generated: "}{new Date(s.generatedAt).toLocaleString()}</div>
+              </div>
+            );
+          })() : (
+            <div className="text-center py-8 text-text-muted">
+              <div className="text-3xl mb-2">🎬</div>
+              <div className="text-sm">{he ? "אין עדיין דף במאי. לחץ \"ייצר עם AI\"." : "No Director Sheet yet. Click Generate."}</div>
+            </div>
+          )}
         </Card>
 
         {scene.videos && scene.videos.length > 0 && (

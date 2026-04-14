@@ -38,12 +38,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return ok({ jobId: `stub-${Date.now()}`, estimate, note: "FAL_API_KEY not set; status flipped without generation." });
     }
 
-    const basePrompt = [
-      scene.title && `Title: ${scene.title}`,
-      scene.summary && `Summary: ${scene.summary}`,
-      scene.scriptText && `Script:\n${scene.scriptText}`,
-      "Cinematic, high quality, 24fps.",
-    ].filter(Boolean).join("\n\n");
+    // Prefer the Director Sheet (structured 8-section prompt) if available — same
+    // pattern vexo-learn uses. Falls back to raw title/summary/script otherwise.
+    const mem = (scene.memoryContext as { directorSheet?: { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string } } | null) ?? {};
+    const sheet = mem.directorSheet;
+    const basePrompt = sheet
+      ? [
+          `[Style] ${sheet.style}`,
+          `[Scene] ${sheet.scene}`,
+          `[Character] ${sheet.character}`,
+          `[Camera] ${sheet.camera}`,
+          `[Shots] ${sheet.shots}`,
+          `[Effects] ${sheet.effects}`,
+          `[Audio] ${sheet.audio}`,
+          `[Technical] ${sheet.technical}`,
+        ].join("\n\n")
+      : [
+          scene.title && `Title: ${scene.title}`,
+          scene.summary && `Summary: ${scene.summary}`,
+          scene.scriptText && `Script:\n${scene.scriptText}`,
+          "Cinematic, high quality, 24fps.",
+        ].filter(Boolean).join("\n\n");
 
     // Pull Seedance reference prompts to guide tone/level of detail
     const refQuery = [scene.title, scene.summary].filter(Boolean).join(" ");

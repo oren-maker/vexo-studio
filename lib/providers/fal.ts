@@ -30,6 +30,16 @@ const VIDEO_MODELS: Record<VideoModel, string> = {
   "veo3-fast": "fal-ai/veo3/fast",
 };
 
+// Image-to-video variants. Used when we have a reference image (storyboard
+// frame or character) and want the video to start from it — keeps identity
+// locked to the frame instead of rolling the dice on a fresh text-only render.
+const VIDEO_MODELS_I2V: Record<VideoModel, string> = {
+  seedance:    "fal-ai/bytedance/seedance/v1/pro/image-to-video",
+  kling:       "fal-ai/kling-video/v2.1/master/image-to-video",
+  "veo3-pro":  "fal-ai/veo3/image-to-video",
+  "veo3-fast": "fal-ai/veo3/fast/image-to-video",
+};
+
 function key(): string {
   const k = process.env.FAL_API_KEY;
   if (!k) throw new Error("FAL_API_KEY not set");

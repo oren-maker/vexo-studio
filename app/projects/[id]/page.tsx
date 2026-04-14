@@ -178,10 +178,13 @@ export default function ProjectDetailPage() {
         <Link href={`/projects/${id}/ai-director`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">🤖 {lang === "he" ? "במאי AI" : "AI Director"}</Link>
       </div>
 
-      <Card title={lang === "he" ? "עונות" : "Seasons"} subtitle={lang === "he" ? "כל עונה כוללת מספר פרקים" : "Each season groups episodes"}>
-        <div className="flex justify-between mb-4">
-          <span className="text-xs text-text-muted">{seasons.length} {lang === "he" ? "עונות" : "seasons"}</span>
-          <div className="flex gap-2">
+      <div className="bg-bg-card rounded-card border border-bg-main p-5">
+        <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-lg font-bold">{lang === "he" ? "עונות" : "Seasons"} <span className="text-text-muted text-sm font-normal">· {seasons.length}</span></div>
+            <div className="text-xs text-text-muted">{lang === "he" ? "כל עונה כוללת מספר פרקים" : "Each season groups episodes"}</div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
             <button disabled={createBusy} onClick={newSeason} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">+ {lang === "he" ? "עונה חדשה" : "New season"}</button>
             <button disabled={!!autoBusy} onClick={() => autoGenerateSeason()} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">⚡ {autoBusy ? (lang === "he" ? "מייצר…" : "Generating…") : (lang === "he" ? "עונה אוטומטית מלאה" : "Full auto season")}</button>
           </div>
@@ -219,7 +222,7 @@ export default function ProjectDetailPage() {
             })}
           </ul>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

@@ -110,58 +110,65 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
     critics.length > 0 && `LATEST CRITIC FEEDBACK (address these in the sheet):\n${critics.map((c) => `- ${c.contentType} ${(c.score * 100).toFixed(0)}%: ${(c.feedback ?? "").slice(0, 200)}`).join("\n")}`,
   ].filter(Boolean).join("\n\n");
 
-  // Plain-text mode is ~30% faster than json mode in Gemini and never throws on
-  // malformed JSON. Output uses STYLE: / SCENE: / etc. labels we parse below.
-  const PLAIN_SYSTEM = `Output 8 sections in this EXACT format. Each section is one or two lines max. Use the labels EXACTLY as shown:
-STYLE: …
-SCENE: …
-CHARACTER: …
-SHOTS: …
-CAMERA: …
-EFFECTS: …
-AUDIO: …
-TECHNICAL: …
-Ground every section in the actual script text provided. Name the characters by name. Honor director notes > sound notes > critic feedback in priority. Keep each section under 350 chars.`;
-
-  let raw: string;
-  try {
-    raw = await groqChat(
-      [
-        { role: "system", content: PLAIN_SYSTEM },
-        { role: "user", content: user },
-      ],
-      { temperature: 0.4, maxTokens: 1400, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
-    );
-  } catch (e) {
-    throw new Error(`AI failed: ${(e as Error).message.slice(0, 200)}`);
-  }
-
-  function pick(label: string): string {
-    const re = new RegExp(`^${label}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`, "im");
-    const m = raw.match(re);
-    return (m?.[1] ?? "").trim();
-  }
-
-  const sheet: Omit<DirectorSheet, "generatedAt"> = {
-    style:     pick("STYLE"),
-    scene:     pick("SCENE"),
-    character: pick("CHARACTER"),
-    shots:     pick("SHOTS"),
-    camera:    pick("CAMERA"),
-    effects:   pick("EFFECTS"),
-    audio:     pick("AUDIO"),
-    technical: pick("TECHNICAL"),
+  // Two-pass: try JSON mode first (cleanest), fall back to plain text parsing
+  // if JSON fails or returns missing keys.
+  let sheet: Omit<DirectorSheet, "generatedAt"> = {
+    style: "", scene: "", character: "", shots: "", camera: "", effects: "", audio: "", technical: "",
   };
 
-  // If the model botched parsing entirely, try once more in JSON mode as a fallback
-  if (!sheet.style && !sheet.scene && !sheet.character) {
+  try {
+    const json = await groqJson<Partial<Omit<DirectorSheet, "generatedAt">>>(
+      SYSTEM, user,
+      { temperature: 0.4, maxTokens: 2000, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
+    );
+    sheet = {
+      style:     String(json.style ?? "").trim(),
+      scene:     String(json.scene ?? "").trim(),
+      character: String(json.character ?? "").trim(),
+      shots:     String(json.shots ?? "").trim(),
+      camera:    String(json.camera ?? "").trim(),
+      effects:   String(json.effects ?? "").trim(),
+      audio:     String(json.audio ?? "").trim(),
+      technical: String(json.technical ?? "").trim(),
+    };
+  } catch { /* fall through to plain-text */ }
+
+  // Fill any missing section via plain-text fallback. Run only if still empty
+  // — saves one round trip when JSON mode worked.
+  const missing = (Object.keys(sheet) as (keyof typeof sheet)[]).filter((k) => !sheet[k]);
+  if (missing.length > 0) {
+    const PLAIN_SYSTEM = `Output 8 labeled sections in this EXACT format, every label MUST appear, every value MUST be 1-3 sentences:
+STYLE: <…>
+SCENE: <…>
+CHARACTER: <…>
+SHOTS: <…>
+CAMERA: <…>
+EFFECTS: <…>
+AUDIO: <…>
+TECHNICAL: <…>
+Use the labels in English as shown. Ground every section in the script text provided. Honor director notes > sound notes > critic feedback in priority. Each value under 350 chars.`;
     try {
-      const json = await groqJson<Omit<DirectorSheet, "generatedAt">>(
-        SYSTEM, user,
-        { temperature: 0.4, maxTokens: 2000, projectId: projectId ?? undefined, description: `Director sheet retry · scene ${scene.sceneNumber}` },
+      const raw = await groqChat(
+        [{ role: "system", content: PLAIN_SYSTEM }, { role: "user", content: user }],
+        { temperature: 0.4, maxTokens: 1400, projectId: projectId ?? undefined, description: `Director sheet plain-text fallback · scene ${scene.sceneNumber}` },
       );
-      Object.assign(sheet, json);
+      const pick = (label: string) => {
+        const re = new RegExp(`(?:^|\\n)\\s*\\*?\\*?${label}\\*?\\*?\\s*[:：]\\s*([\\s\\S]*?)(?=\\n\\s*\\*?\\*?[A-Z]{4,}\\*?\\*?\\s*[:：]|$)`, "i");
+        const m = raw.match(re);
+        return (m?.[1] ?? "").trim();
+      };
+      const fromText = {
+        style: pick("STYLE"), scene: pick("SCENE"), character: pick("CHARACTER"),
+        shots: pick("SHOTS"), camera: pick("CAMERA"), effects: pick("EFFECTS"),
+        audio: pick("AUDIO"), technical: pick("TECHNICAL"),
+      };
+      for (const k of missing) if (fromText[k]) sheet[k] = fromText[k];
     } catch { /* keep partial */ }
+  }
+
+  // If everything failed throw so the UI shows the error instead of an empty sheet
+  if ((Object.values(sheet) as string[]).every((v) => !v)) {
+    throw new Error("AI failed: empty response");
   }
 
   // Ensure every key exists as a string — Gemini sometimes drops one

@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { useLang } from "@/lib/i18n";
 
-type Frame = { id: string; orderIndex: number; beatSummary: string | null; imagePrompt: string | null; status: string; generatedImageUrl: string | null; approvedImageUrl: string | null };
+type Frame = { id: string; orderIndex: number; beatSummary: string | null; imagePrompt: string | null; status: string; generatedImageUrl: string | null; approvedImageUrl: string | null; cost?: number; model?: string; lastChargedAt?: string | null };
 type Comment = { id: string; body: string; resolved: boolean; createdAt: string; user: { id: string; fullName: string; email: string } };
 type Critic = { id: string; contentType: string; score: number; feedback: string | null; createdAt: string };
 type SceneChar = { id: string; name: string; roleType: string | null; media: { fileUrl: string }[] };
@@ -237,7 +237,7 @@ export default function ScenePage() {
           <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder={he ? "מספר: פעם אחת..." : "NARRATOR: Once upon a time…"} />
         </Card>
 
-        <Card title={he ? "מסגרות תשריט" : "Storyboard frames"} subtitle={`${scene.frames.length} ${he ? "מסגרות" : "frames"}`}>
+        <Card title={he ? "מסגרות תשריט" : "Storyboard frames"} subtitle={`${scene.frames.length} ${he ? "מסגרות" : "frames"} · ${he ? "סה\"כ" : "total"}: $${scene.frames.reduce((s, f) => s + (f.cost ?? 0), 0).toFixed(4)}`}>
           {scene.frames.length > 0 && (
             <div className="flex justify-end mb-3">
               <button disabled={regenBusy === "all"} onClick={regenAll} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-50">
@@ -277,7 +277,16 @@ export default function ScenePage() {
                       </button>
                     </div>
                     <div className="text-text-secondary line-clamp-2">{f.beatSummary ?? "—"}</div>
-                    <div className="text-text-muted mt-1">{f.status}</div>
+                    <div className="flex justify-between items-center text-[10px] text-text-muted mt-1 gap-2">
+                      <span>{f.status}</span>
+                      {f.cost && f.cost > 0 ? (
+                        <span className="num text-text-secondary" title={f.lastChargedAt ? new Date(f.lastChargedAt).toLocaleString() : ""}>
+                          {f.model ? `${f.model} · ` : ""}<span className="font-bold">${f.cost.toFixed(4)}</span>
+                        </span>
+                      ) : (
+                        <span className="text-text-muted/60">{he ? "טרם נוצר" : "not generated"}</span>
+                      )}
+                    </div>
                   </div>
                 );
               })}

@@ -34,6 +34,35 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       include: { frames: { orderBy: { orderIndex: "asc" } }, criticReviews: true, comments: true },
     });
     if (!scene) return ok(null);
+
+    // Per-frame cost + model annotation for the scene page
+    const frameIds = scene.frames.map((f) => f.id);
+    const frameCosts = frameIds.length > 0
+      ? await prisma.costEntry.findMany({ where: { entityType: "FRAME", entityId: { in: frameIds } } })
+      : [];
+    const costByFrame = new Map<string, { cost: number; model?: string; description?: string; createdAt?: Date }>();
+    for (const c of frameCosts) {
+      const cur = costByFrame.get(c.entityId) ?? { cost: 0 };
+      cur.cost += c.totalCost;
+      const meta = (c.meta as { model?: string } | null) ?? {};
+      // Prefer the latest model used (regen overwrites)
+      if (!cur.createdAt || c.createdAt > cur.createdAt) {
+        cur.model = meta.model ?? cur.model;
+        cur.description = c.description ?? cur.description;
+        cur.createdAt = c.createdAt;
+      }
+      costByFrame.set(c.entityId, cur);
+    }
+    const framesWithCost = scene.frames.map((f) => {
+      const ci = costByFrame.get(f.id);
+      return {
+        ...f,
+        cost: ci?.cost ? +ci.cost.toFixed(4) : 0,
+        model: ci?.model ?? (ci?.description?.includes("nano-banana") ? "nano-banana" : undefined),
+        lastChargedAt: ci?.createdAt ?? null,
+      };
+    });
+
     let sceneCharacters: unknown[] = [];
     if (scene.episodeId) {
       const ep = await prisma.episode.findUnique({
@@ -53,7 +82,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         }
       }
     }
-    return ok({ ...scene, sceneCharacters });
+    return ok({ ...scene, frames: framesWithCost, sceneCharacters });
   } catch (e) { return handleError(e); }
 }
 

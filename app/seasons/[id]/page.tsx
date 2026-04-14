@@ -82,6 +82,39 @@ export default function SeasonPage() {
     else setEpFeedback(null);
   }
 
+  const [applying, setApplying] = useState<string | null>(null); // episode id being applied
+  const [applyAllBusy, setApplyAllBusy] = useState(false);
+
+  async function applyToEpisode(epId: string, fb?: typeof epFeedback["data"]) {
+    setApplying(epId);
+    try {
+      const r = await api<{ scenesRewritten: number; scenesTotal: number; episodeTitle: string }>(`/api/v1/episodes/${epId}/apply-feedback`, {
+        method: "POST",
+        body: fb ? { feedback: fb } : {},
+      });
+      alert((lang === "he" ? `יושמו ${r.scenesRewritten}/${r.scenesTotal} סצנות בפרק ` : `Applied to ${r.scenesRewritten}/${r.scenesTotal} scenes of `) + r.episodeTitle);
+      setEpFeedback(null);
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setApplying(null); }
+  }
+
+  async function applyToAllEpisodes() {
+    if (!confirm(lang === "he" ? `להחיל משוב במאי AI על כל ${episodes.length} הפרקים? כל סצנה תישכתב מחדש (גרסה ישנה תישמר).` : `Apply AI Director feedback to all ${episodes.length} episodes? Every scene will be rewritten (old version preserved).`)) return;
+    setApplyAllBusy(true);
+    try {
+      let total = 0;
+      for (const ep of episodes) {
+        try {
+          const r = await api<{ scenesRewritten: number }>(`/api/v1/episodes/${ep.id}/apply-feedback`, { method: "POST", body: {} });
+          total += r.scenesRewritten;
+        } catch (e) { console.warn("ep", ep.episodeNumber, "failed", e); }
+      }
+      alert((lang === "he" ? `יושם על ${total} סצנות בכל הפרקים.` : `Applied to ${total} scenes across all episodes.`));
+      load();
+    } finally { setApplyAllBusy(false); }
+  }
+
   if (!season) return (
     <div className="text-text-muted">
       {err ? <span className="text-status-errText">Error: {err}</span> : "Loading…"}
@@ -115,7 +148,15 @@ export default function SeasonPage() {
 
       {feedback && (
         <div className="bg-bg-card rounded-card border border-accent p-5 space-y-3">
-          <div className="flex justify-between"><div className="text-sm font-bold">🤖 {lang === "he" ? "משוב הבמאי לעונה" : "Season Director Feedback"}</div><button onClick={() => setFeedback(null)} className="text-xs text-text-muted">✕</button></div>
+          <div className="flex justify-between items-start gap-3">
+            <div className="text-sm font-bold">🤖 {lang === "he" ? "משוב הבמאי לעונה" : "Season Director Feedback"}</div>
+            <div className="flex gap-2">
+              <button disabled={applyAllBusy} onClick={applyToAllEpisodes} className="px-3 py-1 rounded-lg bg-accent text-white text-xs font-semibold disabled:opacity-50">
+                {applyAllBusy ? (lang === "he" ? "מיישם…" : "Applying…") : (lang === "he" ? "✨ החל על כל הפרקים" : "✨ Apply to all episodes")}
+              </button>
+              <button onClick={() => setFeedback(null)} className="text-xs text-text-muted">✕</button>
+            </div>
+          </div>
           <div className="text-sm">{feedback.overall}</div>
           {feedback.arc && <div className="text-xs"><span className="font-semibold">{lang === "he" ? "קשת" : "Arc"}: </span>{feedback.arc}</div>}
           {feedback.pacing && <div className="text-xs"><span className="font-semibold">{lang === "he" ? "קצב" : "Pacing"}: </span>{feedback.pacing}</div>}
@@ -167,7 +208,19 @@ export default function SeasonPage() {
                   </div>
                   {epFeedback?.episodeId === ep.id && epFeedback.data && (
                     <div className="mt-3 bg-bg-card rounded-lg p-3 text-xs space-y-2">
-                      <div className="flex justify-between"><div className="font-semibold">🤖 {lang === "he" ? "משוב לפרק" : "Episode feedback"}</div><button onClick={() => setEpFeedback(null)} className="text-text-muted">✕</button></div>
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="font-semibold">🤖 {lang === "he" ? "משוב לפרק" : "Episode feedback"}</div>
+                        <div className="flex gap-2">
+                          <button
+                            disabled={applying === ep.id}
+                            onClick={() => applyToEpisode(ep.id, epFeedback.data)}
+                            className="px-2 py-0.5 rounded bg-accent text-white text-[11px] font-semibold disabled:opacity-50"
+                          >
+                            {applying === ep.id ? (lang === "he" ? "מיישם…" : "Applying…") : (lang === "he" ? "✨ החל על הפרק" : "✨ Apply to episode")}
+                          </button>
+                          <button onClick={() => setEpFeedback(null)} className="text-text-muted">✕</button>
+                        </div>
+                      </div>
                       <div>{epFeedback.data.overall}</div>
                       <div className="grid grid-cols-3 gap-2">
                         <div><div className="font-semibold text-status-okText">{lang === "he" ? "חוזקות" : "Strengths"}</div><ul>{epFeedback.data.strengths.map((s, i) => <li key={i}>• {s}</li>)}</ul></div>

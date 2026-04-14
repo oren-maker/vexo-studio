@@ -33,6 +33,8 @@ const VIDEO_MODELS: Record<VideoModel, string> = {
 // Image-to-video variants. Used when we have a reference image (storyboard
 // frame or character) and want the video to start from it — keeps identity
 // locked to the frame instead of rolling the dice on a fresh text-only render.
+// fal image-to-video endpoints. If any of these 404 on submit, we auto-fallback
+// to the t2v variant in submitVideo (so a bad id never blocks a generation).
 const VIDEO_MODELS_I2V: Record<VideoModel, string> = {
   seedance:    "fal-ai/bytedance/seedance/v1/pro/image-to-video",
   kling:       "fal-ai/kling-video/v2.1/master/image-to-video",
@@ -119,11 +121,22 @@ export async function submitVideo(opts: {
     body.image_urls = opts.referenceImageUrls.slice(0, 3);
   }
 
-  const url = opts.webhookUrl
-    ? `${FAL_QUEUE}/${model}?fal_webhook=${encodeURIComponent(opts.webhookUrl)}`
-    : `${FAL_QUEUE}/${model}`;
+  const makeUrl = (m: string) => opts.webhookUrl
+    ? `${FAL_QUEUE}/${m}?fal_webhook=${encodeURIComponent(opts.webhookUrl)}`
+    : `${FAL_QUEUE}/${m}`;
 
-  const res = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+  let res = await fetch(makeUrl(model), { method: "POST", headers: headers(), body: JSON.stringify(body) });
+
+  // If the i2v endpoint doesn't exist (404) OR rejected the image_url, retry on the t2v variant
+  if (!res.ok && useI2V) {
+    const status = res.status;
+    const errText = (await res.text()).slice(0, 200);
+    console.warn(`[fal video] i2v ${model} ${status}: ${errText} — retrying via t2v`);
+    const t2vBody = { ...body };
+    delete t2vBody.image_url;
+    res = await fetch(makeUrl(VIDEO_MODELS[modelKey]), { method: "POST", headers: headers(), body: JSON.stringify(t2vBody) });
+  }
+
   if (!res.ok) throw new Error(`fal video submit ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
   const id = data?.request_id ?? data?.requestId;

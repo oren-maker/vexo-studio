@@ -81,7 +81,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // still guarantees identity lock via image-to-video.
     const firstFrameImg = (firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl) || characterRefImgs[0];
 
-    const basePrompt = sheet
+    // If we have a starting frame (i2v mode), the model sees the image already —
+    // what it needs is a CONCISE action description (what happens in the next
+    // few seconds starting from that frame), not a cinematography bible.
+    // In t2v mode we send the full director sheet so it has everything.
+    const willUseI2V = !!(firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl) || characterRefImgs.length > 0;
+
+    const basePrompt = willUseI2V
+      ? [
+          // Compact, action-focused for image-to-video
+          `Continue from the starting image.`,
+          inScene.length > 0 && `Characters on screen: ${inScene.map((c) => c.name).join(", ")} — keep their faces, hair, wardrobe EXACTLY as in the image, no drift.`,
+          scene.summary && `What happens: ${scene.summary}`,
+          scene.scriptText && `Dialogue + action from the script:\n${scene.scriptText.slice(0, 1000)}`,
+          sheet?.camera && `Camera: ${sheet.camera}`,
+          sheet?.audio && `Audio: ${sheet.audio}`,
+          mem.soundNotes && `Sound cues: ${mem.soundNotes.slice(0, 300)}`,
+          mem.directorNotes && `Director notes: ${mem.directorNotes.slice(0, 400)}`,
+          sheet?.effects && sheet.effects.toLowerCase() !== "none" && `Effects: ${sheet.effects}`,
+          "Cinematic, 24fps, real physical lighting, identity locked to the starting image.",
+        ].filter(Boolean).join("\n\n")
+      : sheet
       ? [
           `[Style] ${sheet.style}`,
           `[Scene] ${sheet.scene}`,
@@ -94,6 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           `[Technical] ${sheet.technical}`,
           scene.scriptText && `[Script]\n${scene.scriptText.slice(0, 1500)}`,
           mem.directorNotes && `[Director notes]\n${mem.directorNotes.slice(0, 600)}`,
+          mem.soundNotes && `[Sound notes]\n${mem.soundNotes.slice(0, 400)}`,
         ].filter(Boolean).join("\n\n")
       : [
           scene.title && `Title: ${scene.title}`,
@@ -101,6 +122,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           characterBlock,
           scene.scriptText && `Script:\n${scene.scriptText}`,
           mem.directorNotes && `Director notes:\n${mem.directorNotes}`,
+          mem.soundNotes && `Sound notes:\n${mem.soundNotes}`,
           "Cinematic, high quality, 24fps.",
         ].filter(Boolean).join("\n\n");
 

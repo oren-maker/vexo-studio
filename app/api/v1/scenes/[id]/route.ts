@@ -35,16 +35,33 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
     if (!scene) return ok(null);
 
-    // Per-frame: cost = the LATEST generation only (the image you're looking at).
-    // totalSpent = sum of all generations including regenerations (lifetime spend).
     const frameIds = scene.frames.map((f) => f.id);
-    const frameCosts = frameIds.length > 0
-      ? await prisma.costEntry.findMany({ where: { entityType: "FRAME", entityId: { in: frameIds } }, orderBy: { createdAt: "desc" } })
-      : [];
+    const mem = (scene.memoryContext as { characters?: string[] } | null) ?? {};
+    const names = (mem.characters ?? []).map((n) => n.toLowerCase().trim());
+
+    // Parallelize all secondary lookups — was causing cold-start timeouts when run serially
+    const [frameCosts, videos, epRow] = await Promise.all([
+      frameIds.length > 0
+        ? prisma.costEntry.findMany({ where: { entityType: "FRAME", entityId: { in: frameIds } }, orderBy: { createdAt: "desc" } })
+        : Promise.resolve([] as Awaited<ReturnType<typeof prisma.costEntry.findMany>>),
+      prisma.asset.findMany({
+        where: { entityType: "SCENE", entityId: params.id, assetType: "VIDEO", status: "READY" },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: { id: true, fileUrl: true, createdAt: true, metadata: true },
+      }),
+      scene.episodeId
+        ? prisma.episode.findUnique({
+            where: { id: scene.episodeId },
+            select: { season: { select: { series: { select: { projectId: true } } } } },
+          })
+        : Promise.resolve(null),
+    ]);
+
     const acc = new Map<string, { latest?: typeof frameCosts[number]; total: number; count: number }>();
     for (const c of frameCosts) {
       const cur = acc.get(c.entityId) ?? { total: 0, count: 0 };
-      if (!cur.latest) cur.latest = c; // first iteration = newest (orderBy desc)
+      if (!cur.latest) cur.latest = c;
       cur.total += c.totalCost;
       cur.count++;
       acc.set(c.entityId, cur);
@@ -62,33 +79,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       };
     });
 
-    // Scene-level videos (from fal webhooks) — Asset rows
-    const videos = await prisma.asset.findMany({
-      where: { entityType: "SCENE", entityId: params.id, assetType: "VIDEO", status: "READY" },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: { id: true, fileUrl: true, createdAt: true, metadata: true },
-    });
-
     let sceneCharacters: unknown[] = [];
-    if (scene.episodeId) {
-      const ep = await prisma.episode.findUnique({
-        where: { id: scene.episodeId },
-        select: { season: { select: { series: { select: { projectId: true } } } } },
+    const projectId = epRow?.season.series.projectId;
+    if (projectId && names.length > 0) {
+      const all = await prisma.character.findMany({
+        where: { projectId, name: { in: names, mode: "insensitive" } },
+        include: { media: { take: 1, orderBy: { createdAt: "asc" } } },
       });
-      const projectId = ep?.season.series.projectId;
-      if (projectId) {
-        const mem = (scene.memoryContext as { characters?: string[] } | null) ?? {};
-        const names = (mem.characters ?? []).map((n) => n.toLowerCase().trim());
-        if (names.length > 0) {
-          const all = await prisma.character.findMany({
-            where: { projectId },
-            include: { media: { take: 1, orderBy: { createdAt: "asc" } } },
-          });
-          sceneCharacters = all.filter((c) => names.includes(c.name.toLowerCase().trim()));
-        }
-      }
+      sceneCharacters = all;
     }
+
     return ok({ ...scene, frames: framesWithCost, sceneCharacters, videos });
   } catch (e) { return handleError(e); }
 }

@@ -95,6 +95,28 @@ export default function ScenePage() {
   }
   const [editTitle, setEditTitle] = useState(false);
   const [editSummary, setEditSummary] = useState(false);
+  const [regenBusy, setRegenBusy] = useState<string | null>(null);
+
+  async function regenFrame(frameId: string) {
+    setRegenBusy(frameId);
+    try {
+      await api(`/api/v1/frames/${frameId}/regenerate`, { method: "POST" });
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setRegenBusy(null); }
+  }
+
+  async function regenAll() {
+    if (!confirm(he ? "לייצר מחדש את כל המסגרות בסצנה? השימוש בתמונות הדמויות מהגלריה לעקביות. עלות: $0.039 לכל מסגרת" : "Regenerate all frames in this scene using gallery refs? $0.039 per frame.")) return;
+    setRegenBusy("all");
+    try {
+      for (const f of scene?.frames ?? []) {
+        try { await api(`/api/v1/frames/${f.id}/regenerate`, { method: "POST" }); }
+        catch (e) { console.warn("frame", f.id, e); }
+      }
+      load();
+    } finally { setRegenBusy(null); }
+  }
 
   if (!scene) return <div className="text-text-muted">{he ? "טוען…" : "Loading…"}</div>;
 
@@ -201,6 +223,13 @@ export default function ScenePage() {
         </Card>
 
         <Card title={he ? "מסגרות תשריט" : "Storyboard frames"} subtitle={`${scene.frames.length} ${he ? "מסגרות" : "frames"}`}>
+          {scene.frames.length > 0 && (
+            <div className="flex justify-end mb-3">
+              <button disabled={regenBusy === "all"} onClick={regenAll} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-50">
+                {regenBusy === "all" ? (he ? "מייצר מחדש…" : "Regenerating…") : (he ? "🔁 ייצר מחדש את כולם עם הדמויות" : "🔁 Regenerate all using gallery")}
+              </button>
+            </div>
+          )}
           {scene.frames.length === 0 ? (
             <div className="text-text-muted text-sm">{he ? "אין מסגרות עדיין. לחץ \"צור תשריט\" להתחיל." : "No frames yet. Click \"Generate storyboard\" to start."}</div>
           ) : (
@@ -221,7 +250,17 @@ export default function ScenePage() {
                         </div>
                       </div>
                     )}
-                    <div className="font-semibold">{he ? `מסגרת ${f.orderIndex + 1}` : `Frame ${f.orderIndex + 1}`}</div>
+                    <div className="flex justify-between items-center">
+                      <div className="font-semibold">{he ? `מסגרת ${f.orderIndex + 1}` : `Frame ${f.orderIndex + 1}`}</div>
+                      <button
+                        disabled={regenBusy === f.id}
+                        onClick={(e) => { e.stopPropagation(); regenFrame(f.id); }}
+                        title={he ? "ייצר מחדש עם תמונות הדמויות" : "Regenerate using character refs"}
+                        className="text-[10px] px-1.5 py-0.5 rounded border border-accent text-accent disabled:opacity-50"
+                      >
+                        {regenBusy === f.id ? "…" : "🔁"}
+                      </button>
+                    </div>
                     <div className="text-text-secondary line-clamp-2">{f.beatSummary ?? "—"}</div>
                     <div className="text-text-muted mt-1">{f.status}</div>
                   </div>

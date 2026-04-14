@@ -38,7 +38,7 @@ export default function LoginPage() {
         setChallengeId(data.challengeId);
       } else if ("accessToken" in data) {
         setAccessToken(data.accessToken);
-        router.push(data.requires2faSetup ? "/account/2fa" : "/admin");
+        router.push("/admin");
       }
     } catch (e: unknown) {
       setErr((e as Error).message ?? "Login failed");

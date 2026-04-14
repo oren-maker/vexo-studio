@@ -30,8 +30,8 @@ export default function TwoFactorPage() {
 
   return (
     <Card title="Two-Factor Authentication" subtitle="Adds a one-time code from an authenticator app to your sign-in.">
-      <div className="rounded-lg p-4 mb-6 text-sm" style={{ background: "#fff8e6", border: "1px solid #f0a500" }}>
-        <strong>Required for ADMIN and SUPER_ADMIN.</strong>
+      <div className="rounded-lg p-4 mb-6 text-sm" style={{ background: "#eef2ff", border: "1px solid #818cf8" }}>
+        Optional. Recommended for any account with admin permissions.
       </div>
 
       {msg && <div className="text-status-okText text-sm mb-3">{msg}</div>}

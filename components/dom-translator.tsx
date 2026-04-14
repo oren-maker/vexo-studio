@@ -20,6 +20,12 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 function loadCache() {
   if (typeof window === "undefined") return;
   try { cache = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"); } catch { cache = {}; }
+  // Purge entries that never should have been translated (codes, versions, short alphanumerics)
+  let dirty = false;
+  for (const k of Object.keys(cache)) {
+    if (!shouldTranslate(k)) { delete cache[k]; dirty = true; }
+  }
+  if (dirty) saveCacheSoon();
 }
 function saveCacheSoon() {
   if (saveTimer) clearTimeout(saveTimer);
@@ -47,6 +53,10 @@ function shouldTranslate(text: string): boolean {
   if (/^https?:\/\//i.test(t)) return false;
   // Skip very long alphanumeric blobs (CUIDs, hashes) with no spaces/punct
   if (!/\s/.test(t) && /^[a-z0-9]{20,}$/i.test(t)) return false;
+  // Skip short codes like EP01, SC05, S1E3, V2 — 2-4 letters immediately followed by digits, optional suffix
+  if (/^[A-Z]{1,4}\d+[A-Za-z0-9]*$/.test(t)) return false;
+  // Skip version tags like v1.2.3, 4.5
+  if (/^v?\d+(\.\d+)+$/i.test(t)) return false;
   return true;
 }
 

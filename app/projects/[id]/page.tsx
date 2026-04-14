@@ -86,7 +86,30 @@ export default function ProjectDetailPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-start gap-4">
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-text-muted">{project.contentType.replace("_", " ")}{project.genreTag && ` · ${project.genreTag}`}</div>
+          <div className="text-xs text-text-muted flex items-center gap-2 flex-wrap">
+            <span>{project.contentType.replace("_", " ")}{project.genreTag && ` · ${project.genreTag}`}</span>
+            <span className="inline-flex items-center gap-1 bg-bg-main rounded-full ps-1 pe-0.5 py-0.5">
+              <span className="text-[10px]">{lang === "he" ? "שפת הסדרה:" : "Series language:"}</span>
+              <select
+                value={project.language ?? "en"}
+                onChange={async (e) => { await api(`/api/v1/projects/${id}`, { method: "PATCH", body: { language: e.target.value } }); load(); }}
+                className="text-[11px] font-semibold bg-transparent border-0 focus:ring-0 cursor-pointer"
+                title={lang === "he" ? "שפת התוכן שייוצר לסדרה הזו" : "Language the AI will write this series in"}
+              >
+                <option value="he">עברית</option>
+                <option value="en">English</option>
+                <option value="ar">العربية</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="ru">Русский</option>
+                <option value="pt">Português</option>
+                <option value="it">Italiano</option>
+                <option value="ja">日本語</option>
+                <option value="zh">中文</option>
+              </select>
+            </span>
+          </div>
           {editingName ? (
             <input
               autoFocus

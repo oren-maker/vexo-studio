@@ -284,7 +284,7 @@ export default function SeasonPage() {
                   <div className="flex items-center gap-3">
                     <Link href={`/episodes/${ep.id}`} className="flex-1 hover:text-accent">
                       <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-xs text-text-muted">EP{String(ep.episodeNumber).padStart(2, "0")}</span>
+                        <span data-no-translate className="font-mono text-xs text-text-muted">EP{String(ep.episodeNumber).padStart(2, "0")}</span>
                         <span className="font-semibold">{ep.title}</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${STATUS_COLOR[ep.status] ?? "bg-bg-card"}`}>{ep.status}</span>
                       </div>

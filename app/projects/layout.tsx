@@ -4,6 +4,7 @@ import { AuthGuard } from "@/components/auth-guard";
 import { Topbar } from "@/components/topbar";
 import { AiAssistant } from "@/components/ai-assistant";
 import { RtlEffect } from "@/components/rtl-effect";
+import { AutoT } from "@/components/translator";
 import { useT } from "@/lib/i18n";
 
 export default function ProjectsLayout({ children }: { children: React.ReactNode }) {
@@ -25,7 +26,7 @@ export default function ProjectsLayout({ children }: { children: React.ReactNode
         </aside>
         <div className="flex-1 flex flex-col">
           <Topbar title={t("nav.projects")} />
-          <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+          <main className="flex-1 p-6 overflow-y-auto"><AutoT>{children}</AutoT></main>
         </div>
         <AiAssistant />
       </div>

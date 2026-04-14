@@ -80,6 +80,67 @@ export function TranslatorProvider({ children }: { children: React.ReactNode }) 
   return <TRC.Provider value={ctx}>{children}</TRC.Provider>;
 }
 
+/** Recursively translates every plain-text child + key string attrs (placeholder/title/aria-label). */
+export function AutoT({ children }: { children: React.ReactNode }) {
+  const ctx = useContext(TRC);
+
+  function collect(node: React.ReactNode, acc: string[]): void {
+    if (node == null || typeof node === "boolean" || typeof node === "number") return;
+    if (typeof node === "string") {
+      const s = node.trim();
+      if (s.length > 1 && /[A-Za-z]/.test(s)) acc.push(node);
+      return;
+    }
+    if (Array.isArray(node)) { node.forEach((c) => collect(c, acc)); return; }
+    if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+      const props = node.props as Record<string, unknown> & { children?: React.ReactNode };
+      collect(props.children, acc);
+      for (const attr of ["placeholder", "title", "aria-label"]) {
+        const v = props[attr];
+        if (typeof v === "string" && /[A-Za-z]/.test(v) && v.trim().length > 1) acc.push(v);
+      }
+    }
+  }
+
+  function transform(node: React.ReactNode): React.ReactNode {
+    if (node == null || typeof node === "boolean" || typeof node === "number") return node;
+    if (typeof node === "string") {
+      if (!ctx.enabled) return node;
+      const s = node.trim();
+      if (s.length <= 1 || !/[A-Za-z]/.test(s)) return node;
+      return ctx.get(node) ?? node;
+    }
+    if (Array.isArray(node)) {
+      return node.map((c, i) => <React.Fragment key={i}>{transform(c)}</React.Fragment>);
+    }
+    if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+      const props = node.props as Record<string, unknown> & { children?: React.ReactNode };
+      const newChildren = transform(props.children);
+      const extra: Record<string, unknown> = {};
+      if (ctx.enabled) {
+        for (const attr of ["placeholder", "title", "aria-label"]) {
+          const v = props[attr];
+          if (typeof v === "string" && /[A-Za-z]/.test(v)) {
+            extra[attr] = ctx.get(v) ?? v;
+          }
+        }
+      }
+      return React.cloneElement(node, extra, newChildren);
+    }
+    return node;
+  }
+
+  useEffect(() => {
+    if (!ctx.enabled) return;
+    const acc: string[] = [];
+    collect(children, acc);
+    for (const t of acc) ctx.request(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [children, ctx.enabled, ctx.version]);
+
+  return <>{transform(children)}</>;
+}
+
 /** Translate a string. If user lang == he, returns Hebrew (or English while loading). */
 export function useTr(text?: string | null): string {
   const ctx = useContext(TRC);

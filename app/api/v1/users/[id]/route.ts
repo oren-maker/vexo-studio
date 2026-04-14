@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import argon2 from "argon2";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { UpdateUserSchema } from "@/lib/schemas/user";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!member) return NextResponse.json({ statusCode: 404, error: "NotFound", message: "not found" }, { status: 404 });
     const body = UpdateUserSchema.parse(await req.json());
     const data: Record<string, unknown> = { fullName: body.fullName, email: body.email, username: body.username, isActive: body.isActive };
-    if (body.password) data.passwordHash = await argon2.hash(body.password);
+    if (body.password) data.passwordHash = await bcrypt.hash(body.password, 10);
     Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
     const updated = await prisma.user.update({ where: { id: params.id }, data });
     if (body.roleId) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import argon2 from "argon2";
+import bcrypt from "bcryptjs";
 import { authenticator } from "otplib";
 import { prisma } from "@/lib/prisma";
 import { TotpDisableSchema } from "@/lib/schemas/auth";
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     if (isAuthResponse(ctx)) return ctx;
     const body = TotpDisableSchema.parse(await req.json());
     const user = await prisma.user.findUniqueOrThrow({ where: { id: ctx.user.id } });
-    const passOk = await argon2.verify(user.passwordHash, body.password);
+    const passOk = await bcrypt.compare(body.password, user.passwordHash);
     if (!passOk) return NextResponse.json({ statusCode: 401, error: "Unauthorized", message: "invalid password" }, { status: 401 });
     if (!user.totpSecret) return NextResponse.json({ statusCode: 400, error: "BadRequest", message: "totp not enabled" }, { status: 400 });
     const valid = authenticator.check(body.token, decrypt(user.totpSecret));

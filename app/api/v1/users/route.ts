@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import argon2 from "argon2";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { CreateUserSchema } from "@/lib/schemas/user";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     const forbid = requirePermission(ctx, "manage_users"); if (forbid) return forbid;
     const body = CreateUserSchema.parse(await req.json());
-    const passwordHash = await argon2.hash(body.password);
+    const passwordHash = await bcrypt.hash(body.password, 10);
     const result = await prisma.$transaction(async (tx) => {
       const u = await tx.user.create({ data: { fullName: body.fullName, email: body.email, username: body.username, passwordHash, isActive: body.isActive } });
       await tx.organizationUser.create({ data: { organizationId: ctx.organizationId, userId: u.id, roleId: body.roleId } });

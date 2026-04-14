@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import argon2 from "argon2";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { LoginSchema } from "@/lib/schemas/auth";
 import { signAccessToken } from "@/lib/auth";
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const body = LoginSchema.parse(await req.json());
     const user = await prisma.user.findUnique({ where: { email: body.email } });
     if (!user || !user.isActive) return NextResponse.json({ statusCode: 401, error: "Unauthorized", message: "invalid credentials" }, { status: 401 });
-    const valid = await argon2.verify(user.passwordHash, body.password);
+    const valid = await bcrypt.compare(body.password, user.passwordHash);
     if (!valid) return NextResponse.json({ statusCode: 401, error: "Unauthorized", message: "invalid credentials" }, { status: 401 });
 
     if (user.totpEnabled) {

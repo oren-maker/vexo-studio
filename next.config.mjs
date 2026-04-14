@@ -3,5 +3,5 @@ export default {
   reactStrictMode: true,
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
-  experimental: { serverComponentsExternalPackages: ["@prisma/client", "argon2"] },
+  experimental: { serverComponentsExternalPackages: ["@prisma/client"] },
 };

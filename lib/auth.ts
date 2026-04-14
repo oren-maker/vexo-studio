@@ -64,7 +64,17 @@ async function tryApiKeyAuth(req: NextRequest): Promise<AuthContext | null> {
 export async function authenticate(req: NextRequest): Promise<AuthContext | NextResponse> {
   // API key path
   const apiKeyCtx = await tryApiKeyAuth(req);
-  if (apiKeyCtx) return apiKeyCtx;
+  if (apiKeyCtx) {
+    try {
+      const { setRequestActor } = await import("./request-context");
+      setRequestActor({
+        organizationId: apiKeyCtx.organizationId,
+        userId: apiKeyCtx.user.id,
+        ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || undefined,
+      });
+    } catch { /* ignore */ }
+    return apiKeyCtx;
+  }
 
   // JWT path: accept Bearer header (XHR) OR vexo_at cookie (direct navigation — e.g. PDF/TXT download links)
   const auth = req.headers.get("authorization") ?? "";
@@ -95,6 +105,16 @@ export async function authenticate(req: NextRequest): Promise<AuthContext | Next
       }
     }
   }
+
+  // Stash actor for the prisma audit extension
+  try {
+    const { setRequestActor } = await import("./request-context");
+    setRequestActor({
+      organizationId: membership.organizationId,
+      userId: user.id,
+      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || undefined,
+    });
+  } catch { /* ignore — auditing is best-effort */ }
 
   return { user, organizationId: membership.organizationId };
 }

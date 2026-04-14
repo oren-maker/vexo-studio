@@ -10,13 +10,13 @@ const Body = z.object({
 });
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.1-8b-instant";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 async function translateGroq(texts: string[]): Promise<string[]> {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("no groq key");
   const numbered = texts.map((t, i) => `${i + 1}. ${t}`).join("\n");
-  const sys = "Translate each numbered English UI string to natural Hebrew. Keep numbers, %, $, emojis, brand names (YouTube, Llama, Groq, fal.ai), URLs, code identifiers, and proper nouns unchanged. Output ONLY the translated lines in the same `N. translation` format, one per line, no extra commentary, no markdown.";
+  const sys = "You are a Hebrew UI translator. For EACH numbered English line below, output a Hebrew translation on its own line, prefixed by the SAME number and a dot. Translate everything that can be translated, including ALL_CAPS labels (MEMBERS=חברים, ACTIVE=פעיל, STUDIO=סטודיו, etc.), short words (View=צפייה, all=הכל), and product/show names (Echoes of Tomorrow=הדים של מחר). Keep numbers, currency symbols, %, emojis, URLs, emails, code identifiers (snake_case, kebab-case), and one-letter codes unchanged. Never skip a line. Reply ONLY with the numbered Hebrew lines, nothing else.";
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 15_000);
   try {
@@ -26,8 +26,8 @@ async function translateGroq(texts: string[]): Promise<string[]> {
       body: JSON.stringify({
         model: GROQ_MODEL,
         messages: [{ role: "system", content: sys }, { role: "user", content: numbered }],
-        temperature: 0.2,
-        max_tokens: Math.min(2000, texts.length * 80),
+        temperature: 0.1,
+        max_tokens: Math.min(2500, texts.length * 100),
       }),
       signal: ctl.signal,
     });

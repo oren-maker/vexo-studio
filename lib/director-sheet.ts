@@ -116,7 +116,7 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
   try {
     const json = await groqJson<Partial<Omit<DirectorSheet, "generatedAt">>>(
       SYSTEM, user,
-      { temperature: 0.4, maxTokens: 1500, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
+      { temperature: 0.4, maxTokens: 2500, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
     );
     sheet = {
       style:     String(json.style ?? "").trim(),

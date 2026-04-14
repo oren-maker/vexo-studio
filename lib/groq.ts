@@ -205,11 +205,21 @@ export async function groqJson<T = unknown>(system: string, user: string, opts: 
     { ...opts, responseFormat: "json" },
   );
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
-  try { return JSON.parse(cleaned) as T; } catch {
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (m) return JSON.parse(m[0]) as T;
-    throw new Error(`AI returned non-JSON: ${raw.slice(0, 200)}`);
+  try { return JSON.parse(cleaned) as T; } catch { /* try recovery */ }
+  const m = cleaned.match(/\{[\s\S]*\}/);
+  if (m) {
+    try { return JSON.parse(m[0]) as T; } catch { /* try truncated recovery */ }
   }
+  // Truncated JSON: extract whatever key:"..." pairs we can parse, even if the
+  // closing brace is missing. Each key like "style":"..." → into a partial obj.
+  const partial: Record<string, string> = {};
+  const re = /"(\w+)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+  let mm: RegExpExecArray | null;
+  while ((mm = re.exec(cleaned))) {
+    partial[mm[1]] = mm[2].replace(/\\n/g, "\n").replace(/\\"/g, '"');
+  }
+  if (Object.keys(partial).length > 0) return partial as T;
+  throw new Error(`AI returned non-JSON: ${raw.slice(0, 200)}`);
 }
 
 export const GROQ_MODELS = {

@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 
-type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; actualCost: number; revenueTotal: number; publishedAt: string | null };
+type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; actualCost: number; revenueTotal: number; publishedAt: string | null; seasonId: string };
 type Scene = { id: string; sceneNumber: number; title: string | null; status: string; actualCost: number };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -55,6 +55,9 @@ export default function EpisodePage() {
 
   return (
     <div className="space-y-6">
+      {ep.seasonId && (
+        <Link href={`/seasons/${ep.seasonId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">← Back to season</Link>
+      )}
       <div className="flex justify-between items-start">
         <div>
           <div className="text-xs text-text-muted font-mono">EP{String(ep.episodeNumber).padStart(2, "0")}</div>

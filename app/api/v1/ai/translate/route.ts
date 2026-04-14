@@ -87,14 +87,18 @@ export async function POST(req: NextRequest) {
     const body = Body.parse(await req.json());
     if (body.target === "en") return ok({ translations: body.texts });
     let lastErr: unknown;
-    // Order: Gemini (high quality, fast) → Groq fallback. Retry once on rate limit.
-    for (const fn of [translateGemini, translateGroq, translateGemini, translateGroq]) {
+    // Gemini only for translations (Groq daily TPD limit is too low for the volume).
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const out = await fn(body.texts);
+        const out = await translateGemini(body.texts);
         return ok({ translations: out });
       } catch (e) {
         lastErr = e;
-        if (String(e).includes("429")) await new Promise((r) => setTimeout(r, 2000));
+        if (String(e).includes("429")) await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+        else if (attempt === 0) {
+          // Try Groq once as last resort
+          try { return ok({ translations: await translateGroq(body.texts) }); } catch (ge) { lastErr = ge; }
+        }
       }
     }
     return NextResponse.json({ statusCode: 502, error: "BadGateway", message: String(lastErr).slice(0, 300) }, { status: 502 });

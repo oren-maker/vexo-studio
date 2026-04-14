@@ -91,8 +91,6 @@ export default function BudgetsTokensPage() {
     <Card title={lang === "he" ? "תקציבים וטוקנים" : "Budgets & Tokens"} subtitle={lang === "he" ? "ניהול ספקי AI ויתרות הקרדיט שלהם — סנכרון, טעינה, היסטוריה" : "Manage AI providers and their credit balances — sync, top up, history"}>
       {err && <div className="text-status-errText text-sm mb-3">{err}</div>}
 
-      <GeminiTextRow />
-
 
       <div className="flex justify-between items-center mb-4">
         <span className="text-xs text-text-muted">{providers.length} <T>providers</T></span>

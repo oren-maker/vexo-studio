@@ -12,6 +12,27 @@ export async function GET(req: NextRequest) {
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     const f = requirePermission(ctx, "manage_providers"); if (f) return f;
+
+    // Ensure Google Gemini exists as a standalone provider so it shows in the
+    // wallets table even before the first AI call.
+    const hasGemini = await prisma.provider.findFirst({ where: { organizationId: ctx.organizationId, name: "Google Gemini" } });
+    if (!hasGemini) {
+      try {
+        const p = await prisma.provider.create({
+          data: {
+            organizationId: ctx.organizationId,
+            name: "Google Gemini",
+            category: "TEXT",
+            apiUrl: "https://generativelanguage.googleapis.com",
+            isActive: true,
+          },
+        });
+        await prisma.creditWallet.create({
+          data: { providerId: p.id, availableCredits: 0, totalCreditsAdded: 0, isTrackingEnabled: true },
+        }).catch(() => {});
+      } catch { /* race — fine */ }
+    }
+
     return ok(await prisma.provider.findMany({
       where: { organizationId: ctx.organizationId },
       include: { wallet: true },

@@ -4,7 +4,9 @@
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+// gemini-2.5-flash is the current paid model. v2.0 was deprecated; some keys
+// still respond to it but slowly / with quota errors that cause timeouts.
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 

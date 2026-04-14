@@ -15,7 +15,7 @@ export type AuthContext = {
 export function signAccessToken(userId: string): string {
   const secret = process.env.JWT_ACCESS_SECRET;
   if (!secret) throw new Error("JWT_ACCESS_SECRET not set");
-  return jwt.sign({ sub: userId }, secret, { expiresIn: "15m" });
+  return jwt.sign({ sub: userId }, secret, { expiresIn: "30d" });
 }
 
 export function verifyAccessToken(token: string): { sub: string } | null {

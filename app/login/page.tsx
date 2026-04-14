@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [totp, setTotp] = useState("");
+  const [remember, setRemember] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -26,7 +27,7 @@ export default function LoginPage() {
           method: "POST",
           body: { challengeId, token: totp },
         });
-        setAccessToken(data.accessToken);
+        setAccessToken(data.accessToken, remember);
         router.push("/admin");
         return;
       }
@@ -37,7 +38,7 @@ export default function LoginPage() {
       if ("requiresTotpChallenge" in data && data.requiresTotpChallenge) {
         setChallengeId(data.challengeId);
       } else if ("accessToken" in data) {
-        setAccessToken(data.accessToken);
+        setAccessToken(data.accessToken, remember);
         router.push("/admin");
       }
     } catch (e: unknown) {
@@ -67,6 +68,12 @@ export default function LoginPage() {
           </>
         )}
 
+        {!challengeId && (
+          <label className="flex items-center gap-2 text-sm text-text-secondary mb-4 cursor-pointer select-none">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="accent-accent" />
+            זכור אותי למשך 30 יום
+          </label>
+        )}
         {err && <div className="text-status-errText text-sm mb-3">{err}</div>}
         <button disabled={busy} className="w-full py-2 rounded-lg bg-accent text-white font-semibold hover:bg-accent-light disabled:opacity-50">{busy ? "Working…" : challengeId ? "Verify" : "Sign in"}</button>
         {challengeId && (

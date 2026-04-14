@@ -12,10 +12,12 @@ export function getAccessToken(): string | null {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-export function setAccessToken(token: string | null) {
+export function setAccessToken(token: string | null, remember = true) {
   if (typeof document === "undefined") return;
   if (token) {
-    document.cookie = `vexo_at=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+    // remember=true → persist 30 days (survives browser restart). false → session cookie.
+    const maxAge = remember ? `; max-age=${30 * 86400}` : "";
+    document.cookie = `vexo_at=${encodeURIComponent(token)}; path=/; SameSite=Lax${maxAge}`;
   } else {
     document.cookie = `vexo_at=; path=/; max-age=0`;
   }

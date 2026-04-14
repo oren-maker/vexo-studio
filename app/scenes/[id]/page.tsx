@@ -53,12 +53,12 @@ export default function ScenePage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, scene, he]);
   const [imageModel, setImageModel] = useState<"nano-banana">("nano-banana");
-  const [videoModel, setVideoModel] = useState<"seedance" | "kling" | "veo3-pro" | "veo3-fast">("veo3-fast");
+  const [videoModel, setVideoModel] = useState<"seedance" | "kling" | "veo3-pro" | "veo3-fast">("seedance");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
   const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean } | null>(null);
-  // Default to VEO 3 Fast — only model that generates audio natively. SeeDance + Kling are silent.
-  const [veoModel, setVeoModel] = useState<"seedance" | "kling" | "veo3-fast" | "veo3-pro">("veo3-fast");
+  // Default to SeeDance 2 — best quality per user. Silent; warn if dialogue present.
+  const [veoModel, setVeoModel] = useState<"seedance" | "kling" | "veo3-fast" | "veo3-pro">("seedance");
   const [veoDuration, setVeoDuration] = useState(5);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
   const RATES = { seedance: 0.124, kling: 0.056, "veo3-fast": 0.40, "veo3-pro": 0.75 };
@@ -332,6 +332,37 @@ export default function ScenePage() {
           <button disabled={busy} onClick={approve} className="px-3 py-1.5 rounded-lg border-2 border-status-okText text-status-okText bg-white text-sm font-semibold hover:bg-status-okText hover:text-white transition-colors disabled:opacity-50">{he ? "אשר סצנה" : "Approve"}</button>
         </div>
 
+        {veoJob && (
+          <Card title={he ? "🎬 מייצר וידאו" : "🎬 Generating video"} subtitle={veoJob.done ? (he ? "הושלם" : "Done") : (he ? "fal מעבד את הבקשה (בממוצע 30-90 שניות)" : "fal is processing (typical 30-90s)")}>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-sm">
+                <div>
+                  <div className="font-semibold">{MODEL_LABEL[veoModel].emoji} {MODEL_LABEL[veoModel].name}</div>
+                  <div className="text-xs text-text-muted">{veoDuration}s · {veoAspect} · <span className="num">${veoEstimate.toFixed(2)}</span></div>
+                </div>
+                <div className="text-end">
+                  <div className="text-xs text-text-muted">{he ? "זמן שעבר" : "Elapsed"}</div>
+                  <div className="text-2xl font-bold num">{veoJob.elapsed}s</div>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-bg-main overflow-hidden">
+                <div className={`h-full transition-all ${veoJob.done ? "bg-status-okText" : "bg-accent"}`} style={{ width: `${Math.min(100, (veoJob.elapsed / veoJob.durationGoal) * 100)}%` }} />
+              </div>
+              {veoJob.done ? (
+                <div className="flex items-center justify-between text-sm text-status-okText">
+                  <span>✅ {he ? "הוידאו מוכן — גלול למטה לצפייה" : "Video ready — scroll down"}</span>
+                  <button onClick={() => setVeoJob(null)} className="text-xs text-text-muted hover:text-text-primary">{he ? "סגור" : "Dismiss"}</button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-xs text-text-muted">
+                  <span>{he ? "אפשר להמשיך לעבוד. העמוד יתרענן אוטומטית כשהוידאו יהיה מוכן." : "You can keep working. Page auto-refreshes when ready."}</span>
+                  <button onClick={() => setVeoJob(null)} className="hover:text-text-primary">{he ? "הסתר" : "Hide"}</button>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
         {((scene.sceneCharacters?.length ?? 0) > 0 || (scene.scriptMentionsNotInCast?.length ?? 0) > 0) && (
           <Card title={he ? "דמויות בסצנה" : "Characters in this scene"} subtitle={he ? "מי שמופיעים (משמש גם לעקביות חזותית בייצור)" : "Who appears (used for visual consistency)"}>
             <div className="flex gap-3 flex-wrap">
@@ -372,37 +403,6 @@ export default function ScenePage() {
         <Card title={he ? "תסריט" : "Script"}>
           <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder={he ? "מספר: פעם אחת..." : "NARRATOR: Once upon a time…"} />
         </Card>
-
-        {veoJob && (
-          <Card title={he ? "🎬 מייצר וידאו" : "🎬 Generating video"} subtitle={veoJob.done ? (he ? "הושלם" : "Done") : (he ? "fal מעבד את הבקשה (בממוצע 30-90 שניות)" : "fal is processing (typical 30-90s)")}>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <div>
-                  <div className="font-semibold">{MODEL_LABEL[veoModel].emoji} {MODEL_LABEL[veoModel].name}</div>
-                  <div className="text-xs text-text-muted">{veoDuration}s · {veoAspect} · <span className="num">${veoEstimate.toFixed(2)}</span></div>
-                </div>
-                <div className="text-end">
-                  <div className="text-xs text-text-muted">{he ? "זמן שעבר" : "Elapsed"}</div>
-                  <div className="text-2xl font-bold num">{veoJob.elapsed}s</div>
-                </div>
-              </div>
-              <div className="h-2 rounded-full bg-bg-main overflow-hidden">
-                <div className={`h-full transition-all ${veoJob.done ? "bg-status-okText" : "bg-accent"}`} style={{ width: `${Math.min(100, (veoJob.elapsed / veoJob.durationGoal) * 100)}%` }} />
-              </div>
-              {veoJob.done ? (
-                <div className="flex items-center justify-between text-sm text-status-okText">
-                  <span>✅ {he ? "הוידאו מוכן — גלול למטה לצפייה" : "Video ready — scroll down"}</span>
-                  <button onClick={() => setVeoJob(null)} className="text-xs text-text-muted hover:text-text-primary">{he ? "סגור" : "Dismiss"}</button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between text-xs text-text-muted">
-                  <span>{he ? "אפשר להמשיך לעבוד. העמוד יתרענן אוטומטית כשהוידאו יהיה מוכן." : "You can keep working. Page auto-refreshes when ready."}</span>
-                  <button onClick={() => setVeoJob(null)} className="hover:text-text-primary">{he ? "הסתר" : "Hide"}</button>
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
 
         <Card title={he ? "דף הבמאי · Director Sheet" : "Director Sheet"} subtitle={he ? "8 סעיפים שמוזנים לפרומפט של ייצור הוידאו" : "8 sections fed into the video generation prompt"}>
           <div className="flex justify-end mb-3">

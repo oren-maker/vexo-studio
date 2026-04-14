@@ -81,7 +81,19 @@ export default function AIDirectorPage() {
           </div>
           {lastResult && (
             <div className={`rounded-lg p-3 text-sm ${lastResult.action === "ERROR" ? "bg-status-errBg text-status-errText" : lastResult.action === "autopilot_acted" ? "bg-accent/10 text-accent" : "bg-status-okBg text-status-okText"}`}>
-              <div className="font-semibold">{lastResult.action === "autopilot_acted" ? (he ? "🤖 האוטופיילוט פעל" : "🤖 Autopilot acted") : lastResult.action}</div>
+              <div className="font-semibold">{(() => {
+                const map: Record<string, string> = he ? {
+                  autopilot_acted: "🤖 האוטופיילוט פעל",
+                  noop: "אין פעולה לבצע",
+                  publish: "מומלץ: פרסום",
+                  review_pending: "מומלץ: סקירה",
+                  create_episode: "מומלץ: ייצור פרק",
+                  generate_storyboard: "מומלץ: ייצור תשריט",
+                  write_scene: "מומלץ: כתיבת סצנה",
+                  ERROR: "שגיאה",
+                } : { autopilot_acted: "🤖 Autopilot acted" };
+                return map[lastResult.action] ?? lastResult.action;
+              })()}</div>
               <div className="text-xs">{lastResult.reason}</div>
               {lastResult.executed && Object.keys(lastResult.executed).length > 0 && (
                 <ul className="text-xs mt-2 grid grid-cols-2 gap-1">

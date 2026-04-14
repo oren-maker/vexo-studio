@@ -181,8 +181,22 @@ export const AIDirector = {
           reason = Object.entries(executed).map(([k, v]) => `${k}: ${v}`).join(", ");
           await prisma.aIDirector.update({ where: { projectId }, data: { experienceScore: { increment: 0.01 * totalActed } } });
         } else {
+          // Build an explanation of WHY there's nothing to do, in Hebrew.
+          const [storyboardApproved, allEps, allScenes] = await Promise.all([
+            prisma.scene.count({ where: { episode: { season: { series: { projectId } } }, status: "STORYBOARD_APPROVED" } }),
+            prisma.episode.findMany({ where: { season: { series: { projectId } } }, select: { status: true } }),
+            prisma.scene.count({ where: { episode: { season: { series: { projectId } } } } }),
+          ]);
+          const epStatuses: Record<string, number> = {};
+          for (const e of allEps) epStatuses[e.status] = (epStatuses[e.status] ?? 0) + 1;
+          const hints: string[] = [];
+          if (allScenes === 0) hints.push("אין סצנות בפרויקט עדיין");
+          if (storyboardApproved > 0) hints.push(`${storyboardApproved} סצנות עברו אישור תשריט וממתינות לייצור וידאו (לחץ 'צור וידאו' בעמוד הסצנה)`);
+          if ((epStatuses.READY_FOR_PUBLISH ?? 0) > 0) hints.push(`${epStatuses.READY_FOR_PUBLISH} פרקים מוכנים לפרסום אך ללא תאריך מתוזמן (קבע תאריך בלוח השנה)`);
+          if ((epStatuses.DRAFT ?? 0) > 0) hints.push(`${epStatuses.DRAFT} פרקים במצב טיוטה — עוד לא מוכנים לאישור`);
+          if (hints.length === 0) hints.push("הכל מסונכרן — אין פעולות ממתינות");
           action = "noop";
-          reason = "Autopilot ran but nothing was actionable (no pending reviews, no scheduled publishes ready).";
+          reason = hints.join(" · ");
         }
       }
       // ----- ASSISTED MODE: AI recommendation only -----
@@ -196,13 +210,13 @@ export const AIDirector = {
           action = j.action ?? "noop";
           reason = j.reason ?? "—";
         } catch (e) {
-          if (episodesDue.length > 0) { action = "publish"; reason = `${episodesDue.length} episode(s) due (AI fallback)`; }
-          else if (scenesStoryboard.length + scenesVideo.length > 0) { action = "review_pending"; reason = `${scenesStoryboard.length + scenesVideo.length} scene(s) await review (AI fallback)`; }
-          else { action = "noop"; reason = `AI error: ${(e as Error).message.slice(0, 100)}`; }
+          if (episodesDue.length > 0) { action = "publish"; reason = `${episodesDue.length} פרקים מוכנים לפרסום (זמן הגיע)`; }
+          else if (scenesStoryboard.length + scenesVideo.length > 0) { action = "review_pending"; reason = `${scenesStoryboard.length + scenesVideo.length} סצנות ממתינות לסקירה`; }
+          else { action = "noop"; reason = `שגיאת AI: ${(e as Error).message.slice(0, 100)}`; }
         }
       } else {
-        if (episodesDue.length > 0) { action = "publish"; reason = `${episodesDue.length} episode(s) due`; }
-        else if (scenesStoryboard.length + scenesVideo.length > 0) { action = "review_pending"; reason = `${scenesStoryboard.length + scenesVideo.length} scene(s) await review`; }
+        if (episodesDue.length > 0) { action = "publish"; reason = `${episodesDue.length} פרקים מוכנים לפרסום (זמן הגיע)`; }
+        else if (scenesStoryboard.length + scenesVideo.length > 0) { action = "review_pending"; reason = `${scenesStoryboard.length + scenesVideo.length} סצנות ממתינות לסקירה`; }
       }
     } catch (e) { reason = `error: ${(e as Error).message.slice(0, 200)}`; }
 

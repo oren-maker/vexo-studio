@@ -9,7 +9,8 @@ import { useLang } from "@/lib/i18n";
 
 type Frame = { generatedImageUrl: string | null; approvedImageUrl: string | null };
 type Scene = { id: string; sceneNumber: number; status: string; scriptText: string | null; frames: Frame[] };
-type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; scenes: Scene[] };
+type EpisodeChar = { character: { id: string; name: string; media: { fileUrl: string }[] } };
+type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; scenes: Scene[]; characters?: EpisodeChar[] };
 type Season = { id: string; seasonNumber: number; title: string | null; description: string | null; series: { project: { id: string; name: string } } };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -44,8 +45,8 @@ export default function SeasonPage() {
     try {
       const eps = await api<Episode[]>(`/api/v1/seasons/${id}/episodes`);
       const hydrated: Episode[] = await Promise.all(eps.map(async (e) => {
-        const detail = await api<{ scenes: Scene[] }>(`/api/v1/episodes/${e.id}`).catch(() => ({ scenes: [] as Scene[] }));
-        return { ...e, scenes: detail.scenes ?? [] };
+        const detail = await api<{ scenes: Scene[]; characters?: EpisodeChar[] }>(`/api/v1/episodes/${e.id}`).catch(() => ({ scenes: [] as Scene[], characters: [] }));
+        return { ...e, scenes: detail.scenes ?? [], characters: detail.characters ?? [] };
       }));
       setEpisodes(hydrated);
     } catch { /* ignore */ }
@@ -57,6 +58,19 @@ export default function SeasonPage() {
     const f = e.currentTarget as HTMLFormElement;
     await api(`/api/v1/seasons/${id}/episodes`, { method: "POST", body: { episodeNumber: episodes.length + 1, title: (f.elements.namedItem("t") as HTMLInputElement).value } });
     setCreating(false); load();
+  }
+
+  const [genBusy, setGenBusy] = useState(false);
+  async function generateEpisodeWithAi() {
+    const hint = prompt(lang === "he" ? "רמז אופציונלי לפרק החדש (עלילה/טון/אירוע מרכזי). השאר ריק לאוטומטי:" : "Optional hint for the new episode (plot/tone/key event). Leave empty for full auto:");
+    if (hint === null) return;
+    setGenBusy(true);
+    try {
+      const r = await api<{ episodeNumber: number; title: string; scenes: number }>(`/api/v1/seasons/${id}/generate-episode`, { method: "POST", body: hint ? { hint } : {} });
+      alert((lang === "he" ? `נוצר פרק ${r.episodeNumber}: ${r.title} (${r.scenes} סצנות)` : `Created episode ${r.episodeNumber}: ${r.title} (${r.scenes} scenes)`));
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setGenBusy(false); }
   }
 
   async function autoSeason() {
@@ -169,8 +183,9 @@ export default function SeasonPage() {
       )}
 
       <Card title={lang === "he" ? "פרקים" : "Episodes"} subtitle={`${episodes.length} ${lang === "he" ? "פרקים" : "episodes"}`}>
-        <div className="flex justify-end gap-2 mb-3">
+        <div className="flex justify-end gap-2 mb-3 flex-wrap">
           <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">+ {lang === "he" ? "פרק" : "Episode"}</button>
+          <button disabled={genBusy} onClick={generateEpisodeWithAi} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">🤖 {genBusy ? (lang === "he" ? "מייצר פרק…" : "Generating…") : (lang === "he" ? "פרק חדש עם AI" : "New episode with AI")}</button>
           <button disabled={autoBusy} onClick={autoSeason} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">⚡ {autoBusy ? (lang === "he" ? "מייצר…" : "Generating…") : (lang === "he" ? "מילוי אוטומטי" : "Auto-fill season")}</button>
         </div>
         {creating && (
@@ -206,6 +221,17 @@ export default function SeasonPage() {
                   <div className="h-1.5 rounded-full bg-bg-card mt-2 overflow-hidden">
                     <div className="h-full transition-all" style={{ width: `${pct}%`, background: progressColor(pct) }} />
                   </div>
+                  {ep.characters && ep.characters.length > 0 && (
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-text-muted">{lang === "he" ? "דמויות:" : "Characters:"}</span>
+                      {ep.characters.map((ec) => (
+                        <span key={ec.character.id} className="inline-flex items-center gap-1 text-[11px] bg-bg-card rounded-full pe-2 ps-0.5 py-0.5">
+                          {ec.character.media[0] ? <img src={ec.character.media[0].fileUrl} alt="" className="w-4 h-4 rounded-full object-cover" /> : <span className="w-4 h-4 rounded-full bg-bg-main" />}
+                          {ec.character.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {epFeedback?.episodeId === ep.id && epFeedback.data && (
                     <div className="mt-3 bg-bg-card rounded-lg p-3 text-xs space-y-2">
                       <div className="flex justify-between items-start gap-2">

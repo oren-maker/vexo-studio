@@ -86,7 +86,8 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <Link href={`/projects/${id}/characters`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">🎭 {lang === "he" ? "דמויות" : "Characters"}</Link>
         <Link href={`/projects/${id}/finance`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">💰 {lang === "he" ? "כספים" : "Finance"}</Link>
         <Link href={`/projects/${id}/distribution`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">📡 {lang === "he" ? "הפצה" : "Distribution"}</Link>
         <Link href={`/projects/${id}/analytics`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">📊 {lang === "he" ? "אנליטיקס" : "Analytics"}</Link>

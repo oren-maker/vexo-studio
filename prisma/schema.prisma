@@ -565,9 +565,25 @@ model Episode {
   recapCandidates    RecapCandidate[]
   thumbnailVariants  ThumbnailVariant[]
   calendarEntries    ContentCalendarEntry[]
+  characters         EpisodeCharacter[]
 
   @@unique([seasonId, episodeNumber])
   @@index([seasonId, status])
+}
+
+model EpisodeCharacter {
+  id          String   @id @default(cuid())
+  episodeId   String
+  characterId String
+  role        String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  episode   Episode   @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([episodeId, characterId])
+  @@index([characterId])
 }
 
 // =====================================================================
@@ -855,9 +871,10 @@ model Character {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  project Project          @relation(fields: [projectId], references: [id])
-  media   CharacterMedia[]
-  voices  CharacterVoice[]
+  project     Project            @relation(fields: [projectId], references: [id])
+  media       CharacterMedia[]
+  voices      CharacterVoice[]
+  appearances EpisodeCharacter[]
 
   @@index([projectId])
 }

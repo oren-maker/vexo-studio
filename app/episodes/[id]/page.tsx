@@ -5,7 +5,8 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 
-type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; actualCost: number; revenueTotal: number; publishedAt: string | null; seasonId: string };
+type EpChar = { character: { id: string; name: string; roleType: string | null; media: { fileUrl: string }[] } };
+type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; actualCost: number; revenueTotal: number; publishedAt: string | null; seasonId: string; characters?: EpChar[] };
 type Scene = { id: string; sceneNumber: number; title: string | null; status: string; actualCost: number };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -66,6 +67,26 @@ export default function EpisodePage() {
         </div>
         <span className={`text-xs px-3 py-1 rounded-full font-bold ${STATUS_COLOR[ep.status] ?? "bg-bg-main"}`}>{ep.status}</span>
       </div>
+
+      {ep.characters && ep.characters.length > 0 && (
+        <Card title="דמויות בפרק" subtitle={`${ep.characters.length} characters`}>
+          <div className="flex gap-3 flex-wrap">
+            {ep.characters.map((ec) => (
+              <div key={ec.character.id} className="flex items-center gap-2 bg-bg-main rounded-full pe-3 ps-0.5 py-0.5">
+                {ec.character.media[0] ? (
+                  <img src={ec.character.media[0].fileUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-bg-card flex items-center justify-center text-xs">🎭</div>
+                )}
+                <div className="text-sm">
+                  <div className="font-medium">{ec.character.name}</div>
+                  {ec.character.roleType && <div className="text-[10px] text-text-muted">{ec.character.roleType}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         <Link href={`/episodes/${id}/seo`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">SEO</Link>

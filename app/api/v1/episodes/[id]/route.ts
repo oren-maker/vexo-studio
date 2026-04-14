@@ -23,7 +23,15 @@ async function assertEpisodeInOrg(id: string, orgId: string) {
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
-    return ok(await assertEpisodeInOrg(params.id, ctx.organizationId));
+    const ep = await prisma.episode.findFirst({
+      where: { id: params.id, season: { series: { project: { organizationId: ctx.organizationId } } } },
+      include: {
+        scenes: { orderBy: { sceneNumber: "asc" }, include: { frames: { orderBy: { orderIndex: "asc" } } } },
+        characters: { include: { character: { include: { media: { take: 1 } } } } },
+      },
+    });
+    if (!ep) throw Object.assign(new Error("episode not found"), { statusCode: 404 });
+    return ok(ep);
   } catch (e) { return handleError(e); }
 }
 

@@ -18,7 +18,7 @@ const VIDEO_MODEL_PRETTY: Record<string, string> = {
   "veo3-pro": "💎 VEO 3 Pro",
 };
 type DirectorSheet = { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string; generatedAt: string };
-type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string; soundNotes?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[] };
+type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string; soundNotes?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[]; scriptMentionsNotInCast?: string[] };
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
@@ -149,13 +149,34 @@ export default function ScenePage() {
   }
 
   const [sheetBusy, setSheetBusy] = useState(false);
+  const [sheetProgress, setSheetProgress] = useState<{ elapsed: number; step: number; label: string; done?: boolean; error?: string } | null>(null);
+
   async function buildSheet() {
     setSheetBusy(true);
+    const steps = he
+      ? ["קורא תסריט + דמויות", "טוען קאש סדרה", "שולח לבמאי AI", "בונה 8 סעיפים", "שומר"]
+      : ["Reading script + cast", "Loading series cache", "Calling AI director", "Building 8 sections", "Saving"];
+    const durations = [1, 2, 10, 6, 1];
+    setSheetProgress({ elapsed: 0, step: 0, label: steps[0] });
+    const started = Date.now();
+    const tick = setInterval(() => {
+      const sec = Math.round((Date.now() - started) / 1000);
+      let acc = 0; let idx = 0;
+      for (let i = 0; i < durations.length; i++) { acc += durations[i]; if (sec < acc) { idx = i; break; } idx = durations.length - 1; }
+      setSheetProgress((p) => p && !p.done ? { ...p, elapsed: sec, step: idx, label: steps[idx] } : p);
+    }, 1000);
     try {
       await api(`/api/v1/scenes/${id}/director-sheet`, { method: "POST" });
+      clearInterval(tick);
+      setSheetProgress({ elapsed: Math.round((Date.now() - started) / 1000), step: steps.length - 1, label: steps[steps.length - 1], done: true });
       load();
-    } catch (e) { alert((e as Error).message); }
-    finally { setSheetBusy(false); }
+      setTimeout(() => setSheetProgress(null), 2000);
+    } catch (e) {
+      clearInterval(tick);
+      setSheetProgress((p) => p ? { ...p, done: true, error: (e as Error).message, elapsed: Math.round((Date.now() - started) / 1000) } : null);
+    } finally {
+      setSheetBusy(false);
+    }
   }
 
   async function breakdown() {
@@ -301,10 +322,10 @@ export default function ScenePage() {
           <button disabled={busy} onClick={approve} className="px-3 py-1.5 rounded-lg border-2 border-status-okText text-status-okText bg-white text-sm font-semibold hover:bg-status-okText hover:text-white transition-colors disabled:opacity-50">{he ? "אשר סצנה" : "Approve"}</button>
         </div>
 
-        {scene.sceneCharacters && scene.sceneCharacters.length > 0 && (
-          <Card title={he ? "דמויות בסצנה" : "Characters in this scene"} subtitle={he ? "מי שמופיעים (משמש גם לעקביות חזותית בייצור)" : "Who appears (also used for visual consistency during generation)"}>
+        {((scene.sceneCharacters?.length ?? 0) > 0 || (scene.scriptMentionsNotInCast?.length ?? 0) > 0) && (
+          <Card title={he ? "דמויות בסצנה" : "Characters in this scene"} subtitle={he ? "מי שמופיעים (משמש גם לעקביות חזותית בייצור)" : "Who appears (used for visual consistency)"}>
             <div className="flex gap-3 flex-wrap">
-              {scene.sceneCharacters.map((c) => {
+              {(scene.sceneCharacters ?? []).map((c) => {
                 const missing = c.media.length === 0;
                 return (
                   <div key={c.id} className={`flex items-center gap-2 rounded-full pe-3 ps-0.5 py-0.5 ${missing ? "bg-status-errBg" : "bg-bg-main"}`}>
@@ -322,6 +343,19 @@ export default function ScenePage() {
                 );
               })}
             </div>
+            {(scene.scriptMentionsNotInCast?.length ?? 0) > 0 && (
+              <div className="mt-3 pt-3 border-t border-bg-main">
+                <div className="text-[10px] uppercase tracking-widest text-status-warnText mb-2">
+                  ⚠ {he ? "שמות שמוזכרים בתסריט אבל לא קיימים כדמויות:" : "Names mentioned in script but not in cast:"}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {scene.scriptMentionsNotInCast!.map((n) => (
+                    <span key={n} className="text-xs px-2 py-1 rounded-full bg-status-warningBg text-status-warnText font-mono uppercase">{n}</span>
+                  ))}
+                </div>
+                <div className="text-[11px] text-text-muted mt-2">{he ? "צור אותם בעמוד דמויות (🎭) כדי שהם יופיעו בעקביות בווידאו." : "Create them on the Characters page so the video is consistent."}</div>
+              </div>
+            )}
           </Card>
         )}
 
@@ -366,6 +400,23 @@ export default function ScenePage() {
               {sheetBusy ? (he ? "מייצר…" : "Generating…") : scene.memoryContext?.directorSheet ? (he ? "🔁 ייצר מחדש" : "🔁 Regenerate") : (he ? "✨ ייצר עם AI" : "✨ Generate with AI")}
             </button>
           </div>
+          {sheetProgress && (
+            <div className={`mb-3 rounded-lg p-3 border ${sheetProgress.error ? "bg-status-errBg border-status-errText" : sheetProgress.done ? "bg-status-okBg border-status-okText" : "bg-bg-main border-accent"}`}>
+              {sheetProgress.error ? (
+                <div className="text-sm text-status-errText">⚠ {sheetProgress.error}</div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-xs">
+                    <span>{sheetProgress.done ? (he ? "✅ דף הבמאי מוכן" : "✅ Sheet ready") : sheetProgress.label}</span>
+                    <span className="num text-text-muted">{sheetProgress.elapsed}s</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-bg-card mt-2 overflow-hidden">
+                    <div className={`h-full transition-all ${sheetProgress.done ? "bg-status-okText" : "bg-accent"}`} style={{ width: `${sheetProgress.done ? 100 : Math.min(99, ((sheetProgress.step + 1) / 5) * 100)}%` }} />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {scene.memoryContext?.directorSheet ? (() => {
             const s = scene.memoryContext!.directorSheet!;
             const rows = [

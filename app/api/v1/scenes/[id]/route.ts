@@ -114,15 +114,29 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         where: { projectId },
         include: { media: { take: 1, orderBy: { createdAt: "asc" } } },
       });
-      sceneCharacters = all.filter((c) => {
+      const matched = all.filter((c) => {
         const n = c.name.toLowerCase().trim();
-        return candidateNames.has(n)
-          // Also allow first-name match against script ALL-CAPS tokens
-          || [...candidateNames].some((cand) => n.startsWith(cand) || cand.startsWith(n.split(" ")[0]));
+        const firstName = n.split(" ")[0];
+        if (candidateNames.has(n)) return true;
+        for (const cand of candidateNames) {
+          if (n === cand) return true;
+          if (n.startsWith(cand + " ")) return true;
+          if (cand === firstName) return true;
+          if (cand.startsWith(firstName + " ")) return true;
+        }
+        return false;
       });
+      sceneCharacters = matched;
+
+      // Names mentioned in script/memoryContext that DON'T have a Character row yet
+      const matchedNames = new Set(matched.flatMap((c) => [c.name.toLowerCase().trim(), c.name.toLowerCase().split(" ")[0]]));
+      const missing = [...fromScript, ...names].filter((n) => !matchedNames.has(n) && n.length >= 3);
+      ;(sceneCharacters as { scriptOnlyNames?: string[] } & object[]).push(...[]); // noop to keep variable type
+      (scene as unknown as { _scriptMentionsNotInCast: string[] })._scriptMentionsNotInCast = [...new Set(missing)];
     }
 
-    return ok({ ...scene, frames: framesWithCost, sceneCharacters, videos });
+    const scriptMentionsNotInCast = (scene as unknown as { _scriptMentionsNotInCast?: string[] })._scriptMentionsNotInCast ?? [];
+    return ok({ ...scene, frames: framesWithCost, sceneCharacters, videos, scriptMentionsNotInCast });
   } catch (e) { return handleError(e); }
 }
 

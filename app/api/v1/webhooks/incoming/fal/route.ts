@@ -51,10 +51,11 @@ export async function POST(req: NextRequest) {
         });
         await prisma.scene.update({ where: { id: sceneId }, data: { status: "VIDEO_REVIEW" } });
 
-        // Charge wallet — fal payload may include duration. Default 5s if unknown.
+        // Charge wallet by the ACTUAL video duration reported by fal, never the
+        // scene's target duration. fal clamps submissions to 3-10s anyway.
         if (orgId) {
-          const seconds = result?.video?.duration ?? result?.duration ?? scene.targetDurationSeconds ?? 5;
-          // Detect model from URL or metadata; default to seedance
+          const reported = Number(result?.video?.duration ?? result?.duration ?? 0);
+          const seconds = reported > 0 && reported <= 10 ? reported : 5; // safe cap
           const modelHint: VideoModel = (typeof result?.model === "string" && result.model.includes("kling")) ? "kling" : "seedance";
           await chargeUsd({
             organizationId: orgId, projectId,
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
             providerName: "fal.ai", category: "GENERATION",
             description: `Video · ${modelHint} · ${seconds}s`,
             unitCost: priceVideo(modelHint, seconds), quantity: 1,
-            meta: { requestId },
+            meta: { requestId, model: modelHint, durationSeconds: seconds, reportedByProvider: reported > 0 },
           });
         }
       }

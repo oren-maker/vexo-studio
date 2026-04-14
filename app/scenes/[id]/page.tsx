@@ -28,7 +28,22 @@ export default function ScenePage() {
   }
   useEffect(() => { load(); }, [id]);
 
-  const [lightbox, setLightbox] = useState<{ url: string; title: string; sub: string } | null>(null);
+  const [lightbox, setLightbox] = useState<{ index: number } | null>(null);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      const list = (scene?.frames ?? []).filter((f) => f.approvedImageUrl || f.generatedImageUrl);
+      if (list.length === 0) return;
+      if (e.key === "Escape") setLightbox(null);
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const delta = e.key === "ArrowRight" ? (he ? -1 : 1) : (he ? 1 : -1);
+        setLightbox({ index: (lightbox.index + delta + list.length) % list.length });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, scene, he]);
   const [imageModel, setImageModel] = useState<"nano-banana">("nano-banana");
   const [videoModel, setVideoModel] = useState<"seedance" | "kling">("seedance");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
@@ -249,12 +264,14 @@ export default function ScenePage() {
             <div className="text-text-muted text-sm">{he ? "אין מסגרות עדיין. לחץ \"צור תשריט\" להתחיל." : "No frames yet. Click \"Generate storyboard\" to start."}</div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {(() => { const withImages = scene.frames.filter((ff) => ff.approvedImageUrl || ff.generatedImageUrl); return null; })()}
               {scene.frames.map((f) => {
                 const url = f.approvedImageUrl || f.generatedImageUrl;
+                const visibleIndex = scene.frames.filter((ff) => ff.approvedImageUrl || ff.generatedImageUrl).findIndex((ff) => ff.id === f.id);
                 return (
                   <div key={f.id} className="bg-bg-main rounded-lg p-3 text-xs">
                     {url ? (
-                      <button onClick={() => setLightbox({ url, title: f.beatSummary ?? "", sub: `${he ? "מסגרת" : "Frame"} ${f.orderIndex + 1}` })} className="block w-full aspect-video bg-bg-card rounded mb-2 overflow-hidden group">
+                      <button onClick={() => setLightbox({ index: visibleIndex })} className="block w-full aspect-video bg-bg-card rounded mb-2 overflow-hidden group">
                         <img src={url} alt={f.beatSummary ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                       </button>
                     ) : (
@@ -343,17 +360,33 @@ export default function ScenePage() {
       </div>
       </div>
 
-      {lightbox && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setLightbox(null)}>
-          <div className="relative max-w-5xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <img src={lightbox.url} alt={lightbox.title} className="max-w-full max-h-[85vh] rounded-lg" />
-            <div className="absolute top-2 end-2 flex gap-2">
-              <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full max-w-md truncate">{lightbox.sub} · {lightbox.title}</span>
-              <button onClick={() => setLightbox(null)} className="bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+      {lightbox && (() => {
+        const list = (scene?.frames ?? []).filter((ff) => ff.approvedImageUrl || ff.generatedImageUrl);
+        const f = list[lightbox.index];
+        if (!f) return null;
+        const url = f.approvedImageUrl || f.generatedImageUrl;
+        const go = (delta: number) => setLightbox({ index: (lightbox.index + delta + list.length) % list.length });
+        return (
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50" onClick={() => setLightbox(null)}>
+            <div className="relative max-w-5xl w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-center gap-2">
+                {list.length > 1 && <button onClick={() => go(he ? 1 : -1)} className="bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full shrink-0 text-xl">‹</button>}
+                <img src={url ?? ""} alt={f.beatSummary ?? ""} className="max-w-full max-h-[80vh] rounded-lg" />
+                {list.length > 1 && <button onClick={() => go(he ? -1 : 1)} className="bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full shrink-0 text-xl">›</button>}
+              </div>
+              <button onClick={() => setLightbox(null)} className="absolute top-2 end-2 bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+              <div className="mt-3 bg-black/70 text-white rounded-lg p-3 text-xs flex flex-wrap gap-x-6 gap-y-1 items-center">
+                <div><span className="text-white/60">{he ? "מסגרת" : "Frame"}: </span><span className="font-semibold">{f.orderIndex + 1}</span></div>
+                {f.model && <div><span className="text-white/60">{he ? "מודל" : "Model"}: </span><span className="font-semibold">{f.model}</span></div>}
+                {f.lastChargedAt && <div><span className="text-white/60">{he ? "נוצר" : "Created"}: </span><span className="num">{new Date(f.lastChargedAt).toLocaleString()}</span></div>}
+                {f.cost && f.cost > 0 ? <div><span className="text-white/60">{he ? "עלות" : "Cost"}: </span><span className="num font-semibold">${f.cost.toFixed(4)}</span></div> : null}
+                {f.beatSummary && <div className="basis-full text-white/80">{f.beatSummary}</div>}
+                <div className="ms-auto text-white/60 num">{lightbox.index + 1} / {list.length}</div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

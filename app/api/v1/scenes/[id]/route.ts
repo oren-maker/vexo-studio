@@ -35,31 +35,30 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
     if (!scene) return ok(null);
 
-    // Per-frame cost + model annotation for the scene page
+    // Per-frame: cost = the LATEST generation only (the image you're looking at).
+    // totalSpent = sum of all generations including regenerations (lifetime spend).
     const frameIds = scene.frames.map((f) => f.id);
     const frameCosts = frameIds.length > 0
-      ? await prisma.costEntry.findMany({ where: { entityType: "FRAME", entityId: { in: frameIds } } })
+      ? await prisma.costEntry.findMany({ where: { entityType: "FRAME", entityId: { in: frameIds } }, orderBy: { createdAt: "desc" } })
       : [];
-    const costByFrame = new Map<string, { cost: number; model?: string; description?: string; createdAt?: Date }>();
+    const acc = new Map<string, { latest?: typeof frameCosts[number]; total: number; count: number }>();
     for (const c of frameCosts) {
-      const cur = costByFrame.get(c.entityId) ?? { cost: 0 };
-      cur.cost += c.totalCost;
-      const meta = (c.meta as { model?: string } | null) ?? {};
-      // Prefer the latest model used (regen overwrites)
-      if (!cur.createdAt || c.createdAt > cur.createdAt) {
-        cur.model = meta.model ?? cur.model;
-        cur.description = c.description ?? cur.description;
-        cur.createdAt = c.createdAt;
-      }
-      costByFrame.set(c.entityId, cur);
+      const cur = acc.get(c.entityId) ?? { total: 0, count: 0 };
+      if (!cur.latest) cur.latest = c; // first iteration = newest (orderBy desc)
+      cur.total += c.totalCost;
+      cur.count++;
+      acc.set(c.entityId, cur);
     }
     const framesWithCost = scene.frames.map((f) => {
-      const ci = costByFrame.get(f.id);
+      const ci = acc.get(f.id);
+      const latestMeta = (ci?.latest?.meta as { model?: string } | null) ?? {};
       return {
         ...f,
-        cost: ci?.cost ? +ci.cost.toFixed(4) : 0,
-        model: ci?.model ?? (ci?.description?.includes("nano-banana") ? "nano-banana" : undefined),
-        lastChargedAt: ci?.createdAt ?? null,
+        cost: ci?.latest ? +ci.latest.totalCost.toFixed(4) : 0,
+        totalSpent: ci ? +ci.total.toFixed(4) : 0,
+        regenCount: ci ? ci.count : 0,
+        model: latestMeta.model ?? (ci?.latest?.description?.includes("nano-banana") ? "nano-banana" : undefined),
+        lastChargedAt: ci?.latest?.createdAt ?? null,
       };
     });
 

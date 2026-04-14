@@ -87,7 +87,7 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
           });
           await Promise.race([
             charge,
-            new Promise((resolve) => setTimeout(resolve, 4000)),
+            new Promise((resolve) => setTimeout(resolve, 2000)),
           ]);
         }
       }
@@ -160,7 +160,7 @@ async function callGeminiViaFal(messages: ChatMessage[], opts: AiOptions): Promi
           userId: actor?.userId,
           meta: { inputTokens: r.inputTokens, outputTokens: r.outputTokens, model: "gemini-2.5-flash", source: "fal-any-llm" },
         });
-        await Promise.race([charge, new Promise((resolve) => setTimeout(resolve, 4000))]);
+        await Promise.race([charge, new Promise((resolve) => setTimeout(resolve, 2000))]);
       }
     } catch (e) { console.warn("[fal-gemini-cost-track]", (e as Error).message); }
   }

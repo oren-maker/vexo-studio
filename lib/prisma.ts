@@ -6,12 +6,14 @@ declare global {
   var __vexoPrisma: PrismaClient | undefined;
 }
 
-// Models we want auto-audited. Skipping noisy / system tables.
+// Models we want auto-audited. Skipping noisy / system tables and high-frequency
+// billing tables (CreditWallet/Provider — every chargeUsd hits them and audit
+// writes were stalling AI calls). Billing already has its own CreditTransaction log.
 const AUDITED_MODELS = new Set([
   "Project", "Series", "Season", "Episode", "Scene", "SceneFrame",
   "Character", "CharacterMedia", "EpisodeCharacter",
   "MusicTrack", "ThumbnailVariant", "ContentCalendarEntry",
-  "Provider", "CreditWallet", "Webhook", "ApiKey", "Role", "OrganizationUser",
+  "Webhook", "ApiKey", "Role", "OrganizationUser",
 ]);
 
 function bestEntityId(args: unknown): string {

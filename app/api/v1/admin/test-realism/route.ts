@@ -22,13 +22,22 @@ export async function POST(req: NextRequest) {
 
     if (mode === "image") {
       const t0 = Date.now();
+      // Reconstruct the exact prompt that generateImage will send so we can echo it back
+      const sanitized = userPrompt
+        .replace(/\b(holographic|hologram|neon[- ]lit|digital[- ]art|rendered|cinematic lighting|dramatic lighting|glowing edges?|sci[- ]?fi|cyberpunk|vaporwave|dreamlike|surreal)\b/gi, "")
+        .replace(/\s{2,}/g, " ").trim();
+      const PREFIX = "REAL PHOTOGRAPH taken by a professional photographer on a Sony A7 IV camera, NOT a digital painting, NOT a 3D render, NOT AI art. Photojournalism documentary style, candid unposed moment. ";
+      const SUFFIX = " — Style: photorealistic, hyper-realistic. Technical: 8k resolution, highly detailed, sharp focus, shot on 35mm lens, shallow depth of field. Lighting: natural lighting, soft shadows. Real human skin with visible pores, real eyes with caught light, real hair strands, accurate physical shadows, subtle film grain. This is a REAL PHOTOGRAPH of REAL PEOPLE. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D render, NOT illustration, NOT painted, NOT digital art, NOT stylized, NOT holographic, NOT neon-lit.";
+      const finalPrompt = PREFIX + sanitized + SUFFIX;
+
       const r = await generateImage({ prompt: userPrompt, aspectRatio: "16:9", model: "nano-banana" });
       return ok({
         mode, model: "nano-banana", elapsedMs: Date.now() - t0,
         imageUrl: r.imageUrl,
         userPrompt,
-        // Echo what fal actually received so user can verify the realism wrap
-        finalPromptSnippet: "Photorealistic, hyper-realistic, cinematic shot. " + userPrompt + " — Style: photorealistic, hyper-realistic … STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D render…",
+        sanitizedPrompt: sanitized,
+        finalPrompt,
+        removed: userPrompt === sanitized ? [] : userPrompt.match(/\b(holographic|hologram|neon[- ]lit|digital[- ]art|rendered|cinematic lighting|dramatic lighting|glowing edges?|sci[- ]?fi|cyberpunk|vaporwave|dreamlike|surreal)\b/gi) ?? [],
       });
     }
 

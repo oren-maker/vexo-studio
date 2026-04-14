@@ -12,7 +12,7 @@ export default function RealismTestPage() {
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [imgBusy, setImgBusy] = useState(false);
   const [vidBusy, setVidBusy] = useState(false);
-  const [imgRes, setImgRes] = useState<{ imageUrl: string; finalPromptSnippet: string; elapsedMs: number } | null>(null);
+  const [imgRes, setImgRes] = useState<{ imageUrl: string; finalPrompt?: string; sanitizedPrompt?: string; removed?: string[]; elapsedMs: number; finalPromptSnippet?: string } | null>(null);
   const [vidRes, setVidRes] = useState<{ requestId: string; resultUrl: string; statusUrl: string; finalPromptSnippet: string; elapsedMs: number; model: string } | null>(null);
   const [vidUrl, setVidUrl] = useState<string | null>(null);
   const [videoModel, setVideoModel] = useState<"veo3-fast" | "veo3-pro" | "seedance" | "kling">("veo3-fast");
@@ -88,7 +88,15 @@ export default function RealismTestPage() {
       {imgRes && (
         <Card title={he ? "תוצאת תמונה" : "Image result"} subtitle={`${imgRes.elapsedMs}ms`}>
           <img src={imgRes.imageUrl} className="w-full max-w-2xl rounded-lg" />
-          <div className="text-[11px] text-text-muted mt-2 font-mono whitespace-pre-wrap break-words">{imgRes.finalPromptSnippet}</div>
+          {imgRes.removed && imgRes.removed.length > 0 && (
+            <div className="mt-3 bg-status-warningBg text-status-warnText rounded-lg p-2 text-xs">
+              {he ? "הוסרו מילים מסגננות: " : "Stylized words removed: "}<span className="font-mono">{imgRes.removed.join(", ")}</span>
+            </div>
+          )}
+          <details className="mt-2">
+            <summary className="text-xs text-text-muted cursor-pointer">{he ? "הפרומפט שנשלח בפועל ל-fal" : "Actual prompt sent to fal"}</summary>
+            <div className="text-[11px] text-text-muted mt-2 font-mono whitespace-pre-wrap break-words bg-bg-main p-3 rounded">{imgRes.finalPrompt ?? imgRes.finalPromptSnippet}</div>
+          </details>
         </Card>
       )}
 

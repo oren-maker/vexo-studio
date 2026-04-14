@@ -57,16 +57,17 @@ export default function ScenePage() {
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
   const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean } | null>(null);
-  const [veoModel, setVeoModel] = useState<"seedance" | "kling" | "veo3-fast" | "veo3-pro">("seedance");
+  // Default to VEO 3 Fast — only model that generates audio natively. SeeDance + Kling are silent.
+  const [veoModel, setVeoModel] = useState<"seedance" | "kling" | "veo3-fast" | "veo3-pro">("veo3-fast");
   const [veoDuration, setVeoDuration] = useState(5);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
   const RATES = { seedance: 0.124, kling: 0.056, "veo3-fast": 0.40, "veo3-pro": 0.75 };
   const MAX_DURATION = { seedance: 12, kling: 10, "veo3-fast": 8, "veo3-pro": 8 };
   const MODEL_LABEL = {
-    seedance:    { emoji: "⚡", name: "SeeDance 2",    price: "$0.124/sec" },
-    kling:       { emoji: "🎬", name: "Kling 2.1",    price: "$0.056/sec" },
-    "veo3-fast": { emoji: "🟪", name: "VEO 3 Fast",   price: "$0.40/sec"  },
-    "veo3-pro":  { emoji: "💎", name: "VEO 3 Pro",    price: "$0.75/sec"  },
+    seedance:    { emoji: "⚡", name: "SeeDance 2",    price: "$0.124/sec", audio: false },
+    kling:       { emoji: "🎬", name: "Kling 2.1",    price: "$0.056/sec", audio: false },
+    "veo3-fast": { emoji: "🟪", name: "VEO 3 Fast",   price: "$0.40/sec",  audio: true  },
+    "veo3-pro":  { emoji: "💎", name: "VEO 3 Pro",    price: "$0.75/sec",  audio: true  },
   };
   const maxDurForModel = MAX_DURATION[veoModel];
   const veoRate = RATES[veoModel];
@@ -636,7 +637,12 @@ export default function ScenePage() {
                   const active = veoModel === k;
                   return (
                     <button key={k} onClick={() => { setVeoModel(k); if (veoDuration > MAX_DURATION[k]) setVeoDuration(MAX_DURATION[k]); }} className={`px-3 py-2 rounded-lg text-start transition border-2 ${active ? "bg-accent/10 border-accent" : "bg-bg-main border-bg-main hover:border-accent/50"}`}>
-                      <div className="text-sm font-semibold">{ml.emoji} {ml.name}</div>
+                      <div className="text-sm font-semibold flex items-center gap-1">
+                        <span>{ml.emoji} {ml.name}</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${ml.audio ? "bg-status-okBg text-status-okText" : "bg-status-warningBg text-status-warnText"}`} title={ml.audio ? (he ? "כולל סאונד" : "with audio") : (he ? "ללא סאונד" : "silent")}>
+                          {ml.audio ? "🔊" : "🔇"}
+                        </span>
+                      </div>
                       <div className="text-[10px] text-text-muted">{ml.price} · up to {MAX_DURATION[k]}s</div>
                     </button>
                   );
@@ -656,6 +662,12 @@ export default function ScenePage() {
                 <button onClick={() => setVeoAspect("16:9")} className={`py-2 rounded-lg text-sm font-semibold transition ${veoAspect === "16:9" ? "bg-accent text-white" : "bg-transparent text-text-secondary hover:text-text-primary"}`}>🖥 16:9</button>
               </div>
             </div>
+
+            {!MODEL_LABEL[veoModel].audio && scene.scriptText && /\b[A-Z]{2,}:|\b[A-Z]{2,}\s*\(/.test(scene.scriptText) && (
+              <div className="bg-status-warningBg border border-status-warnText/40 text-status-warnText rounded-lg p-3 text-xs">
+                ⚠ {he ? "המודל הזה יוצר וידאו ללא סאונד. בסצנה יש דיאלוג — בחר VEO 3 (Fast/Pro) כדי שהדיבור והסאונד ייווצרו אוטומטית." : "This model creates silent video. The scene has dialogue — pick VEO 3 (Fast/Pro) to get speech + audio natively."}
+              </div>
+            )}
 
             <div className="bg-accent/5 border border-accent/30 rounded-xl p-4 text-center">
               <div className="text-xs text-text-muted">{he ? "עלות משוערת" : "Estimated cost"}</div>

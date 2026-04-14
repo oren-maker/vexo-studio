@@ -1,6 +1,8 @@
 "use client";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+// Same-origin by default (web + API live in the same Next.js app).
+// Override with NEXT_PUBLIC_API_BASE_URL only when targeting a remote backend.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export type ApiError = { statusCode: number; error: string; message: string };
 

@@ -7,7 +7,7 @@ type Notification = {
   isRead: boolean; createdAt: string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);

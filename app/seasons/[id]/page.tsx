@@ -11,7 +11,8 @@ type Frame = { generatedImageUrl: string | null; approvedImageUrl: string | null
 type Scene = { id: string; sceneNumber: number; status: string; scriptText: string | null; frames: Frame[] };
 type EpisodeChar = { character: { id: string; name: string; media: { fileUrl: string }[] } };
 type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; scenes: Scene[]; characters?: EpisodeChar[] };
-type Season = { id: string; seasonNumber: number; title: string | null; description: string | null; series: { project: { id: string; name: string } } };
+type Season = { id: string; seasonNumber: number; title: string | null; description: string | null; series: { projectId: string; project: { id: string; name: string } } };
+type ProjectCharacter = { id: string; name: string; roleType: string | null; gender: string | null; ageRange: string | null; appearance: string | null; media: { id: string; fileUrl: string; metadata?: { angle?: string } }[] };
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "bg-bg-main text-text-secondary",
@@ -36,6 +37,9 @@ export default function SeasonPage() {
 
   const [err, setErr] = useState<string | null>(null);
   const [costs, setCosts] = useState<Record<string, number>>({});
+  const [tab, setTab] = useState<"episodes" | "characters">("episodes");
+  const [characters, setCharacters] = useState<ProjectCharacter[]>([]);
+  const [charBusy, setCharBusy] = useState<"populate" | "gallery" | string | null>(null);
 
   async function load() {
     setErr(null);
@@ -58,6 +62,55 @@ export default function SeasonPage() {
     } catch { /* ignore */ }
   }
   useEffect(() => { load(); }, [id]);
+
+  useEffect(() => {
+    if (!season) return;
+    api<ProjectCharacter[]>(`/api/v1/projects/${season.series.project.id}/characters`).then(setCharacters).catch(() => setCharacters([]));
+  }, [season?.series.project.id, tab]);
+
+  async function autoPopulateChars() {
+    if (!season) return;
+    if (!confirm(lang === "he" ? "לזהות דמויות ראשיות אוטומטית מכל הפרקים? קיימות לא יימחקו." : "Auto-detect main characters from all episodes? Existing ones are preserved.")) return;
+    setCharBusy("populate");
+    try {
+      const r = await api<{ totalCharacters: number; newlyCreated: number; skipped: string[] }>(`/api/v1/projects/${season.series.project.id}/characters/auto-populate`, { method: "POST" });
+      alert((lang === "he" ? `זוהו ${r.totalCharacters} דמויות. חדשות: ${r.newlyCreated}. קיימות: ${r.skipped.length}` : `Found ${r.totalCharacters}. New: ${r.newlyCreated}. Preserved: ${r.skipped.length}`));
+      const updated = await api<ProjectCharacter[]>(`/api/v1/projects/${season.series.project.id}/characters`);
+      setCharacters(updated);
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setCharBusy(null); }
+  }
+
+  async function generateAllGalleries() {
+    if (!season) return;
+    const missing = characters.filter((c) => c.media.length === 0).length;
+    if (missing === 0) return alert(lang === "he" ? "לכל הדמויות כבר יש תמונות" : "All characters already have images");
+    const est = (missing * 5 * 0.039).toFixed(2);
+    if (!confirm(lang === "he" ? `לייצר 5 תמונות לכל ${missing} דמויות? עלות משוערת: $${est}` : `Generate 5 images for ${missing} characters? Est: $${est}`)) return;
+    setCharBusy("gallery");
+    try {
+      let pending = missing;
+      while (pending > 0) {
+        const r = await api<{ totalGenerated: number; pending: number }>(`/api/v1/projects/${season.series.project.id}/characters/generate-all-galleries`, { method: "POST" });
+        pending = r.pending;
+        if (r.totalGenerated === 0 && r.pending === 0) break;
+        const updated = await api<ProjectCharacter[]>(`/api/v1/projects/${season.series.project.id}/characters`);
+        setCharacters(updated);
+      }
+    } catch (e) { alert((e as Error).message); }
+    finally { setCharBusy(null); }
+  }
+
+  async function generateOneGallery(cid: string) {
+    setCharBusy(cid);
+    try {
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST" });
+      const updated = await api<ProjectCharacter[]>(`/api/v1/projects/${season!.series.project.id}/characters`);
+      setCharacters(updated);
+    } catch (e) { alert((e as Error).message); }
+    finally { setCharBusy(null); }
+  }
 
   async function newEpisode(e: React.FormEvent) {
     e.preventDefault();
@@ -188,6 +241,22 @@ export default function SeasonPage() {
         </div>
       )}
 
+      <div className="flex gap-1 border-b border-bg-main">
+        <button
+          onClick={() => setTab("episodes")}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "episodes" ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text-secondary"}`}
+        >
+          {lang === "he" ? "פרקים" : "Episodes"} <span className="text-text-muted">({episodes.length})</span>
+        </button>
+        <button
+          onClick={() => setTab("characters")}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "characters" ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text-secondary"}`}
+        >
+          {lang === "he" ? "דמויות" : "Characters"} <span className="text-text-muted">({characters.length})</span>
+        </button>
+      </div>
+
+      {tab === "episodes" && (
       <Card title={lang === "he" ? "פרקים" : "Episodes"} subtitle={`${episodes.length} ${lang === "he" ? "פרקים" : "episodes"}`}>
         <div className="flex justify-end gap-2 mb-3 flex-wrap">
           <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">+ {lang === "he" ? "פרק" : "Episode"}</button>
@@ -276,6 +345,69 @@ export default function SeasonPage() {
           </ul>
         )}
       </Card>
+      )}
+
+      {tab === "characters" && (
+      <Card title={lang === "he" ? "דמויות" : "Characters"} subtitle={lang === "he" ? "דמויות ראשיות חוזרות בסדרה" : "Recurring main characters"}>
+        <div className="flex justify-end gap-2 mb-3 flex-wrap">
+          <button disabled={charBusy === "populate"} onClick={autoPopulateChars} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
+            {charBusy === "populate" ? (lang === "he" ? "מזהה…" : "Detecting…") : (lang === "he" ? "🪄 זהה מהפרקים" : "🪄 Detect from episodes")}
+          </button>
+          <button disabled={charBusy === "gallery" || characters.length === 0} onClick={generateAllGalleries} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">
+            {charBusy === "gallery" ? (lang === "he" ? "מייצר…" : "Generating…") : (lang === "he" ? "✨ תמונות לכל הדמויות" : "✨ Gallery for all")}
+          </button>
+          <Link href={`/projects/${season.series.project.id}/characters`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">{lang === "he" ? "ניהול מלא →" : "Manage →"}</Link>
+        </div>
+        {characters.length === 0 ? (
+          <div className="text-center py-12 text-text-muted">
+            <div className="text-3xl mb-2">🎭</div>
+            <div>{lang === "he" ? "עדיין אין דמויות — לחץ 🪄 זהה מהפרקים" : "No characters yet — click 🪄 Detect from episodes"}</div>
+          </div>
+        ) : (
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {characters.map((c) => {
+              const apps = episodes.filter((ep) => ep.characters?.some((ec) => ec.character.id === c.id));
+              return (
+                <li key={c.id} className="bg-bg-main rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <div className="font-semibold">{c.name}</div>
+                      <div className="text-[11px] text-text-muted">{[c.roleType, c.gender, c.ageRange].filter(Boolean).join(" · ")}</div>
+                    </div>
+                    <button
+                      disabled={charBusy === c.id}
+                      onClick={() => generateOneGallery(c.id)}
+                      className="text-[11px] px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50"
+                    >
+                      {charBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (c.media.length > 0 ? (lang === "he" ? "הוסף עוד 5" : "+5 more") : (lang === "he" ? "✨ 5 תמונות" : "✨ 5 images"))}
+                    </button>
+                  </div>
+                  {c.appearance && <div className="text-[11px] text-text-secondary line-clamp-2">{c.appearance}</div>}
+                  <div className="grid grid-cols-5 gap-1">
+                    {c.media.slice(0, 5).map((m) => (
+                      <div key={m.id} className="aspect-square rounded overflow-hidden bg-bg-card">
+                        <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                    {Array.from({ length: Math.max(0, 5 - c.media.length) }).map((_, i) => (
+                      <div key={`empty-${i}`} className="aspect-square rounded bg-bg-card/50" />
+                    ))}
+                  </div>
+                  {apps.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1 border-t border-bg-card">
+                      <span className="text-[10px] text-text-muted">{lang === "he" ? "בעונה זו:" : "This season:"}</span>
+                      {apps.map((ep) => (
+                        <Link key={ep.id} href={`/episodes/${ep.id}`} className="text-[10px] px-1.5 py-0.5 rounded bg-bg-card hover:bg-accent/20">EP{String(ep.episodeNumber).padStart(2, "0")}</Link>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+      )}
     </div>
   );
 }

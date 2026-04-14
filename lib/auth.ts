@@ -66,9 +66,14 @@ export async function authenticate(req: NextRequest): Promise<AuthContext | Next
   const apiKeyCtx = await tryApiKeyAuth(req);
   if (apiKeyCtx) return apiKeyCtx;
 
-  // JWT path
+  // JWT path: accept Bearer header (XHR) OR vexo_at cookie (direct navigation — e.g. PDF/TXT download links)
   const auth = req.headers.get("authorization") ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  let token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) {
+    const cookie = req.headers.get("cookie") ?? "";
+    const m = cookie.match(/(?:^|;\s*)vexo_at=([^;]+)/);
+    if (m) token = decodeURIComponent(m[1]);
+  }
   if (!token) return NextResponse.json({ statusCode: 401, error: "Unauthorized", message: "no token" }, { status: 401 });
   const payload = verifyAccessToken(token);
   if (!payload) return NextResponse.json({ statusCode: 401, error: "Unauthorized", message: "invalid token" }, { status: 401 });

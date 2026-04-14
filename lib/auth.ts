@@ -80,12 +80,14 @@ export async function authenticate(req: NextRequest): Promise<AuthContext | Next
   const membership = headerOrg ? user.memberships.find((m) => m.organizationId === headerOrg) : user.memberships[0];
   if (!membership) return NextResponse.json({ statusCode: 403, error: "Forbidden", message: "no organization" }, { status: 403 });
 
-  // 2FA enforcement
-  const privileged = user.memberships.some((m) => ENFORCE_2FA_ROLES.has(m.roleName));
-  if (privileged && !user.totpEnabled) {
-    const url = new URL(req.url);
-    if (!url.pathname.startsWith("/api/v1/auth/2fa/")) {
-      return NextResponse.json({ statusCode: 403, error: "Forbidden", message: "2FA setup required for privileged roles" }, { status: 403 });
+  // 2FA enforcement currently disabled (re-enable by setting REQUIRE_2FA=1)
+  if (process.env.REQUIRE_2FA === "1") {
+    const privileged = user.memberships.some((m) => ENFORCE_2FA_ROLES.has(m.roleName));
+    if (privileged && !user.totpEnabled) {
+      const url = new URL(req.url);
+      if (!url.pathname.startsWith("/api/v1/auth/2fa/")) {
+        return NextResponse.json({ statusCode: 403, error: "Forbidden", message: "2FA setup required for privileged roles" }, { status: 403 });
+      }
     }
   }
 

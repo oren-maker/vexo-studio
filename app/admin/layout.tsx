@@ -29,6 +29,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/api-keys", label: t("nav.api.keys") },
     { href: "/admin/webhooks", label: t("nav.webhooks") },
     { href: "/admin/logs", label: t("nav.audit.logs") },
+    { href: "/admin/ai-health", label: lang === "he" ? "בדיקת AI" : "AI health" },
   ];
 
   // Collapsible "General Settings" group (per-user settings)

@@ -24,26 +24,35 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     const project = await assertProjectInOrg(params.id, ctx.organizationId);
 
-    let series = await prisma.series.findFirst({ where: { projectId: project.id }, orderBy: { createdAt: "asc" } });
-    if (!series) {
-      series = await prisma.series.create({ data: { projectId: project.id, title: project.name } });
-    }
-
-    const seasons = await prisma.season.findMany({
-      where: { seriesId: series.id },
-      orderBy: { seasonNumber: "asc" },
+    let series = await prisma.series.findFirst({
+      where: { projectId: project.id },
+      orderBy: { createdAt: "asc" },
       include: {
-        episodes: {
-          orderBy: { episodeNumber: "asc" },
-          select: {
-            id: true, episodeNumber: true, title: true, status: true,
-            scenes: { select: { status: true, scriptText: true, frames: { select: { generatedImageUrl: true, approvedImageUrl: true } } } },
+        seasons: {
+          orderBy: { seasonNumber: "asc" },
+          include: {
+            episodes: {
+              orderBy: { episodeNumber: "asc" },
+              select: {
+                id: true, episodeNumber: true, title: true, status: true,
+                scenes: { select: { status: true, scriptText: true, frames: { select: { generatedImageUrl: true, approvedImageUrl: true } } } },
+              },
+            },
           },
         },
       },
     });
-
-    return ok({ project: { id: project.id, name: project.name, contentType: project.contentType, status: project.status }, series, seasons });
+    if (!series) {
+      series = await prisma.series.create({
+        data: { projectId: project.id, title: project.name },
+        include: { seasons: { include: { episodes: { select: { id: true, episodeNumber: true, title: true, status: true, scenes: { select: { status: true, scriptText: true, frames: { select: { generatedImageUrl: true, approvedImageUrl: true } } } } } } } } },
+      });
+    }
+    return ok({
+      project: { id: project.id, name: project.name, contentType: project.contentType, status: project.status },
+      series: { id: series.id, title: series.title, projectId: series.projectId },
+      seasons: series.seasons,
+    });
   } catch (e) { return handleError(e); }
 }
 

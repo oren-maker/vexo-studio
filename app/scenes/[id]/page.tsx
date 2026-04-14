@@ -18,7 +18,7 @@ const VIDEO_MODEL_PRETTY: Record<string, string> = {
   "veo3-pro": "💎 VEO 3 Pro",
 };
 type DirectorSheet = { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string; generatedAt: string };
-type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[] };
+type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string; soundNotes?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[] };
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
@@ -185,8 +185,14 @@ export default function ScenePage() {
     await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { scriptText: text } });
   }
   async function saveDirectorNotes(text: string) {
-    const current = (scene?.memoryContext as { directorNotes?: string } | null) ?? {};
+    const current = (scene?.memoryContext as object | null) ?? {};
     const merged = { ...current, directorNotes: text };
+    await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { memoryContext: merged } });
+    load();
+  }
+  async function saveSoundNotes(text: string) {
+    const current = (scene?.memoryContext as object | null) ?? {};
+    const merged = { ...current, soundNotes: text };
     await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { memoryContext: merged } });
     load();
   }
@@ -513,6 +519,8 @@ export default function ScenePage() {
             </ul>
           )}
         </Card>
+
+        <SoundAndLipSyncCard he={he} scene={scene} />
 
         <Card title={he ? "תגובות" : "Comments"} subtitle={`${comments.length} ${he ? "תגובות" : "comments"}`}>
           <form onSubmit={postComment} className="mb-4">

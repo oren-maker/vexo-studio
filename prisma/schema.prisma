@@ -121,6 +121,7 @@ model User {
   totpSecret     String?
   totpEnabled    Boolean   @default(false)
   totpVerifiedAt DateTime?
+  language       String    @default("en")
   lastLoginAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

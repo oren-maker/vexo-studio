@@ -6,7 +6,7 @@ import { AiAssistant } from "@/components/ai-assistant";
 import { RtlEffect } from "@/components/rtl-effect";
 import { useT } from "@/lib/i18n";
 
-export default function ProjectsLayout({ children }: { children: React.ReactNode }) {
+export default function TemplatesLayout({ children }: { children: React.ReactNode }) {
   const t = useT();
   return (
     <AuthGuard>
@@ -18,13 +18,12 @@ export default function ProjectsLayout({ children }: { children: React.ReactNode
           </Link>
           <nav className="py-4">
             <Link href="/admin" className="block px-6 py-2 text-sm font-medium hover:bg-white/5 hover:text-white border-s-[3px] border-transparent">{t("back.admin")}</Link>
-            <Link href="/projects" className="block px-6 py-2 text-sm font-medium hover:bg-white/5 hover:text-white border-s-[3px] border-accent-cyan bg-white/5 text-white">{t("nav.projects")}</Link>
-            <Link href="/projects/new" className="block px-6 py-2 text-sm hover:bg-white/5 hover:text-white border-s-[3px] border-transparent">{t("nav.new.project")}</Link>
-            <Link href="/templates" className="block px-6 py-2 text-sm hover:bg-white/5 hover:text-white border-s-[3px] border-transparent">{t("nav.templates")}</Link>
+            <Link href="/projects" className="block px-6 py-2 text-sm font-medium hover:bg-white/5 hover:text-white border-s-[3px] border-transparent">{t("nav.projects")}</Link>
+            <Link href="/templates" className="block px-6 py-2 text-sm font-medium border-s-[3px] border-accent-cyan bg-white/5 text-white">{t("nav.templates")}</Link>
           </nav>
         </aside>
         <div className="flex-1 flex flex-col">
-          <Topbar title={t("nav.projects")} />
+          <Topbar title={t("templates.title")} />
           <main className="flex-1 p-6 overflow-y-auto">{children}</main>
         </div>
         <AiAssistant />

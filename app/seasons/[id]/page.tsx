@@ -318,11 +318,16 @@ export default function SeasonPage() {
       </div>
 
       {tab === "episodes" && (
-      <Card title={lang === "he" ? "פרקים" : "Episodes"} subtitle={`${episodes.length} ${lang === "he" ? "פרקים" : "episodes"}`}>
-        <div className="flex justify-end gap-2 mb-3 flex-wrap">
-          <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">+ {lang === "he" ? "פרק" : "Episode"}</button>
-          <button disabled={genBusy} onClick={generateEpisodeWithAi} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">🤖 {genBusy ? (lang === "he" ? "מייצר פרק…" : "Generating…") : (lang === "he" ? "פרק חדש עם AI" : "New episode with AI")}</button>
-          <button disabled={autoBusy} onClick={autoSeason} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">⚡ {autoBusy ? (lang === "he" ? "מייצר…" : "Generating…") : (lang === "he" ? "מילוי אוטומטי" : "Auto-fill season")}</button>
+      <div className="bg-bg-card rounded-card border border-bg-main p-5">
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <div>
+            <div className="text-lg font-bold">{lang === "he" ? "פרקים" : "Episodes"} <span className="text-text-muted text-sm font-normal">· {episodes.length} {lang === "he" ? "פרקים" : "episodes"}</span></div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">+ {lang === "he" ? "פרק" : "Episode"}</button>
+            <button disabled={genBusy} onClick={generateEpisodeWithAi} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">🤖 {genBusy ? (lang === "he" ? "מייצר פרק…" : "Generating…") : (lang === "he" ? "פרק חדש עם AI" : "New episode with AI")}</button>
+            <button disabled={autoBusy} onClick={autoSeason} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">⚡ {autoBusy ? (lang === "he" ? "מייצר…" : "Generating…") : (lang === "he" ? "מילוי אוטומטי" : "Auto-fill season")}</button>
+          </div>
         </div>
         {creating && (
           <form onSubmit={newEpisode} className="bg-bg-main rounded-lg p-3 mb-3 flex gap-2">
@@ -405,7 +410,7 @@ export default function SeasonPage() {
             })}
           </ul>
         )}
-      </Card>
+      </div>
       )}
 
       {tab === "characters" && (

@@ -91,6 +91,9 @@ export default function BudgetsTokensPage() {
     <Card title={lang === "he" ? "תקציבים וטוקנים" : "Budgets & Tokens"} subtitle={lang === "he" ? "ניהול ספקי AI ויתרות הקרדיט שלהם — סנכרון, טעינה, היסטוריה" : "Manage AI providers and their credit balances — sync, top up, history"}>
       {err && <div className="text-status-errText text-sm mb-3">{err}</div>}
 
+      <GeminiTextRow />
+
+
       <div className="flex justify-between items-center mb-4">
         <span className="text-xs text-text-muted">{providers.length} <T>providers</T></span>
         <button onClick={() => setCreatingProvider(true)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">+ <T>Add provider</T></button>
@@ -211,5 +214,40 @@ export default function BudgetsTokensPage() {
         </div>
       )}
     </Card>
+  );
+}
+
+function GeminiTextRow() {
+  const [data, setData] = useState<{ provider: string; pricingNote: string; totalCost: number; totalCalls: number; inputTokens: number; outputTokens: number; lastUsedAt: string | null } | null>(null);
+  const lang = useLang();
+  const he = lang === "he";
+
+  useEffect(() => {
+    api<typeof data>("/api/v1/finance/text-ai-usage").then(setData).catch(() => {});
+  }, []);
+
+  if (!data) return null;
+  return (
+    <div className="bg-bg-main rounded-lg p-3 mb-4 flex items-center gap-4 flex-wrap">
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm flex items-center gap-2">
+          <span>🤖 {he ? "Gemini טקסט (בתשלום דרך fal)" : "Gemini text (paid via fal)"}</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/15 text-accent">{he ? "בתשלום · ספירה אוטומטית" : "Paid · auto-tracked"}</span>
+        </div>
+        <div className="text-[11px] text-text-muted mt-0.5">{data.pricingNote}</div>
+      </div>
+      <div className="text-end shrink-0 text-xs">
+        <div className="text-text-muted">{he ? "בוצעו" : "Calls"}</div>
+        <div className="font-bold num">{data.totalCalls}</div>
+      </div>
+      <div className="text-end shrink-0 text-xs">
+        <div className="text-text-muted">{he ? "טוקנים" : "Tokens"}</div>
+        <div className="font-bold num">{data.inputTokens.toLocaleString()} → {data.outputTokens.toLocaleString()}</div>
+      </div>
+      <div className="text-end shrink-0 text-xs">
+        <div className="text-text-muted">{he ? "סך עלות" : "Total cost"}</div>
+        <div className="font-bold num text-accent">${data.totalCost.toFixed(4)}</div>
+      </div>
+    </div>
   );
 }

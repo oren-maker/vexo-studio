@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { AuthGuard } from "@/components/auth-guard";
 import { Topbar } from "@/components/topbar";
+import { AiAssistant } from "@/components/ai-assistant";
 
 export default function ProjectsLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -21,6 +22,7 @@ export default function ProjectsLayout({ children }: { children: React.ReactNode
         <div className="flex-1 flex flex-col">
           <Topbar title="Projects" />
           <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+        <AiAssistant />
         </div>
       </div>
     </AuthGuard>

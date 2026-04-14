@@ -1,4 +1,5 @@
 import { prisma } from "../prisma";
+import { groqChat, groqJson, hasGroq } from "../groq";
 
 // =========================================================================
 // CostStrategyService
@@ -68,7 +69,20 @@ export const Memory = {
   async getRelevantMemories(projectId: string, _ctx: string) {
     return prisma.projectMemory.findMany({ where: { projectId }, orderBy: { importanceScore: "desc" }, take: 20 });
   },
-  async generateRecap(_episodeId: string) { return "TODO: AI-generated recap"; },
+  async generateRecap(episodeId: string) {
+    if (!episodeId) return "No episode specified.";
+    if (!hasGroq()) return "TODO: AI-generated recap (GROQ_API_KEY not set)";
+    const ep = await prisma.episode.findUnique({
+      where: { id: episodeId },
+      include: { scenes: { orderBy: { sceneNumber: "asc" }, select: { sceneNumber: true, title: true, summary: true, scriptText: true } } },
+    });
+    if (!ep) return "Episode not found.";
+    const summary = ep.scenes.map((s) => `Scene ${s.sceneNumber}${s.title ? ` (${s.title})` : ""}: ${s.summary ?? s.scriptText?.slice(0, 200) ?? "—"}`).join("\n\n");
+    return await groqChat([
+      { role: "system", content: "You are a TV recap writer. Produce a punchy 2-3 sentence 'previously on' recap that hooks viewers." },
+      { role: "user", content: `Episode: "${ep.title}"\nSynopsis: ${ep.synopsis ?? "—"}\n\nScenes:\n${summary}` },
+    ], { temperature: 0.85, maxTokens: 250 });
+  },
   async refreshProjectMemory(_projectId: string) { return; },
 };
 
@@ -77,9 +91,17 @@ export const Memory = {
 // =========================================================================
 export const StyleEngine = {
   async analyzeApprovedFrames(projectId: string) {
-    return prisma.styleConsistencySnapshot.create({
-      data: { projectId, prompt: "TODO: analyze frames and produce style constraints" },
-    });
+    let prompt = "Cinematic, consistent lighting, cohesive color palette.";
+    if (hasGroq()) {
+      const project = await prisma.project.findUnique({ where: { id: projectId } });
+      try {
+        prompt = await groqChat([
+          { role: "system", content: "You are an art director. Distill a one-paragraph visual style guide as a stable diffusion prompt fragment (under 60 words)." },
+          { role: "user", content: `Project: ${project?.name}\nGenre: ${project?.genreTag ?? "—"}\nDescription: ${project?.description ?? "—"}\nStyle guide JSON: ${JSON.stringify(project?.styleGuide ?? {})}` },
+        ], { temperature: 0.6, maxTokens: 200 });
+      } catch { /* fall back to default */ }
+    }
+    return prisma.styleConsistencySnapshot.create({ data: { projectId, prompt } });
   },
   async generateStyleConstraints(projectId: string) {
     const last = await prisma.styleConsistencySnapshot.findFirst({ where: { projectId }, orderBy: { createdAt: "desc" } });
@@ -99,8 +121,24 @@ export const StyleEngine = {
 // =========================================================================
 export const AIDirector = {
   async runNextStep(projectId: string) {
-    await prisma.aILog.create({ data: { projectId, actorType: "DIRECTOR", actionType: "RUN_NEXT_STEP", input: {} } });
-    return { action: "noop", reason: "stub" };
+    let action = "noop";
+    let reason = "stub";
+    if (hasGroq()) {
+      try {
+        const project = await prisma.project.findUnique({
+          where: { id: projectId },
+          include: { series: { include: { seasons: { include: { episodes: { take: 5, orderBy: { episodeNumber: "asc" } } } } } } },
+        });
+        const j = await groqJson<{ action: string; reason: string; nextEntity?: string }>(
+          "You are an AI production director. Given a project state, decide the single next action to take. Allowed actions: 'create_episode', 'write_scene', 'generate_storyboard', 'review_pending', 'publish', 'noop'. Respond with JSON: { action, reason, nextEntity? }",
+          `Project: ${project?.name}\nStatus: ${project?.status}\nSeries: ${project?.series?.length ?? 0}\nState: ${JSON.stringify(project?.series?.[0]?.seasons?.[0] ?? {})}`,
+          { temperature: 0.5, maxTokens: 200 },
+        );
+        action = j.action; reason = j.reason;
+      } catch (e) { reason = `groq error: ${(e as Error).message}`; }
+    }
+    await prisma.aILog.create({ data: { projectId, actorType: "DIRECTOR", actionType: action, decisionReason: reason, input: {}, output: { action, reason } } });
+    return { action, reason };
   },
   async buildEpisodeOutline(_episodeId: string) { return; },
   async proposeScenes(_episodeId: string) { return []; },
@@ -113,19 +151,44 @@ export const AIDirector = {
 // =========================================================================
 export const AICritic = {
   async reviewScene(sceneId: string) {
+    let score = 0.75; let feedback = "stub review"; let issues: string[] = []; let suggestions: string[] = [];
+    if (hasGroq()) {
+      try {
+        const scene = await prisma.scene.findUniqueOrThrow({ where: { id: sceneId } });
+        const j = await groqJson<{ score: number; feedback: string; issues: string[]; suggestions: string[] }>(
+          "You are a strict film critic. Rate the scene 0..1 (narrative clarity, character motivation, visual potential). Return JSON: { score, feedback, issues: [], suggestions: [] }",
+          `Scene #${scene.sceneNumber}${scene.title ? `: ${scene.title}` : ""}\nSummary: ${scene.summary ?? "—"}\nScript:\n${scene.scriptText ?? "(no script)"}`,
+          { temperature: 0.4, maxTokens: 400 },
+        );
+        score = Math.max(0, Math.min(1, j.score)); feedback = j.feedback; issues = j.issues ?? []; suggestions = j.suggestions ?? [];
+      } catch (e) { feedback = `groq error: ${(e as Error).message}`; }
+    }
     return prisma.aICriticReview.create({
-      data: { entityType: "SCENE", entityId: sceneId, sceneId, contentType: "NARRATIVE", score: 0.75, feedback: "stub review" },
+      data: { entityType: "SCENE", entityId: sceneId, sceneId, contentType: "NARRATIVE", score, feedback, issuesDetected: issues, suggestions },
     });
   },
   async reviewEpisode(episodeId: string) {
+    let score = 0.7; let feedback = "stub review";
+    if (hasGroq()) {
+      try {
+        const ep = await prisma.episode.findUniqueOrThrow({
+          where: { id: episodeId },
+          include: { scenes: { orderBy: { sceneNumber: "asc" }, select: { sceneNumber: true, summary: true, scriptText: true } } },
+        });
+        const j = await groqJson<{ score: number; feedback: string }>(
+          "You are a story editor. Review the episode's continuity, pacing and structure. Score 0..1. Return JSON: { score, feedback }",
+          `Episode: ${ep.title}\nSynopsis: ${ep.synopsis ?? "—"}\n\nScenes:\n${ep.scenes.map((s) => `S${s.sceneNumber}: ${s.summary ?? s.scriptText?.slice(0, 150) ?? "—"}`).join("\n")}`,
+          { temperature: 0.4, maxTokens: 400 },
+        );
+        score = Math.max(0, Math.min(1, j.score)); feedback = j.feedback;
+      } catch (e) { feedback = `groq error: ${(e as Error).message}`; }
+    }
     return prisma.aICriticReview.create({
-      data: { entityType: "EPISODE", entityId: episodeId, episodeId, contentType: "CONTINUITY", score: 0.7, feedback: "stub review" },
+      data: { entityType: "EPISODE", entityId: episodeId, episodeId, contentType: "CONTINUITY", score, feedback },
     });
   },
   async reviewThumbnail(assetId: string) {
-    return prisma.aICriticReview.create({
-      data: { entityType: "ASSET", entityId: assetId, contentType: "THUMBNAIL", score: 0.6 },
-    });
+    return prisma.aICriticReview.create({ data: { entityType: "ASSET", entityId: assetId, contentType: "THUMBNAIL", score: 0.6 } });
   },
   async scoreContinuity(_episodeId: string) { return 0.8; },
 };
@@ -135,15 +198,42 @@ export const AICritic = {
 // =========================================================================
 export const SEO = {
   async generateEpisodeSEO(episodeId: string) {
-    const ep = await prisma.episode.findUniqueOrThrow({ where: { id: episodeId } });
-    return {
-      title: `${ep.title} | Episode ${ep.episodeNumber}`,
-      description: ep.synopsis ?? `Episode ${ep.episodeNumber}: ${ep.title}`,
-      tags: ["vexo", "studio", "episode"],
-    };
+    const ep = await prisma.episode.findUniqueOrThrow({ where: { id: episodeId }, include: { season: { include: { series: { include: { project: true } } } } } });
+    if (!hasGroq()) {
+      return { title: `${ep.title} | Episode ${ep.episodeNumber}`, description: ep.synopsis ?? `Episode ${ep.episodeNumber}: ${ep.title}`, tags: ["vexo", "studio", "episode"] };
+    }
+    try {
+      return await groqJson<{ title: string; description: string; tags: string[] }>(
+        "You are a YouTube SEO expert. Generate optimized title (≤60 chars, hook), description (300-500 chars with timestamps placeholder), and 8-12 tags. Return JSON: { title, description, tags: [] }",
+        `Series: ${ep.season.series.title}\nGenre: ${ep.season.series.genre ?? "—"}\nProject genre: ${ep.season.series.project.genreTag ?? "—"}\nEpisode #${ep.episodeNumber}: ${ep.title}\nSynopsis: ${ep.synopsis ?? "—"}\nLanguage: ${ep.season.series.project.language}`,
+        { temperature: 0.7, maxTokens: 700 },
+      );
+    } catch {
+      return { title: ep.title, description: ep.synopsis ?? "", tags: [] };
+    }
   },
-  async analyzeTrendingKeywords(_genre: string, _lang: string) { return ["trending-1", "trending-2"]; },
-  async scoreMetadata(_t: string, _d: string, _tags: string[]) { return 0.7; },
+  async analyzeTrendingKeywords(genre: string, language: string) {
+    if (!hasGroq()) return ["trending-1", "trending-2"];
+    try {
+      const j = await groqJson<{ keywords: string[] }>(
+        "Return JSON { keywords: [] } with 10 currently-trending YouTube search keywords for the given genre and language.",
+        `Genre: ${genre}\nLanguage: ${language}`,
+        { temperature: 0.6, maxTokens: 300 },
+      );
+      return j.keywords;
+    } catch { return []; }
+  },
+  async scoreMetadata(title: string, description: string, tags: string[]) {
+    if (!hasGroq()) return 0.7;
+    try {
+      const j = await groqJson<{ score: number }>(
+        "Score YouTube metadata 0..1 for SEO + click-through potential. Return JSON: { score }",
+        `Title: ${title}\nDescription: ${description}\nTags: ${tags.join(", ")}`,
+        { temperature: 0.3, maxTokens: 50 },
+      );
+      return Math.max(0, Math.min(1, j.score));
+    } catch { return 0.5; }
+  },
 };
 
 // =========================================================================
@@ -152,11 +242,29 @@ export const SEO = {
 export const ScriptBreakdown = {
   async parseScript(sceneId: string) {
     const scene = await prisma.scene.findUniqueOrThrow({ where: { id: sceneId } });
-    const characters = (scene.scriptText ?? "").match(/\b[A-Z][A-Z]+\b/g) ?? [];
+    let characters: string[] = []; let locations: string[] = []; let props: string[] = []; let tone = "neutral"; let parsed: object = {};
+    if (scene.scriptText) {
+      // Heuristic fallback (uppercase tokens = characters)
+      characters = [...new Set((scene.scriptText.match(/\b[A-Z][A-Z]+\b/g) ?? []))];
+      if (hasGroq()) {
+        try {
+          const j = await groqJson<{ characters: string[]; locations: string[]; props: string[]; tone: string; dialogue: Array<{ character: string; line: string }> }>(
+            "You are a 1st AD doing script breakdown. Extract: characters (named speakers), locations (INT/EXT), key props, dominant tone, and parse the dialogue. Return JSON: { characters, locations, props, tone, dialogue }",
+            scene.scriptText,
+            { temperature: 0.2, maxTokens: 1200 },
+          );
+          characters = j.characters ?? characters;
+          locations = j.locations ?? [];
+          props = j.props ?? [];
+          tone = j.tone ?? tone;
+          parsed = { dialogue: j.dialogue ?? [] };
+        } catch { /* fallback */ }
+      }
+    }
     return prisma.scriptBreakdown.upsert({
       where: { sceneId },
-      update: { characters: [...new Set(characters)], locations: [], props: [] },
-      create: { sceneId, characters: [...new Set(characters)], locations: [], props: [] },
+      update: { characters, locations, props, toneAnalysis: tone, dialogueParsed: parsed },
+      create: { sceneId, characters, locations, props, toneAnalysis: tone, dialogueParsed: parsed },
     });
   },
 };
@@ -166,14 +274,21 @@ export const ScriptBreakdown = {
 // =========================================================================
 export const Dialogue = {
   async generateDialogue(sceneId: string) {
-    return prisma.scene.update({
-      where: { id: sceneId },
-      data: { dialogueJson: { stub: true, lines: [] } as any },
-    });
+    const scene = await prisma.scene.findUniqueOrThrow({ where: { id: sceneId } });
+    let dialogue: object = { lines: [] };
+    if (hasGroq()) {
+      try {
+        const j = await groqJson<{ lines: Array<{ character: string; line: string; direction?: string }> }>(
+          "You are a screenwriter. From the scene summary, write 6-12 lines of natural dialogue with character names and optional stage direction. Return JSON: { lines: [{ character, line, direction? }] }",
+          `Title: ${scene.title ?? "Untitled"}\nSummary: ${scene.summary ?? "—"}\nExisting script (if any):\n${scene.scriptText ?? ""}`,
+          { temperature: 0.85, maxTokens: 1500 },
+        );
+        dialogue = j;
+      } catch { /* fallback */ }
+    }
+    return prisma.scene.update({ where: { id: sceneId }, data: { dialogueJson: dialogue as any } });
   },
-  async generateVoiceover(_sceneId: string, _characterId: string) {
-    return "stub-asset-url";
-  },
+  async generateVoiceover(_sceneId: string, _characterId: string) { return "stub-asset-url"; },
 };
 
 // =========================================================================
@@ -183,12 +298,36 @@ export const AudienceInsights = {
   async analyzeComments(episodeId: string) {
     const ep = await prisma.episode.findUniqueOrThrow({ where: { id: episodeId } });
     const projectId = (await prisma.season.findUniqueOrThrow({ where: { id: ep.seasonId }, include: { series: true } })).series.projectId;
+    let content: object = { score: 0.5, sample: 0 }; let recommendation: string | null = null;
+    if (hasGroq()) {
+      // In production: pull recent comments. For now we synthesize an analysis.
+      try {
+        const j = await groqJson<{ sentiment: number; topThemes: string[]; recommendation: string }>(
+          "You are an audience insights analyst. Without real comment data, infer typical viewer sentiment for this episode and suggest one recommendation. Return JSON: { sentiment: 0..1, topThemes: [], recommendation }",
+          `Episode: ${ep.title}\nSynopsis: ${ep.synopsis ?? "—"}`,
+          { temperature: 0.6, maxTokens: 400 },
+        );
+        content = { score: j.sentiment, themes: j.topThemes, sample: 0 };
+        recommendation = j.recommendation;
+      } catch { /* fallback */ }
+    }
     return prisma.audienceInsight.create({
-      data: { projectId, episodeId, insightType: "SENTIMENT", content: { score: 0.5, sample: 0 } as any },
+      data: { projectId, episodeId, insightType: "SENTIMENT", content: content as any, recommendation },
     });
   },
   async detectDropOffPoints(_episodeId: string) { return [10, 25, 60]; },
-  async generateContentRecommendations(_projectId: string) { return ["topic-A", "topic-B"]; },
+  async generateContentRecommendations(projectId: string) {
+    if (!hasGroq()) return ["topic-A", "topic-B"];
+    try {
+      const project = await prisma.project.findUnique({ where: { id: projectId } });
+      const j = await groqJson<{ ideas: string[] }>(
+        "Suggest 5 fresh content ideas for the next episodes. Return JSON: { ideas: [] }",
+        `Name: ${project?.name}\nGenre: ${project?.genreTag ?? "—"}\nDescription: ${project?.description ?? "—"}`,
+        { temperature: 0.85, maxTokens: 400 },
+      );
+      return j.ideas;
+    } catch { return []; }
+  },
 };
 
 // =========================================================================
@@ -230,5 +369,29 @@ export const Webhooks = {
   async fanOut(orgId: string, eventType: string, payload: unknown) {
     const eps = await prisma.webhookEndpoint.findMany({ where: { organizationId: orgId, isActive: true } });
     await Promise.all(eps.filter((e) => (e.events as string[]).includes(eventType)).map((e) => this.deliver(e.id, eventType, payload)));
+  },
+};
+
+// =========================================================================
+// AssistantService — generic content + check helper for cross-site use
+// =========================================================================
+export const Assistant = {
+  /** Generate any kind of free-form content (titles, blurbs, marketing copy, etc.). */
+  async generate(prompt: string, opts?: { system?: string; maxTokens?: number; temperature?: number }) {
+    if (!hasGroq()) return { content: "(GROQ_API_KEY not set)", model: "stub" };
+    const content = await groqChat([
+      { role: "system", content: opts?.system ?? "You are a helpful writer for VEXO Studio." },
+      { role: "user", content: prompt },
+    ], { temperature: opts?.temperature ?? 0.7, maxTokens: opts?.maxTokens ?? 800 });
+    return { content, model: "llama-3.3-70b-versatile" };
+  },
+  /** Check / score / lint arbitrary text. Returns { score, issues, suggestions }. */
+  async check(text: string, criteria: string) {
+    if (!hasGroq()) return { score: 0.5, issues: [], suggestions: ["GROQ_API_KEY not set"] };
+    return await groqJson<{ score: number; issues: string[]; suggestions: string[] }>(
+      `You evaluate content against the criteria. Return JSON: { score: 0..1, issues: [], suggestions: [] }. Criteria: ${criteria}`,
+      text,
+      { temperature: 0.3, maxTokens: 600 },
+    );
   },
 };

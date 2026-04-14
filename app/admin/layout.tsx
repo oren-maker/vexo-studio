@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuthGuard } from "@/components/auth-guard";
 import { Topbar } from "@/components/topbar";
+import { AiAssistant } from "@/components/ai-assistant";
 
 const NAV: Array<{ href: string; label: string; section?: string }> = [
   { href: "/admin", label: "Dashboard" },
@@ -51,6 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Topbar title="Admin" />
           <main className="flex-1 p-6 overflow-y-auto">{children}</main>
         </div>
+        <AiAssistant />
       </div>
     </AuthGuard>
   );

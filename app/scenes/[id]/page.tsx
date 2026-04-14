@@ -650,3 +650,149 @@ export default function ScenePage() {
     </div>
   );
 }
+
+function SoundAndLipSyncCard({ he, scene }: { he: boolean; scene: Scene }) {
+  const script = scene.scriptText || "";
+  const { dialogues, soundCues, actionLines } = parseScriptForAudio(script);
+  const hasContent = dialogues.length > 0 || soundCues.length > 0 || actionLines.length > 0;
+  const totalWords = dialogues.reduce((s, d) => s + d.line.split(/\s+/).length, 0);
+  const approxDuration = Math.max(1, Math.round(totalWords / 2.5));
+
+  return (
+    <Card
+      title={he ? "סאונד ו-Lip Sync" : "Sound & Lip Sync"}
+      subtitle={he
+        ? `${dialogues.length} שורות דיאלוג · ${soundCues.length} הוראות סאונד`
+        : `${dialogues.length} dialogue lines · ${soundCues.length} sound cues`}
+    >
+      {!hasContent ? (
+        <div className="text-text-muted text-sm">
+          {he ? "אין דיאלוג או הוראות סאונד בתסריט עדיין." : "No dialogue or sound cues in the script yet."}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {dialogues.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                  {he ? "🎙️ דיאלוג ללי-פסינג" : "🎙️ Dialogue for lip-sync"}
+                </div>
+                <div className="text-[11px] text-text-muted">
+                  {he ? `~${approxDuration} שנ׳` : `~${approxDuration}s`} · {totalWords} {he ? "מילים" : "words"}
+                </div>
+              </div>
+              <ul className="space-y-2">
+                {dialogues.map((d, i) => (
+                  <li key={i} className="bg-status-ok/5 border border-status-ok/20 rounded-lg p-2.5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold uppercase bg-status-ok/20 text-status-okText px-2 py-0.5 rounded">
+                        {d.character}
+                      </span>
+                      {d.direction && (
+                        <span className="text-[10px] italic text-text-muted">({d.direction})</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-text-primary leading-relaxed">{d.line}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {soundCues.length > 0 && (
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2">
+                {he ? "🔊 הוראות סאונד" : "🔊 Sound cues"}
+              </div>
+              <ul className="space-y-1.5">
+                {soundCues.map((s, i) => (
+                  <li key={i} className="text-sm text-text-primary bg-status-info/5 border border-status-info/20 rounded-lg p-2">
+                    <span className="text-[10px] font-bold uppercase text-status-infoText mr-2">{s.type}</span>
+                    {s.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {actionLines.length > 0 && (
+            <details>
+              <summary className="text-xs font-bold uppercase tracking-wider text-text-secondary cursor-pointer hover:text-text-primary">
+                {he ? "📝 מלל הוראות בימוי" : "📝 Action/direction lines"} ({actionLines.length})
+              </summary>
+              <ul className="mt-2 space-y-1 text-xs text-text-secondary">
+                {actionLines.map((a, i) => (
+                  <li key={i} className="italic">• {a}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function parseScriptForAudio(script: string): {
+  dialogues: Array<{ character: string; line: string; direction?: string }>;
+  soundCues: Array<{ type: string; text: string }>;
+  actionLines: string[];
+} {
+  const dialogues: Array<{ character: string; line: string; direction?: string }> = [];
+  const soundCues: Array<{ type: string; text: string }> = [];
+  const actionLines: string[] = [];
+  if (!script.trim()) return { dialogues, soundCues, actionLines };
+
+  const lines = script.split("\n");
+  let i = 0;
+  while (i < lines.length) {
+    const raw = lines[i].trim();
+    if (!raw) { i++; continue; }
+
+    const sfxMatch = raw.match(/^(SFX|SOUND|MUSIC|AUDIO|FX)\s*[:\-–]\s*(.+)/i);
+    if (sfxMatch) {
+      soundCues.push({ type: sfxMatch[1].toUpperCase(), text: sfxMatch[2].trim() });
+      i++;
+      continue;
+    }
+
+    const isCharacterCue =
+      raw.length >= 2 &&
+      raw.length <= 40 &&
+      /^[A-Z0-9][A-Z0-9 .'_-]*$/.test(raw) &&
+      !raw.startsWith("INT.") && !raw.startsWith("EXT.") && !raw.startsWith("FADE");
+
+    if (isCharacterCue) {
+      let direction: string | undefined;
+      let next = i + 1;
+      while (next < lines.length && !lines[next].trim()) next++;
+      const maybeParen = lines[next]?.trim();
+      if (maybeParen && /^\(.+\)$/.test(maybeParen)) {
+        direction = maybeParen.slice(1, -1);
+        next++;
+        while (next < lines.length && !lines[next].trim()) next++;
+      }
+      const dialogueParts: string[] = [];
+      while (next < lines.length) {
+        const dl = lines[next].trim();
+        if (!dl) break;
+        if (/^(SFX|SOUND|MUSIC|INT\.|EXT\.)/i.test(dl)) break;
+        if (/^[A-Z0-9][A-Z0-9 .'_-]*$/.test(dl) && dl.length <= 40 && !/[.!?]$/.test(dl)) break;
+        dialogueParts.push(dl);
+        next++;
+      }
+      if (dialogueParts.length > 0) {
+        dialogues.push({ character: raw, line: dialogueParts.join(" "), direction });
+        i = next;
+        continue;
+      }
+    }
+
+    if (raw.length > 2 && !raw.startsWith("(")) {
+      actionLines.push(raw);
+    }
+    i++;
+  }
+
+  return { dialogues, soundCues, actionLines };
+}

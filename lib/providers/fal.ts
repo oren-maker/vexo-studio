@@ -60,17 +60,17 @@ export interface ImageResult {
   raw: unknown;
 }
 
-// Always-on photorealism suffix for image generation. nano-banana defaults to
-// stylized output otherwise. Repeated emphasis is required.
-const REALISM_SUFFIX = " — Photorealistic photograph, real human skin texture, real eyes with iris detail, real hair strands, natural physical lighting and shadows, shallow depth of field, subtle film grain, captured on 35mm. Absolutely NO cartoon, NO anime, NO 3D render, NO illustration, NO painted look.";
+// User-approved photorealism template applied to every image generation.
+// Keywords proven to push nano-banana out of its default stylized look.
+const REALISM_PREFIX = "Photorealistic, hyper-realistic, cinematic shot. ";
+const REALISM_SUFFIX = " — Style: photorealistic, hyper-realistic, cinematic shot. Technical: 8k resolution, highly detailed, sharp focus, shot on 35mm lens, shallow depth of field. Lighting: natural lighting, soft shadows, golden hour where appropriate. Real human skin with visible pores and natural blemishes, real eyes with caught light and iris detail, real strands of hair, accurate physical shadows, subtle film grain. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D render, NOT illustration, NOT painted, NOT digital art, NOT stylized.";
 
 export async function generateImage(opts: { prompt: string; negativePrompt?: string; aspectRatio?: "1:1" | "16:9" | "9:16"; model?: ImageModel; referenceImageUrls?: string[] }): Promise<ImageResult> {
   const model = IMAGE_MODELS[opts.model ?? "nano-banana"];
   const body: Record<string, unknown> = {
-    prompt: opts.prompt + REALISM_SUFFIX,
+    prompt: REALISM_PREFIX + opts.prompt + REALISM_SUFFIX,
     num_images: 1,
     output_format: "jpeg",
-    negative_prompt: [opts.negativePrompt, "cartoon, anime, illustration, 3D render, painting, drawing, stylized, plastic skin, doll-like, oversaturated"].filter(Boolean).join(", "),
   };
   if (opts.aspectRatio) body.aspect_ratio = opts.aspectRatio;
   // nano-banana (Gemini 2.5 Flash Image) supports image_urls for identity reference.
@@ -112,14 +112,16 @@ export async function submitVideo(opts: {
   const modelKey = opts.model ?? "seedance";
   const useI2V = !!opts.imageUrl;
   const model = (useI2V ? VIDEO_MODELS_I2V[modelKey] : VIDEO_MODELS[modelKey]);
-  // Always-on photorealism suffix for video too. Models default to stylized.
-  const VIDEO_REALISM = " — Photorealistic live-action film footage. Real human actors, real skin pores, real eye reflections, natural breathing and micro-expressions, real physical lighting and accurate shadows, 35mm film grain. ABSOLUTELY NO cartoon, NO anime, NO 3D animation, NO illustration, NO video game look.";
+  // Photorealism must be at the FRONT of the prompt for highest weight.
+  // VEO 3 and SeeDance ignore negative_prompt; only Kling honors it.
+  const VIDEO_REALISM_PREFIX = "Photorealistic, hyper-realistic, cinematic shot. Live-action film footage. ";
+  const VIDEO_REALISM_SUFFIX = " — Style: photorealistic, hyper-realistic, cinematic shot. Technical: 8k resolution, highly detailed, sharp focus, shot on 35mm cinema lens, shallow depth of field, 35mm film grain. Lighting: natural lighting, soft shadows. Real human actors with real skin pores, real eye reflections and iris detail, natural breathing and micro-expressions, accurate physical shadows. Looks like a frame from a Netflix prestige drama. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D animation, NOT illustration, NOT a video game cutscene, NOT stylized, NOT a CGI render.";
   const body: Record<string, unknown> = {
-    prompt: opts.prompt + VIDEO_REALISM,
-    // Upper bound depends on model — seedance goes to 12, others to 8-10
+    prompt: VIDEO_REALISM_PREFIX + opts.prompt + VIDEO_REALISM_SUFFIX,
     duration: String(Math.max(1, Math.min(opts.durationSeconds ?? 5, 20))),
     aspect_ratio: opts.aspectRatio ?? "16:9",
-    negative_prompt: "cartoon, anime, animation, 3D render, illustration, painting, drawing, stylized, video game graphics, cgi look, plastic skin, doll-like faces",
+    // Kling honors negative_prompt; VEO/SeeDance silently drop it. Safe to send.
+    negative_prompt: "cartoon, anime, animation, 3D render, illustration, painting, drawing, stylized, video game graphics, cgi look, plastic skin, doll-like faces, oversaturated colors",
   };
   if (useI2V && opts.imageUrl) body.image_url = opts.imageUrl;
   // image_urls is only supported on the text-to-video path of specific models

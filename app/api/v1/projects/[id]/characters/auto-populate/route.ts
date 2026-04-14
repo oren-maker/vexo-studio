@@ -126,34 +126,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // ----- PREVIEW MODE (default): extract via AI, return without saving -----
-    // Build compact episode digest for AI
-    const digest = allEpisodes.map((ep) => ({
+    // Compact digest — cap at 10 most-recent episodes, 3 scene lines each,
+    // to keep the prompt small enough that Gemini answers within its 12s window.
+    const digest = allEpisodes.slice(-10).map((ep) => ({
       n: ep.episodeNumber,
       title: ep.title,
-      synopsis: (ep.synopsis ?? "").slice(0, 400),
-      scenes: ep.scenes.slice(0, 6).map((sc) => `SC${sc.sceneNumber}: ${sc.title ?? ""} — ${(sc.summary ?? "").slice(0, 220)}`).join("\n"),
+      synopsis: (ep.synopsis ?? "").slice(0, 260),
+      scenes: ep.scenes.slice(0, 3).map((sc) => `SC${sc.sceneNumber}: ${(sc.summary ?? "").slice(0, 140)}`).join("\n"),
     }));
     const digestText = digest.map((e) => `EP${e.n}: ${e.title}\n${e.synopsis}\n${e.scenes}`).join("\n---\n");
 
     const extracted = await groqJson<{ characters: AiCharacter[] }>(
-      `You are a story bible editor. Read all episodes and identify 4-6 RECURRING MAIN characters (appearing in 2+ episodes or central to the story). For EACH, produce a complete identity profile so an image model can render them CONSISTENTLY across all angles:
-
-Return JSON:
-{ characters: [{
-  name,
-  roleType ("protagonist"|"antagonist"|"supporting"|"narrator"|"recurring"),
-  gender,
-  ageRange,
-  appearance   (MUST be visually specific: hair color+style, eye color, build, skin tone, distinguishing features, facial features — 2-3 sentences, ready for image generation),
-  personality  (core traits, motivations),
-  wardrobeRules (typical outfit/style — for visual continuity),
-  speechStyle  (voice/tone tics),
-  appearsInEpisodes: [number, ...]   // episode numbers where they appear
-}] }
-
-Stick to MAIN characters. Don't invent characters that aren't in the source. Use the exact names used in the episodes.`,
+      `Identify 4-6 RECURRING MAIN characters from the episodes below. Return JSON { characters: [{ name, roleType, gender, ageRange, appearance (2 sentences, visually specific: hair/eyes/build/features — ready for image generation), personality, wardrobeRules, speechStyle, appearsInEpisodes: [number] }] }. Only main characters. Use exact names from the source.`,
       `Project: ${project.name}\nGenre: ${project.genreTag ?? "—"}\nLanguage: ${project.language}\n\nEPISODES:\n${digestText}`,
-      { temperature: 0.3, maxTokens: 3500 },
+      { temperature: 0.3, maxTokens: 1800 },
     );
 
     // Annotate each proposed character with whether it already exists (won't overwrite)

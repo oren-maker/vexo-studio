@@ -27,6 +27,8 @@ export default function EpisodePage() {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [creating, setCreating] = useState(false);
   const [costs, setCosts] = useState<{ total: number; breakdown: { episode: number; scenes: number; frames: number; characterMedia: number }; byCategory: Record<string, number> } | null>(null);
+  const [tab, setTab] = useState<"scenes" | "costs">("scenes");
+  const he = lang === "he";
 
   async function load() {
     setEp(await api(`/api/v1/episodes/${id}`));
@@ -72,36 +74,6 @@ export default function EpisodePage() {
         <span className={`text-xs px-3 py-1 rounded-full font-bold ${STATUS_COLOR[ep.status] ?? "bg-bg-main"}`}>{ep.status}</span>
       </div>
 
-      {costs && costs.total > 0 && (
-        <Card title="עלות הפרק · Episode cost" subtitle={`Total: $${costs.total.toFixed(4)}`}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div className="bg-bg-main rounded-lg p-3">
-              <div className="text-[11px] text-text-muted">Episode-level</div>
-              <div className="font-bold num">${costs.breakdown.episode.toFixed(4)}</div>
-            </div>
-            <div className="bg-bg-main rounded-lg p-3">
-              <div className="text-[11px] text-text-muted">Scenes</div>
-              <div className="font-bold num">${costs.breakdown.scenes.toFixed(4)}</div>
-            </div>
-            <div className="bg-bg-main rounded-lg p-3">
-              <div className="text-[11px] text-text-muted">Frames · images</div>
-              <div className="font-bold num">${costs.breakdown.frames.toFixed(4)}</div>
-            </div>
-            <div className="bg-bg-main rounded-lg p-3">
-              <div className="text-[11px] text-text-muted">Characters · gallery</div>
-              <div className="font-bold num">${costs.breakdown.characterMedia.toFixed(4)}</div>
-            </div>
-          </div>
-          {Object.keys(costs.byCategory).length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              {Object.entries(costs.byCategory).map(([cat, v]) => (
-                <span key={cat} className="px-2 py-1 rounded-full bg-bg-main">{cat}: <span className="num font-semibold">${v.toFixed(4)}</span></span>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
-
       {ep.characters && ep.characters.length > 0 && (
         <Card title="דמויות בפרק" subtitle={`${ep.characters.length} characters`}>
           <div className="flex gap-3 flex-wrap">
@@ -129,38 +101,97 @@ export default function EpisodePage() {
         <button onClick={publish} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold ml-auto">Publish to YouTube</button>
       </div>
 
-      <Card title="Scenes" subtitle={`${scenes.length} scenes`}>
-        <div className="flex justify-end mb-3">
-          <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">+ Scene</button>
+      <div className="flex gap-1 border-b border-bg-main">
+        <button
+          onClick={() => setTab("scenes")}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "scenes" ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text-secondary"}`}
+        >
+          {he ? "סצנות" : "Scenes"} <span className="text-text-muted">({scenes.length})</span>
+        </button>
+        <button
+          onClick={() => setTab("costs")}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "costs" ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text-secondary"}`}
+        >
+          {he ? "עלויות" : "Costs"}{costs && costs.total > 0 && <span className="ms-1 text-text-muted num">· ${costs.total.toFixed(2)}</span>}
+        </button>
+      </div>
+
+      {tab === "scenes" && (
+        <div className="bg-bg-card rounded-card border border-bg-main p-5">
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <div>
+              <div className="text-lg font-bold">{he ? "סצנות" : "Scenes"} <span className="text-text-muted text-sm font-normal">· {scenes.length}</span></div>
+            </div>
+            <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">+ {he ? "סצנה" : "Scene"}</button>
+          </div>
+          {creating && (
+            <form onSubmit={createScene} className="bg-bg-main rounded-lg p-3 mb-3 flex gap-2">
+              <input name="n" required type="number" min="1" defaultValue={scenes.length + 1} className="w-20 px-3 py-2 rounded-lg border border-bg-main bg-white" />
+              <input name="t" required placeholder={he ? "כותרת סצנה" : "Scene title"} className="flex-1 px-3 py-2 rounded-lg border border-bg-main bg-white" />
+              <button className="px-4 py-2 rounded-lg bg-accent text-white text-sm">{he ? "הוסף" : "Add"}</button>
+            </form>
+          )}
+          {scenes.length === 0 ? (
+            <div className="text-center py-8 text-text-muted">{he ? "אין סצנות עדיין" : "No scenes yet."}</div>
+          ) : (
+            <ul className="space-y-1">
+              {scenes.map((s) => (
+                <li key={s.id}>
+                  <Link href={`/scenes/${s.id}`} className="flex justify-between items-center bg-bg-main rounded-lg p-3 hover:bg-bg-main/60">
+                    <div>
+                      <span data-no-translate className="font-mono text-xs text-text-muted">SC{String(s.sceneNumber).padStart(2, "0")}</span>
+                      <span className="ml-3 font-medium">{s.title ?? (he ? "ללא כותרת" : "Untitled")}</span>
+                    </div>
+                    <div className="flex gap-3 text-xs">
+                      <span className="px-2 py-0.5 rounded-full bg-bg-card text-text-secondary">{s.status}</span>
+                      <span className="num">${s.actualCost.toFixed(2)}</span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {creating && (
-          <form onSubmit={createScene} className="bg-bg-main rounded-lg p-3 mb-3 flex gap-2">
-            <input name="n" required type="number" min="1" defaultValue={scenes.length + 1} className="w-20 px-3 py-2 rounded-lg border border-bg-main bg-white" />
-            <input name="t" required placeholder="Scene title" className="flex-1 px-3 py-2 rounded-lg border border-bg-main bg-white" />
-            <button className="px-4 py-2 rounded-lg bg-accent text-white text-sm">Add</button>
-          </form>
-        )}
-        {scenes.length === 0 ? (
-          <div className="text-center py-8 text-text-muted">No scenes yet.</div>
-        ) : (
-          <ul className="space-y-1">
-            {scenes.map((s) => (
-              <li key={s.id}>
-                <Link href={`/scenes/${s.id}`} className="flex justify-between items-center bg-bg-main rounded-lg p-3 hover:bg-bg-main/60">
-                  <div>
-                    <span className="font-mono text-xs text-text-muted">SC{String(s.sceneNumber).padStart(2, "0")}</span>
-                    <span className="ml-3 font-medium">{s.title ?? "Untitled"}</span>
-                  </div>
-                  <div className="flex gap-3 text-xs">
-                    <span className="px-2 py-0.5 rounded-full bg-bg-card text-text-secondary">{s.status}</span>
-                    <span className="num">${s.actualCost.toFixed(2)}</span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      )}
+
+      {tab === "costs" && (
+        <div className="bg-bg-card rounded-card border border-bg-main p-5">
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <div className="text-lg font-bold">{he ? "עלות הפרק" : "Episode cost"} <span className="text-text-muted text-sm font-normal">· {he ? "סה\"כ" : "Total"}: ${(costs?.total ?? 0).toFixed(4)}</span></div>
+          </div>
+          {!costs || costs.total === 0 ? (
+            <div className="text-center py-8 text-text-muted">{he ? "אין עלויות מצטברות עדיין" : "No accumulated costs yet"}</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div className="bg-bg-main rounded-lg p-3">
+                  <div className="text-[11px] text-text-muted">{he ? "רמת-הפרק" : "Episode-level"}</div>
+                  <div className="font-bold num">${costs.breakdown.episode.toFixed(4)}</div>
+                </div>
+                <div className="bg-bg-main rounded-lg p-3">
+                  <div className="text-[11px] text-text-muted">{he ? "סצנות" : "Scenes"}</div>
+                  <div className="font-bold num">${costs.breakdown.scenes.toFixed(4)}</div>
+                </div>
+                <div className="bg-bg-main rounded-lg p-3">
+                  <div className="text-[11px] text-text-muted">{he ? "פריימים · תמונות" : "Frames · images"}</div>
+                  <div className="font-bold num">${costs.breakdown.frames.toFixed(4)}</div>
+                </div>
+                <div className="bg-bg-main rounded-lg p-3">
+                  <div className="text-[11px] text-text-muted">{he ? "דמויות · גלריה" : "Characters · gallery"}</div>
+                  <div className="font-bold num">${costs.breakdown.characterMedia.toFixed(4)}</div>
+                </div>
+              </div>
+              {Object.keys(costs.byCategory).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  {Object.entries(costs.byCategory).map(([cat, v]) => (
+                    <span key={cat} className="px-2 py-1 rounded-full bg-bg-main">{cat}: <span className="num font-semibold">${v.toFixed(4)}</span></span>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

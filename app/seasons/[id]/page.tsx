@@ -488,12 +488,14 @@ export default function SeasonPage() {
           <button disabled={ctxBusy} onClick={refreshContext} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
             {ctxBusy ? (lang === "he" ? "מרענן…" : "Refreshing…") : (lang === "he" ? "🔄 רענן עכשיו" : "🔄 Refresh now")}
           </button>
-          <a
-            href={`/api/v1/projects/${season.series.project.id}/context?download=1`}
-            className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold"
-            download
-          >
-            {lang === "he" ? "⬇ הורד JSON" : "⬇ Download JSON"}
+          <a href={`/api/v1/projects/${season.series.project.id}/context?format=text`} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold" download>
+            {lang === "he" ? "⬇ TXT" : "⬇ TXT"}
+          </a>
+          <a href={`/api/v1/projects/${season.series.project.id}/context?format=pdf`} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">
+            {lang === "he" ? "⬇ PDF" : "⬇ PDF"}
+          </a>
+          <a href={`/api/v1/projects/${season.series.project.id}/context?format=json`} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold" download>
+            {lang === "he" ? "⬇ JSON" : "⬇ JSON"}
           </a>
         </div>
 

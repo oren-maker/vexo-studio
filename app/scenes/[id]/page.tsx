@@ -23,11 +23,17 @@ export default function ScenePage() {
   }
   useEffect(() => { load(); }, [id]);
 
+  const [imageModel, setImageModel] = useState<"nano-banana">("nano-banana");
+  const [videoModel, setVideoModel] = useState<"seedance" | "kling">("seedance");
+  const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
+
   async function genStoryboard() {
     setBusy(true);
     try {
-      const r = await api<{ jobId: string; estimate: { estimate: number } }>(`/api/v1/scenes/${id}/generate-storyboard`, { method: "POST" });
-      alert(`Job ${r.jobId} queued. Est cost: $${r.estimate.estimate.toFixed(2)}`);
+      const r = await api<{ framesGenerated: number; framesTotal: number; estimate: { estimate: number }; model: string }>(`/api/v1/scenes/${id}/generate-storyboard`, {
+        method: "POST", body: { imageModel, aspectRatio: aspect },
+      });
+      alert(`Generated ${r.framesGenerated}/${r.framesTotal} frames with ${r.model}. Est cost: $${r.estimate.estimate.toFixed(2)}`);
       setTimeout(load, 1500);
     } catch (e: unknown) { alert((e as Error).message); }
     finally { setBusy(false); }
@@ -36,8 +42,10 @@ export default function ScenePage() {
   async function genVideo() {
     setBusy(true);
     try {
-      const r = await api<{ jobId: string }>(`/api/v1/scenes/${id}/generate-video`, { method: "POST" });
-      alert(`Video job ${r.jobId} queued.`);
+      const r = await api<{ jobId: string; model?: string; framework?: string }>(`/api/v1/scenes/${id}/generate-video`, {
+        method: "POST", body: { videoModel, aspectRatio: aspect },
+      });
+      alert(`Video job queued via ${r.model ?? videoModel} (${r.framework ?? "queue"}). Job ID: ${r.jobId}\nResult will arrive via webhook in 30-90s.`);
       setTimeout(load, 1500);
     } catch (e: unknown) { alert((e as Error).message); }
     finally { setBusy(false); }
@@ -82,6 +90,30 @@ export default function ScenePage() {
             {scene.summary && <p className="text-text-secondary text-sm mt-1">{scene.summary}</p>}
           </div>
           <span className="text-xs px-3 py-1 rounded-full bg-bg-main font-bold whitespace-nowrap">{scene.status}</span>
+        </div>
+
+        <div className="bg-bg-card rounded-card p-3 border border-bg-main flex flex-wrap items-end gap-3">
+          <label className="text-xs">
+            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">Image model</span>
+            <select value={imageModel} onChange={(e) => setImageModel(e.target.value as never)} className="px-2 py-1 rounded border border-bg-main text-sm">
+              <option value="nano-banana">Nano Banana (Gemini 2.5 Flash Image)</option>
+            </select>
+          </label>
+          <label className="text-xs">
+            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">Video model</span>
+            <select value={videoModel} onChange={(e) => setVideoModel(e.target.value as never)} className="px-2 py-1 rounded border border-bg-main text-sm">
+              <option value="seedance">SeeDance Pro (ByteDance)</option>
+              <option value="kling">Kling 2.1 Master</option>
+            </select>
+          </label>
+          <label className="text-xs">
+            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">Aspect</span>
+            <select value={aspect} onChange={(e) => setAspect(e.target.value as never)} className="px-2 py-1 rounded border border-bg-main text-sm">
+              <option value="16:9">16:9</option>
+              <option value="9:16">9:16</option>
+              <option value="1:1">1:1</option>
+            </select>
+          </label>
         </div>
 
         <div className="flex flex-wrap gap-2">

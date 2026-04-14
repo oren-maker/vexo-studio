@@ -31,14 +31,14 @@ export function AiAssistant() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-accent text-white text-2xl shadow-card hover:bg-accent-light flex items-center justify-center z-20"
+        className="fixed bottom-6 end-6 w-14 h-14 rounded-full bg-accent text-white text-2xl shadow-card hover:bg-accent-light flex items-center justify-center z-20"
         aria-label="Open AI Assistant"
-        title="AI Assistant (Groq)"
+        title="AI Assistant"
       >
         ✨
       </button>
       {open && (
-        <div className="fixed inset-0 bg-black/50 z-30 flex items-end justify-end p-6">
+        <div className="fixed inset-0 bg-black/50 z-30 flex items-end justify-end rtl:justify-start p-6">
           <div className="bg-bg-card rounded-card shadow-card border border-bg-main w-full max-w-md flex flex-col" style={{ maxHeight: "80vh" }}>
             <div className="px-5 py-3 border-b border-bg-main flex items-center justify-between">
               <div>

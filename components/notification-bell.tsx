@@ -38,13 +38,13 @@ export function NotificationBell() {
       <button onClick={() => setOpen((o) => !o)} className="relative w-9 h-9 rounded-lg hover:bg-bg-main flex items-center justify-center" aria-label="Notifications">
         <span aria-hidden>🔔</span>
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-status-errText text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute -top-0.5 -end-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-status-errText text-white text-[10px] font-bold flex items-center justify-center">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-[360px] bg-bg-card rounded-card shadow-card border border-bg-main z-10">
+        <div className="absolute end-0 mt-2 w-[360px] bg-bg-card rounded-card shadow-card border border-bg-main z-10">
           <div className="flex items-center justify-between px-4 py-3 border-b border-bg-main">
             <span className="font-semibold text-sm">Notifications</span>
             {unread > 0 && (

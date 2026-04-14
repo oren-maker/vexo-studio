@@ -76,9 +76,35 @@ function applyToNode(item: { node: Text; original: string }) {
   const tr = cache[item.original];
   if (!tr) return false;
   const original = item.node.textContent ?? "";
-  // Preserve original whitespace
   const replaced = original.replace(item.original, tr);
   if (item.node.textContent !== replaced) item.node.textContent = replaced;
+  return true;
+}
+
+const ATTRS_TO_TRANSLATE = ["title", "aria-label", "placeholder", "alt"];
+
+function walkAttributes(root: Element, list: { el: Element; attr: string; original: string }[]) {
+  const all = root.querySelectorAll<Element>("*");
+  const els: Element[] = [root, ...Array.from(all)];
+  for (const el of els) {
+    if (SKIP_TAGS.has(el.tagName)) continue;
+    if (el.closest('[data-no-translate]')) continue;
+    for (const attr of ATTRS_TO_TRANSLATE) {
+      const v = el.getAttribute(attr);
+      if (!v) continue;
+      const t = v.trim();
+      if (!shouldTranslate(t)) continue;
+      list.push({ el, attr, original: t });
+    }
+  }
+}
+
+function applyAttr(item: { el: Element; attr: string; original: string }) {
+  const tr = cache[item.original];
+  if (!tr) return false;
+  const cur = item.el.getAttribute(item.attr) ?? "";
+  const replaced = cur.replace(item.original, tr);
+  if (cur !== replaced) item.el.setAttribute(item.attr, replaced);
   return true;
 }
 
@@ -101,10 +127,13 @@ async function flush() {
         pending.delete(src);
       });
       saveCacheSoon();
-      // Re-walk to apply
+      // Re-walk to apply text + attrs
       const items: { node: Text; original: string }[] = [];
       walkAndCollect(document.body, items);
       items.forEach(applyToNode);
+      const attrs: { el: Element; attr: string; original: string }[] = [];
+      walkAttributes(document.body, attrs);
+      attrs.forEach(applyAttr);
     } else {
       batch.forEach((s) => pending.delete(s));
     }
@@ -122,14 +151,16 @@ function scheduleScan() {
   scanTimer = setTimeout(() => {
     const items: { node: Text; original: string }[] = [];
     walkAndCollect(document.body, items);
+    const attrs: { el: Element; attr: string; original: string }[] = [];
+    walkAttributes(document.body, attrs);
     let added = 0;
     for (const item of items) {
-      if (cache[item.original]) {
-        applyToNode(item);
-      } else if (!pending.has(item.original)) {
-        pending.add(item.original);
-        added++;
-      }
+      if (cache[item.original]) applyToNode(item);
+      else if (!pending.has(item.original)) { pending.add(item.original); added++; }
+    }
+    for (const a of attrs) {
+      if (cache[a.original]) applyAttr(a);
+      else if (!pending.has(a.original)) { pending.add(a.original); added++; }
     }
     if (added > 0 || pending.size > 0) setTimeout(flush, BATCH_DELAY);
   }, 80);

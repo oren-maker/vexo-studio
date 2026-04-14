@@ -14,6 +14,8 @@ export async function POST(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const sceneId = url.searchParams.get("sceneId");
+    const submittedDuration = Number(url.searchParams.get("duration") ?? "0");
+    const submittedModel = url.searchParams.get("model") as VideoModel | null;
     const body = await req.json();
 
     // fal payload shape: { request_id, status, payload: {...result...}, error?: ... }
@@ -55,8 +57,11 @@ export async function POST(req: NextRequest) {
         // scene's target duration. fal clamps submissions to 3-10s anyway.
         if (orgId) {
           const reported = Number(result?.video?.duration ?? result?.duration ?? 0);
-          const seconds = reported > 0 && reported <= 10 ? reported : 5; // safe cap
-          const modelHint: VideoModel = (typeof result?.model === "string" && result.model.includes("kling")) ? "kling" : "seedance";
+          const seconds = reported > 0 && reported <= 10
+            ? reported
+            : (submittedDuration > 0 && submittedDuration <= 10 ? submittedDuration : 5);
+          const modelHint: VideoModel = submittedModel
+            ?? ((typeof result?.model === "string" && result.model.includes("kling")) ? "kling" : "seedance");
           await chargeUsd({
             organizationId: orgId, projectId,
             entityType: "SCENE", entityId: sceneId,

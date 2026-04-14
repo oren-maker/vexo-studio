@@ -46,8 +46,14 @@ export default function ScenePage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, scene, he]);
   const [imageModel, setImageModel] = useState<"nano-banana">("nano-banana");
-  const [videoModel, setVideoModel] = useState<"seedance" | "kling">("seedance");
+  const [videoModel, setVideoModel] = useState<"seedance" | "kling" | "veo3-pro" | "veo3-fast">("veo3-fast");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
+  const [veoModalOpen, setVeoModalOpen] = useState(false);
+  const [veoModel, setVeoModel] = useState<"veo3-pro" | "veo3-fast">("veo3-fast");
+  const [veoDuration, setVeoDuration] = useState(5);
+  const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
+  const veoRate = veoModel === "veo3-pro" ? 0.75 : 0.40;
+  const veoEstimate = veoRate * veoDuration;
 
   async function genStoryboard() {
     // Client-side guard: if the scene lists characters, all must have gallery images
@@ -68,18 +74,21 @@ export default function ScenePage() {
   }
 
   async function genVideo() {
+    setVeoModalOpen(true);
+  }
+
+  async function runVeo() {
+    setVeoModalOpen(false);
     setBusy(true);
     try {
-      const r = await api<{ jobId: string; model?: string; framework?: string }>(`/api/v1/scenes/${id}/generate-video`, {
-        method: "POST", body: { videoModel, aspectRatio: aspect },
+      await api(`/api/v1/scenes/${id}/generate-video`, {
+        method: "POST",
+        body: { videoModel: veoModel, aspectRatio: veoAspect, durationSeconds: veoDuration },
       });
-      const modelLabel = (r.model ?? videoModel).includes("kling") ? "Kling 2.1"
-        : (r.model ?? videoModel).includes("seedance") ? "SeeDance Pro"
-        : (r.model ?? videoModel);
       alert(he
-        ? `🎬 הוידאו נשלח ליצירה עם ${modelLabel}.\nהתוצאה תופיע כאן תוך 30-90 שניות.`
-        : `🎬 Video queued with ${modelLabel}. Result in 30-90 seconds.`);
-      setTimeout(load, 1500);
+        ? `🎬 VEO 3 ${veoModel === "veo3-pro" ? "Pro" : "Fast"} · ${veoDuration}s · $${veoEstimate.toFixed(2)}\nהתוצאה תופיע בגלריה תוך 30-90 שניות.`
+        : `🎬 VEO 3 ${veoModel === "veo3-pro" ? "Pro" : "Fast"} · ${veoDuration}s · $${veoEstimate.toFixed(2)}\nResult in gallery in 30-90s.`);
+      setTimeout(load, 3000);
     } catch (e: unknown) { alert((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -107,8 +116,13 @@ export default function ScenePage() {
   async function breakdown() {
     setBusy(true);
     try {
-      await api(`/api/v1/scenes/${id}/breakdown`, { method: "POST" });
-      alert(he ? "פירוק התסריט בוצע" : "Script breakdown done");
+      const r = await api<{ characters?: string[]; locations?: string[]; props?: string[]; tone?: string }>(`/api/v1/scenes/${id}/breakdown`, { method: "POST" });
+      const lines: string[] = [];
+      if (r.characters?.length) lines.push((he ? "דמויות: " : "Characters: ") + r.characters.join(", "));
+      if (r.locations?.length) lines.push((he ? "מיקומים: " : "Locations: ") + r.locations.join(", "));
+      if (r.props?.length) lines.push((he ? "אביזרים: " : "Props: ") + r.props.join(", "));
+      if (r.tone) lines.push((he ? "טון: " : "Tone: ") + r.tone);
+      alert((he ? "📋 פירוק התסריט:\n\n" : "📋 Script breakdown:\n\n") + (lines.join("\n") || (he ? "(אין תוצאות)" : "(no results)")));
       load();
     } catch (e) { alert((e as Error).message); }
     finally { setBusy(false); }
@@ -258,6 +272,22 @@ export default function ScenePage() {
           <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder={he ? "מספר: פעם אחת..." : "NARRATOR: Once upon a time…"} />
         </Card>
 
+        {scene.videos && scene.videos.length > 0 && (
+          <Card title={he ? "סרטוני הסצנה" : "Scene videos"} subtitle={`${scene.videos.length} ${he ? "סרטונים" : "videos"}`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {scene.videos.map((v) => (
+                <div key={v.id} className="bg-bg-main rounded-lg overflow-hidden">
+                  <video src={v.fileUrl} controls className="w-full aspect-video bg-black" />
+                  <div className="p-2 text-[11px] text-text-muted flex justify-between">
+                    <span>{new Date(v.createdAt).toLocaleString()}</span>
+                    {v.metadata?.model && <span className="font-mono">{v.metadata.model}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         <Card title={he ? "מסגרות תשריט" : "Storyboard frames"} subtitle={`${scene.frames.length} ${he ? "מסגרות" : "frames"} · ${he ? "סה\"כ" : "total"}: $${scene.frames.reduce((s, f) => s + (f.cost ?? 0), 0).toFixed(4)}`}>
           {scene.frames.length > 0 && (
             <div className="flex justify-end mb-3">
@@ -365,6 +395,47 @@ export default function ScenePage() {
         </Card>
       </div>
       </div>
+
+      {veoModalOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" onClick={() => setVeoModalOpen(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl text-white p-5 space-y-4" style={{ background: "linear-gradient(180deg, #0b1020 0%, #111a35 100%)" }}>
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-lg">{he ? "הגדרות VEO 3" : "VEO 3 Settings"}</h3>
+            </div>
+
+            <div>
+              <div className="text-xs text-white/60 mb-1.5">{he ? "מודל" : "Model"}</div>
+              <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-xl">
+                <button onClick={() => setVeoModel("veo3-pro")}  className={`py-2 rounded-lg text-sm font-semibold transition ${veoModel === "veo3-pro" ? "bg-pink-500/90" : "bg-transparent text-white/70 hover:text-white"}`}>💎 Pro ($0.75/sec)</button>
+                <button onClick={() => setVeoModel("veo3-fast")} className={`py-2 rounded-lg text-sm font-semibold transition ${veoModel === "veo3-fast" ? "bg-pink-500/90" : "bg-transparent text-white/70 hover:text-white"}`}>⚡ Fast ($0.40/sec)</button>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs text-white/60 mb-1.5">{he ? "משך (שניות)" : "Duration (seconds)"}: <span className="text-white font-bold">{veoDuration}</span></div>
+              <input type="range" min={1} max={10} value={veoDuration} onChange={(e) => setVeoDuration(Number(e.target.value))} className="w-full accent-pink-500" />
+            </div>
+
+            <div>
+              <div className="text-xs text-white/60 mb-1.5">{he ? "יחס" : "Aspect ratio"}</div>
+              <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-xl">
+                <button onClick={() => setVeoAspect("9:16")} className={`py-2 rounded-lg text-sm font-semibold transition ${veoAspect === "9:16" ? "bg-cyan-500/90" : "bg-transparent text-white/70 hover:text-white"}`}>📱 9:16</button>
+                <button onClick={() => setVeoAspect("16:9")} className={`py-2 rounded-lg text-sm font-semibold transition ${veoAspect === "16:9" ? "bg-cyan-500/90" : "bg-transparent text-white/70 hover:text-white"}`}>🖥 16:9</button>
+              </div>
+            </div>
+
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center">
+              <div className="text-xs text-yellow-300">{he ? "עלות משוערת" : "Estimated cost"}</div>
+              <div className="text-3xl font-bold text-yellow-400 num">${veoEstimate.toFixed(2)}</div>
+            </div>
+
+            <button onClick={runVeo} className="w-full py-3 rounded-xl text-white font-bold text-sm" style={{ background: "linear-gradient(90deg, #ec4899 0%, #f97316 100%)" }}>
+              🎬 {he ? "הפעל VEO 3" : "Run VEO 3"}
+            </button>
+            <button onClick={() => setVeoModalOpen(false)} className="w-full text-center text-white/60 text-sm">{he ? "ביטול" : "Cancel"}</button>
+          </div>
+        </div>
+      )}
 
       {lightbox && (() => {
         const list = (scene?.frames ?? []).filter((ff) => ff.approvedImageUrl || ff.generatedImageUrl);

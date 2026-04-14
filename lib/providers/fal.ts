@@ -17,15 +17,17 @@ const FAL_RUN = "https://fal.run";
 const FAL_QUEUE = "https://queue.fal.run";
 
 export type ImageModel = "nano-banana";
-export type VideoModel = "seedance" | "kling";
+export type VideoModel = "seedance" | "kling" | "veo3-pro" | "veo3-fast";
 
 const IMAGE_MODELS: Record<ImageModel, string> = {
   "nano-banana": "fal-ai/nano-banana",
 };
 
 const VIDEO_MODELS: Record<VideoModel, string> = {
-  seedance: "fal-ai/bytedance/seedance/v1/pro/text-to-video",
-  kling:    "fal-ai/kling-video/v2.1/master/text-to-video",
+  seedance:    "fal-ai/bytedance/seedance/v1/pro/text-to-video",
+  kling:       "fal-ai/kling-video/v2.1/master/text-to-video",
+  "veo3-pro":  "fal-ai/veo3",
+  "veo3-fast": "fal-ai/veo3/fast",
 };
 
 function key(): string {
@@ -138,6 +140,9 @@ export const FAL_PRICING_USD = {
   seedance: { perSecond: 0.124 },
   // Kling 2.1 Master: ~$0.28 / 5s @ 720p → ~$0.056 per second
   kling: { perSecond: 0.056 },
+  // Google VEO 3 via fal
+  "veo3-pro":  { perSecond: 0.75 },
+  "veo3-fast": { perSecond: 0.40 },
 
   // Text — Gemini 2.5 Flash via fal-ai/any-llm. Per 1M tokens (passthrough).
   "gemini-2.5-flash": { perMillionInput: 0.075, perMillionOutput: 0.30 },

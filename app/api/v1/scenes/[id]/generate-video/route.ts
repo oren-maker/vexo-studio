@@ -10,9 +10,9 @@ import { handleError, ok } from "@/lib/route-utils";
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
 const Body = z.object({
-  videoModel: z.enum(["seedance", "kling"]).default("seedance"),
+  videoModel: z.enum(["seedance", "kling", "veo3-pro", "veo3-fast"]).default("veo3-fast"),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).default("16:9"),
-  durationSeconds: z.number().int().min(3).max(10).optional(),
+  durationSeconds: z.number().int().min(1).max(10).optional(),
 }).partial();
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -52,13 +52,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const prompt = referenceCtx ? `${basePrompt}${referenceCtx}` : basePrompt;
 
     // Build webhook URL pointing back at us
+    const duration = body.durationSeconds ?? 5;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? `https://${req.headers.get("host")}`;
-    const webhookUrl = `${baseUrl}/api/v1/webhooks/incoming/fal?sceneId=${scene.id}`;
+    const webhookUrl = `${baseUrl}/api/v1/webhooks/incoming/fal?sceneId=${scene.id}&duration=${duration}&model=${body.videoModel ?? "veo3-fast"}`;
 
     const submitted = await submitVideo({
       prompt,
       model: body.videoModel as VideoModel,
-      durationSeconds: body.durationSeconds ?? Math.min(scene.targetDurationSeconds ?? 5, 10),
+      durationSeconds: duration,
       aspectRatio: body.aspectRatio,
       webhookUrl,
     });

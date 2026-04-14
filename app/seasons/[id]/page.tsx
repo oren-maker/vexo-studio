@@ -35,6 +35,7 @@ export default function SeasonPage() {
   const [epFeedback, setEpFeedback] = useState<{ episodeId: string; data: { overall: string; strengths: string[]; concerns: string[]; suggestions: string[]; sceneNotes?: { sceneNumber: number; note: string }[] } } | null>(null);
 
   const [err, setErr] = useState<string | null>(null);
+  const [costs, setCosts] = useState<Record<string, number>>({});
 
   async function load() {
     setErr(null);
@@ -49,6 +50,11 @@ export default function SeasonPage() {
         return { ...e, scenes: detail.scenes ?? [], characters: detail.characters ?? [] };
       }));
       setEpisodes(hydrated);
+      const costPairs = await Promise.all(hydrated.map(async (e) => {
+        const c = await api<{ total: number }>(`/api/v1/episodes/${e.id}/costs`).catch(() => ({ total: 0 }));
+        return [e.id, c.total] as const;
+      }));
+      setCosts(Object.fromEntries(costPairs));
     } catch { /* ignore */ }
   }
   useEffect(() => { load(); }, [id]);
@@ -215,6 +221,9 @@ export default function SeasonPage() {
                     <div className="text-end shrink-0">
                       <div className="text-lg font-bold num" style={{ color: progressColor(pct) }}>{pct}%</div>
                       <div className="text-[10px] text-text-muted">{progressLabel(pct, lang)}</div>
+                      {costs[ep.id] !== undefined && costs[ep.id] > 0 && (
+                        <div className="text-[11px] num mt-0.5 text-text-secondary" title={lang === "he" ? "עלות מצטברת לפרק" : "Accumulated episode cost"}>${costs[ep.id].toFixed(3)}</div>
+                      )}
                     </div>
                     <button onClick={() => episodeFeedback(ep.id)} className="text-xs px-2 py-1 rounded border border-accent text-accent whitespace-nowrap shrink-0" title={lang === "he" ? "קבל משוב במאי AI על הפרק" : "Get AI Director feedback"}>🤖</button>
                   </div>

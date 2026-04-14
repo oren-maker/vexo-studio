@@ -24,10 +24,12 @@ export default function EpisodePage() {
   const [ep, setEp] = useState<Episode | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [creating, setCreating] = useState(false);
+  const [costs, setCosts] = useState<{ total: number; breakdown: { episode: number; scenes: number; frames: number; characterMedia: number }; byCategory: Record<string, number> } | null>(null);
 
   async function load() {
     setEp(await api(`/api/v1/episodes/${id}`));
     setScenes(await api(`/api/v1/episodes/${id}/scenes`));
+    setCosts(await api(`/api/v1/episodes/${id}/costs`).catch(() => null));
   }
   useEffect(() => { load(); }, [id]);
 
@@ -67,6 +69,36 @@ export default function EpisodePage() {
         </div>
         <span className={`text-xs px-3 py-1 rounded-full font-bold ${STATUS_COLOR[ep.status] ?? "bg-bg-main"}`}>{ep.status}</span>
       </div>
+
+      {costs && costs.total > 0 && (
+        <Card title="עלות הפרק · Episode cost" subtitle={`Total: $${costs.total.toFixed(4)}`}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div className="bg-bg-main rounded-lg p-3">
+              <div className="text-[11px] text-text-muted">Episode-level</div>
+              <div className="font-bold num">${costs.breakdown.episode.toFixed(4)}</div>
+            </div>
+            <div className="bg-bg-main rounded-lg p-3">
+              <div className="text-[11px] text-text-muted">Scenes</div>
+              <div className="font-bold num">${costs.breakdown.scenes.toFixed(4)}</div>
+            </div>
+            <div className="bg-bg-main rounded-lg p-3">
+              <div className="text-[11px] text-text-muted">Frames · images</div>
+              <div className="font-bold num">${costs.breakdown.frames.toFixed(4)}</div>
+            </div>
+            <div className="bg-bg-main rounded-lg p-3">
+              <div className="text-[11px] text-text-muted">Characters · gallery</div>
+              <div className="font-bold num">${costs.breakdown.characterMedia.toFixed(4)}</div>
+            </div>
+          </div>
+          {Object.keys(costs.byCategory).length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              {Object.entries(costs.byCategory).map(([cat, v]) => (
+                <span key={cat} className="px-2 py-1 rounded-full bg-bg-main">{cat}: <span className="num font-semibold">${v.toFixed(4)}</span></span>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {ep.characters && ep.characters.length > 0 && (
         <Card title="דמויות בפרק" subtitle={`${ep.characters.length} characters`}>

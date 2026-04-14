@@ -19,6 +19,8 @@ export default function CharactersPage() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Character | null>(null);
   const [genBusy, setGenBusy] = useState<string | null>(null);
+  const [populateBusy, setPopulateBusy] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   async function load() {
     const r = await api<Character[]>(`/api/v1/projects/${id}/characters`).catch(() => [] as Character[]);
@@ -73,6 +75,36 @@ export default function CharactersPage() {
     finally { setGenBusy(null); }
   }
 
+  async function autoPopulate() {
+    if (!confirm(lang === "he" ? "לזהות דמויות ראשיות אוטומטית מכל הפרקים? קיימות לא יימחקו." : "Auto-detect main characters from all episodes? Existing ones are preserved.")) return;
+    setPopulateBusy(true);
+    try {
+      const r = await api<{ totalCharacters: number; newlyCreated: number; skipped: string[] }>(`/api/v1/projects/${id}/characters/auto-populate`, { method: "POST" });
+      alert((lang === "he" ? `זוהו ${r.totalCharacters} דמויות. חדשות: ${r.newlyCreated}. קיימות שנשמרו: ${r.skipped.length}` : `Found ${r.totalCharacters} characters. New: ${r.newlyCreated}. Preserved: ${r.skipped.length}`));
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setPopulateBusy(false); }
+  }
+
+  async function generateAll() {
+    const missing = chars.filter((c) => c.media.length === 0).length;
+    if (missing === 0) return alert(lang === "he" ? "לכל הדמויות כבר יש תמונות" : "All characters already have images");
+    const est = (missing * 5 * 0.039).toFixed(2);
+    if (!confirm(lang === "he" ? `לייצר 5 תמונות לכל ${missing} דמויות חסרות גלריה? עלות משוערת: $${est}` : `Generate 5 images for ${missing} characters missing galleries? Estimated: $${est}`)) return;
+    setBulkBusy(true);
+    try {
+      let remaining = missing;
+      while (remaining > 0) {
+        const r = await api<{ totalGenerated: number; pending: number }>(`/api/v1/projects/${id}/characters/generate-all-galleries`, { method: "POST" });
+        remaining = r.pending;
+        if (r.totalGenerated === 0 && r.pending === 0) break;
+        await load();
+      }
+      alert(lang === "he" ? "סיימנו לייצר תמונות לכל הדמויות" : "Finished generating images for all characters");
+    } catch (e) { alert((e as Error).message); }
+    finally { setBulkBusy(false); }
+  }
+
   async function del(cid: string) {
     if (!confirm(lang === "he" ? "למחוק דמות זו ואת כל התמונות שלה?" : "Delete this character and all its images?")) return;
     await api(`/api/v1/characters/${cid}`, { method: "DELETE" });
@@ -82,7 +114,13 @@ export default function CharactersPage() {
   return (
     <div className="space-y-4">
       <Card title={lang === "he" ? "דמויות" : "Characters"} subtitle={lang === "he" ? "דמויות ראשיות חוזרות בסדרה — כל דמות יכולה להיות עם 5 תמונות בזוויות שונות" : "Recurring main characters in this project — each can have 5 angle images"}>
-        <div className="flex justify-end mb-3">
+        <div className="flex justify-end gap-2 mb-3 flex-wrap">
+          <button disabled={populateBusy} onClick={autoPopulate} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
+            {populateBusy ? (lang === "he" ? "מזהה…" : "Detecting…") : (lang === "he" ? "🪄 זהה מהפרקים" : "🪄 Detect from episodes")}
+          </button>
+          <button disabled={bulkBusy || chars.length === 0} onClick={generateAll} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
+            {bulkBusy ? (lang === "he" ? "מייצר תמונות…" : "Generating…") : (lang === "he" ? "✨ תמונות לכל הדמויות" : "✨ Gallery for all")}
+          </button>
           <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">+ {lang === "he" ? "דמות חדשה" : "New character"}</button>
         </div>
 

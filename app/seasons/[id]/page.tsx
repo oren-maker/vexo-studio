@@ -121,6 +121,28 @@ export default function SeasonPage() {
     finally { setCharBusy(null); }
   }
 
+  async function regenerateAllStoryboards() {
+    if (!season) return;
+    if (!confirm(lang === "he" ? "לייצר מחדש את כל התשריטים בסדרה לפי הדמויות הקיימות? סצנות ללא גלריית דמויות יידלגו. העלות תועמס על הארנק." : "Regenerate all storyboards in this series using existing characters? Scenes missing galleries are skipped. Cost will be charged to the wallet.")) return;
+    setCharBusy("regen");
+    try {
+      let runningTotal = 0, runningFrames = 0, pending = Infinity;
+      while (pending !== 0) {
+        const r = await api<{ framesGenerated: number; totalCost: number; pending: number; scenesProcessed: number }>(
+          `/api/v1/projects/${season.series.project.id}/regenerate-storyboards`,
+          { method: "POST" },
+        );
+        runningFrames += r.framesGenerated;
+        runningTotal += r.totalCost;
+        pending = r.pending;
+        if (r.framesGenerated === 0 && r.pending === 0) break;
+      }
+      alert((lang === "he" ? `יוצרו מחדש ${runningFrames} מסגרות. עלות: $${runningTotal.toFixed(3)}` : `Regenerated ${runningFrames} frames. Cost: $${runningTotal.toFixed(3)}`));
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setCharBusy(null); }
+  }
+
   async function generateOneGallery(cid: string, mode: "one" | "rest" = "one") {
     setCharBusy(cid);
     try {
@@ -397,6 +419,9 @@ export default function SeasonPage() {
           </button>
           <button disabled={charBusy === "gallery" || characters.length === 0} onClick={generateAllGalleries} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">
             {charBusy === "gallery" ? (lang === "he" ? "מייצר…" : "Generating…") : (lang === "he" ? "✨ תמונות לכל הדמויות" : "✨ Gallery for all")}
+          </button>
+          <button disabled={charBusy === "regen" || characters.length === 0} onClick={regenerateAllStoryboards} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent text-sm font-semibold disabled:opacity-50">
+            {charBusy === "regen" ? (lang === "he" ? "מייצר מחדש…" : "Regenerating…") : (lang === "he" ? "🔁 ייצר תשריטים מחדש לפי הדמויות" : "🔁 Regenerate storyboards from characters")}
           </button>
           <Link href={`/projects/${season.series.project.id}/characters`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">{lang === "he" ? "ניהול מלא →" : "Manage →"}</Link>
         </div>

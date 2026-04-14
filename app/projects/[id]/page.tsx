@@ -11,7 +11,7 @@ type Frame = { generatedImageUrl: string | null; approvedImageUrl: string | null
 type Scene = { status: string; scriptText: string | null; frames: Frame[] };
 type Episode = { id: string; episodeNumber: number; title: string; status: string; scenes: Scene[] };
 type Season = { id: string; seasonNumber: number; title: string | null; episodes: Episode[] };
-type Project = { id: string; name: string; contentType: string; status: string; description?: string | null; genreTag?: string | null };
+type Project = { id: string; name: string; contentType: string; status: string; description?: string | null; genreTag?: string | null; language?: string };
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +27,30 @@ export default function ProjectDetailPage() {
     if (r) { setProject(r.project); setSeasons(r.seasons); }
   }
   useEffect(() => { load(); }, [id]);
+
+  const [editingName, setEditingName] = useState(false);
+  const [editingPremise, setEditingPremise] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+
+  async function saveField(field: "name" | "description", value: string) {
+    await api(`/api/v1/projects/${id}`, { method: "PATCH", body: { [field]: value } });
+    setEditingName(false);
+    setEditingPremise(false);
+    load();
+  }
+
+  async function aiDraftPremise() {
+    setAiBusy(true);
+    try {
+      const r = await api<{ premise: string }>(`/api/v1/projects/${id}/premise-suggest`, { method: "POST" });
+      if (r.premise) {
+        if (confirm((lang === "he" ? "ההצעה מהבמאי:\n\n" : "Director's suggestion:\n\n") + r.premise + (lang === "he" ? "\n\nלשמור?" : "\n\nSave?"))) {
+          await saveField("description", r.premise);
+        }
+      }
+    } catch (e) { alert((e as Error).message); }
+    finally { setAiBusy(false); }
+  }
 
   async function projectFeedback() {
     if (seasons.length === 0) return alert(lang === "he" ? "אין עונות עדיין" : "No seasons yet");
@@ -61,10 +85,46 @@ export default function ProjectDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start gap-4">
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="text-xs text-text-muted">{project.contentType.replace("_", " ")}{project.genreTag && ` · ${project.genreTag}`}</div>
-          <h1 className="text-3xl font-bold">{project.name}</h1>
-          {project.description && <p className="text-text-secondary mt-1">{project.description}</p>}
+          {editingName ? (
+            <input
+              autoFocus
+              defaultValue={project.name}
+              onBlur={(e) => saveField("name", e.target.value || project.name)}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingName(false); }}
+              className="text-3xl font-bold bg-bg-main rounded-lg px-2 py-1 w-full"
+            />
+          ) : (
+            <h1 className="text-3xl font-bold group cursor-text" onClick={() => setEditingName(true)} title={lang === "he" ? "לחץ לעריכה" : "Click to edit"}>
+              {project.name}<span className="opacity-0 group-hover:opacity-50 text-base ms-2">✎</span>
+            </h1>
+          )}
+          {editingPremise ? (
+            <div className="mt-2">
+              <textarea
+                autoFocus
+                defaultValue={project.description ?? ""}
+                onBlur={(e) => saveField("description", e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Escape") setEditingPremise(false); }}
+                rows={3}
+                placeholder={lang === "he" ? "תיאור כללי / פרמיס — על מה הסדרה" : "Premise — what the series is about"}
+                className="w-full bg-bg-main rounded-lg px-3 py-2 text-sm"
+              />
+              <div className="text-[11px] text-text-muted mt-1">{lang === "he" ? "Esc לביטול · יציאה שומרת" : "Esc to cancel · blur saves"}</div>
+            </div>
+          ) : (
+            <div className="mt-1 group">
+              {project.description ? (
+                <p className="text-text-secondary cursor-text inline" onClick={() => setEditingPremise(true)}>{project.description}<span className="opacity-0 group-hover:opacity-50 text-xs ms-2">✎</span></p>
+              ) : (
+                <button onClick={() => setEditingPremise(true)} className="text-xs text-text-muted hover:text-accent">+ {lang === "he" ? "הוסף תיאור / פרמיס לסדרה" : "Add premise / description"}</button>
+              )}
+              <button disabled={aiBusy} onClick={aiDraftPremise} className="ms-2 text-[11px] text-accent hover:underline disabled:opacity-50">
+                {aiBusy ? (lang === "he" ? "חושב…" : "Thinking…") : (lang === "he" ? "🤖 הצע עם AI" : "🤖 Suggest with AI")}
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex flex-col gap-2 items-end shrink-0">
           <span className="text-xs px-3 py-1 rounded-full bg-bg-main font-bold">{project.status}</span>

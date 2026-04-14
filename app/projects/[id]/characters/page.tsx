@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { useLang } from "@/lib/i18n";
 
-type Media = { id: string; fileUrl: string; metadata?: { angle?: string } };
+type Media = { id: string; fileUrl: string; cost?: number; metadata?: { angle?: string } };
 type Character = {
   id: string; name: string; roleType: string | null; gender: string | null; ageRange: string | null;
   appearance: string | null; personality: string | null; wardrobeRules: string | null;
@@ -64,16 +64,25 @@ export default function CharactersPage() {
     load();
   }
 
-  async function generateGallery(cid: string) {
-    if (!confirm(lang === "he" ? "ליצור 5 תמונות בזוויות שונות לדמות? (עולה ~$0.20)" : "Generate 5 angle images for this character? (~$0.20)")) return;
+  async function generateOne(cid: string) {
     setGenBusy(cid);
     try {
-      const r = await api<{ generated: number; errors: { angle: string; error: string }[] }>(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST" });
-      if (r.errors.length) alert((lang === "he" ? "נוצרו " : "Generated ") + r.generated + "/5" + (lang === "he" ? "\nשגיאות: " : "\nErrors: ") + r.errors.map((e) => e.angle).join(", "));
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: { count: 1 } });
       load();
     } catch (e) { alert((e as Error).message); }
     finally { setGenBusy(null); }
   }
+
+  async function generateRest(cid: string) {
+    setGenBusy(cid);
+    try {
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: { count: "rest" } });
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setGenBusy(null); }
+  }
+
+  const [lightbox, setLightbox] = useState<Media | null>(null);
 
   async function autoPopulate() {
     if (!confirm(lang === "he" ? "לזהות דמויות ראשיות אוטומטית מכל הפרקים? קיימות לא יימחקו." : "Auto-detect main characters from all episodes? Existing ones are preserved.")) return;
@@ -165,24 +174,30 @@ export default function CharactersPage() {
                 {c.appearance && <div className="text-xs text-text-secondary line-clamp-3">{c.appearance}</div>}
 
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-semibold">{lang === "he" ? "גלריה" : "Gallery"} ({c.media.length}/5)</span>
-                    <button
-                      disabled={genBusy === c.id}
-                      onClick={() => generateGallery(c.id)}
-                      className="text-xs px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50"
-                    >
-                      {genBusy === c.id ? (lang === "he" ? "מייצר…" : "Generating…") : (lang === "he" ? "✨ ייצר 5 תמונות" : "✨ Generate 5 images")}
-                    </button>
+                  <div className="flex justify-between items-center mb-2 gap-2">
+                    <span className="text-xs font-semibold">{lang === "he" ? "גלריה" : "Gallery"} ({c.media.length}/5) · <span className="num text-text-muted">${c.media.reduce((s, m) => s + (m.cost ?? 0), 0).toFixed(3)}</span></span>
+                    <div className="flex gap-1">
+                      {c.media.length === 0 && (
+                        <button disabled={genBusy === c.id} onClick={() => generateOne(c.id)} className="text-xs px-2 py-1 rounded-lg bg-accent text-white disabled:opacity-50">
+                          {genBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (lang === "he" ? "✨ תמונה ראשונה" : "✨ First image")}
+                        </button>
+                      )}
+                      {c.media.length > 0 && c.media.length < 5 && (
+                        <button disabled={genBusy === c.id} onClick={() => generateRest(c.id)} className="text-xs px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50">
+                          {genBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (lang === "he" ? `✨ השאר (${5 - c.media.length})` : `✨ Rest (${5 - c.media.length})`)}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {c.media.length === 0 ? (
                     <div className="text-xs text-text-muted text-center py-4 bg-bg-card rounded-lg">{lang === "he" ? "אין תמונות עדיין" : "No images yet"}</div>
                   ) : (
                     <div className="grid grid-cols-5 gap-1">
                       {c.media.slice(0, 5).map((m) => (
-                        <div key={m.id} className="aspect-square rounded overflow-hidden bg-bg-card">
-                          <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover" />
-                        </div>
+                        <button key={m.id} onClick={() => setLightbox(m)} className="relative aspect-square rounded overflow-hidden bg-bg-card group">
+                          <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                          <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5 num opacity-0 group-hover:opacity-100 transition-opacity">${(m.cost ?? 0).toFixed(3)}</span>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -192,6 +207,18 @@ export default function CharactersPage() {
           </ul>
         )}
       </Card>
+
+      {lightbox && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setLightbox(null)}>
+          <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <img src={lightbox.fileUrl} alt={lightbox.metadata?.angle ?? ""} className="max-w-full max-h-[90vh] rounded-lg" />
+            <div className="absolute top-2 end-2 flex gap-2">
+              <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full">{lightbox.metadata?.angle ?? ""} · <span className="num">${(lightbox.cost ?? 0).toFixed(4)}</span></span>
+              <button onClick={() => setLightbox(null)} className="bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setEditing(null)}>

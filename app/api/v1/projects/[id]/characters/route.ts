@@ -19,7 +19,21 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     await assertProjectInOrg(params.id, ctx.organizationId);
-    return ok(await prisma.character.findMany({ where: { projectId: params.id }, include: { media: true, voices: true } }));
+    const chars = await prisma.character.findMany({
+      where: { projectId: params.id },
+      include: { media: { orderBy: { createdAt: "asc" } }, voices: true },
+    });
+    const mediaIds = chars.flatMap((c) => c.media.map((m) => m.id));
+    const costs = mediaIds.length
+      ? await prisma.costEntry.findMany({ where: { entityType: "CHARACTER_MEDIA", entityId: { in: mediaIds } } })
+      : [];
+    const costByMedia = new Map<string, number>();
+    for (const c of costs) costByMedia.set(c.entityId, (costByMedia.get(c.entityId) ?? 0) + c.totalCost);
+    const enriched = chars.map((c) => ({
+      ...c,
+      media: c.media.map((m) => ({ ...m, cost: +(costByMedia.get(m.id) ?? 0).toFixed(4) })),
+    }));
+    return ok(enriched);
   } catch (e) { return handleError(e); }
 }
 

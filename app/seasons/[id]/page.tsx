@@ -12,7 +12,8 @@ type Scene = { id: string; sceneNumber: number; status: string; scriptText: stri
 type EpisodeChar = { character: { id: string; name: string; media: { fileUrl: string }[] } };
 type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; scenes: Scene[]; characters?: EpisodeChar[] };
 type Season = { id: string; seasonNumber: number; title: string | null; description: string | null; series: { projectId: string; project: { id: string; name: string } } };
-type ProjectCharacter = { id: string; name: string; roleType: string | null; gender: string | null; ageRange: string | null; appearance: string | null; media: { id: string; fileUrl: string; metadata?: { angle?: string } }[] };
+type CharMedia = { id: string; fileUrl: string; cost?: number; metadata?: { angle?: string } };
+type ProjectCharacter = { id: string; name: string; roleType: string | null; gender: string | null; ageRange: string | null; appearance: string | null; media: CharMedia[] };
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "bg-bg-main text-text-secondary",
@@ -102,15 +103,17 @@ export default function SeasonPage() {
     finally { setCharBusy(null); }
   }
 
-  async function generateOneGallery(cid: string) {
+  async function generateOneGallery(cid: string, mode: "one" | "rest" = "one") {
     setCharBusy(cid);
     try {
-      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST" });
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: mode === "rest" ? { count: "rest" } : { count: 1 } });
       const updated = await api<ProjectCharacter[]>(`/api/v1/projects/${season!.series.project.id}/characters`);
       setCharacters(updated);
     } catch (e) { alert((e as Error).message); }
     finally { setCharBusy(null); }
   }
+
+  const [lightbox, setLightbox] = useState<CharMedia | null>(null);
 
   async function newEpisode(e: React.FormEvent) {
     e.preventDefault();
@@ -374,20 +377,26 @@ export default function SeasonPage() {
                       <div className="font-semibold">{c.name}</div>
                       <div className="text-[11px] text-text-muted">{[c.roleType, c.gender, c.ageRange].filter(Boolean).join(" · ")}</div>
                     </div>
-                    <button
-                      disabled={charBusy === c.id}
-                      onClick={() => generateOneGallery(c.id)}
-                      className="text-[11px] px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50"
-                    >
-                      {charBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (c.media.length > 0 ? (lang === "he" ? "הוסף עוד 5" : "+5 more") : (lang === "he" ? "✨ 5 תמונות" : "✨ 5 images"))}
-                    </button>
+                    <div className="flex flex-col gap-1 items-end">
+                      {c.media.length === 0 ? (
+                        <button disabled={charBusy === c.id} onClick={() => generateOneGallery(c.id, "one")} className="text-[11px] px-2 py-1 rounded-lg bg-accent text-white disabled:opacity-50">
+                          {charBusy === c.id ? "…" : (lang === "he" ? "✨ תמונה ראשונה" : "✨ First image")}
+                        </button>
+                      ) : c.media.length < 5 ? (
+                        <button disabled={charBusy === c.id} onClick={() => generateOneGallery(c.id, "rest")} className="text-[11px] px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50">
+                          {charBusy === c.id ? "…" : (lang === "he" ? `✨ השאר (${5 - c.media.length})` : `✨ Rest (${5 - c.media.length})`)}
+                        </button>
+                      ) : null}
+                      <span className="text-[10px] text-text-muted num">${c.media.reduce((s, m) => s + (m.cost ?? 0), 0).toFixed(3)}</span>
+                    </div>
                   </div>
                   {c.appearance && <div className="text-[11px] text-text-secondary line-clamp-2">{c.appearance}</div>}
                   <div className="grid grid-cols-5 gap-1">
                     {c.media.slice(0, 5).map((m) => (
-                      <div key={m.id} className="aspect-square rounded overflow-hidden bg-bg-card">
-                        <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover" />
-                      </div>
+                      <button key={m.id} onClick={() => setLightbox(m)} className="relative aspect-square rounded overflow-hidden bg-bg-card group">
+                        <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5 num opacity-0 group-hover:opacity-100">${(m.cost ?? 0).toFixed(3)}</span>
+                      </button>
                     ))}
                     {Array.from({ length: Math.max(0, 5 - c.media.length) }).map((_, i) => (
                       <div key={`empty-${i}`} className="aspect-square rounded bg-bg-card/50" />
@@ -407,6 +416,18 @@ export default function SeasonPage() {
           </ul>
         )}
       </Card>
+      )}
+
+      {lightbox && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setLightbox(null)}>
+          <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <img src={lightbox.fileUrl} alt={lightbox.metadata?.angle ?? ""} className="max-w-full max-h-[90vh] rounded-lg" />
+            <div className="absolute top-2 end-2 flex gap-2">
+              <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full">{lightbox.metadata?.angle ?? ""} · <span className="num">${(lightbox.cost ?? 0).toFixed(4)}</span></span>
+              <button onClick={() => setLightbox(null)} className="bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,26 +1,98 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { groqJson } from "@/lib/groq";
 import { handleError, ok } from "@/lib/route-utils";
 
-export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
+export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 30;
 
 const Body = z.object({
-  texts: z.array(z.string().min(1).max(2000)).min(1).max(80),
+  texts: z.array(z.string().min(1).max(2000)).min(1).max(40),
   target: z.enum(["he", "en"]),
-  context: z.string().max(500).optional(),
 });
+
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama-3.1-8b-instant";
+
+async function translateGroq(texts: string[]): Promise<string[]> {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error("no groq key");
+  const numbered = texts.map((t, i) => `${i + 1}. ${t}`).join("\n");
+  const sys = "Translate each numbered English UI string to natural Hebrew. Keep numbers, %, $, emojis, brand names (YouTube, Llama, Groq, fal.ai), URLs, code identifiers, and proper nouns unchanged. Output ONLY the translated lines in the same `N. translation` format, one per line, no extra commentary, no markdown.";
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 15_000);
+  try {
+    const res = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [{ role: "system", content: sys }, { role: "user", content: numbered }],
+        temperature: 0.2,
+        max_tokens: Math.min(2000, texts.length * 80),
+      }),
+      signal: ctl.signal,
+    });
+    if (!res.ok) throw new Error(`Groq ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const data = await res.json();
+    const txt: string = data.choices?.[0]?.message?.content ?? "";
+    // Parse numbered list
+    const lines = txt.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const out: string[] = new Array(texts.length);
+    for (const line of lines) {
+      const m = line.match(/^(\d+)[.)\]:\s-]+(.+)$/);
+      if (!m) continue;
+      const idx = Number(m[1]) - 1;
+      if (idx < 0 || idx >= texts.length) continue;
+      out[idx] = m[2].trim().replace(/^["']|["']$/g, "");
+    }
+    return out.map((v, i) => v || texts[i]);
+  } finally { clearTimeout(timer); }
+}
+
+async function translateGemini(texts: string[]): Promise<string[]> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("no gemini key");
+  const numbered = texts.map((t, i) => `${i + 1}. ${t}`).join("\n");
+  const sys = "Translate each numbered English UI string to natural Hebrew. Keep numbers, %, $, emojis, brand names, URLs, code identifiers, proper nouns unchanged. Output ONLY the translated lines in the same `N. translation` format, no commentary.";
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 15_000);
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: sys }] },
+        contents: [{ role: "user", parts: [{ text: numbered }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: Math.min(2000, texts.length * 80) },
+      }),
+      signal: ctl.signal,
+    });
+    if (!res.ok) throw new Error(`Gemini ${res.status}`);
+    const data = await res.json();
+    const txt: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const lines = txt.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const out: string[] = new Array(texts.length);
+    for (const line of lines) {
+      const m = line.match(/^(\d+)[.)\]:\s-]+(.+)$/);
+      if (!m) continue;
+      const idx = Number(m[1]) - 1;
+      if (idx < 0 || idx >= texts.length) continue;
+      out[idx] = m[2].trim().replace(/^["']|["']$/g, "");
+    }
+    return out.map((v, i) => v || texts[i]);
+  } finally { clearTimeout(timer); }
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = Body.parse(await req.json());
     if (body.target === "en") return ok({ translations: body.texts });
-
-    const sys = `You are a precise UI translator. Translate each English string to natural Hebrew suitable for a SaaS interface. Keep punctuation, emojis, numbers, currency symbols, %, code/identifiers, brand names (VEXO Studio, YouTube, etc.), and short ALL_CAPS tokens unchanged. Preserve placeholders like {name}, %s, $variable. Keep length similar. ${body.context ? `Context: ${body.context}.` : ""} Reply ONLY as JSON: { "translations": ["...", "..."] } in the same order as input.`;
-    const j = await groqJson<{ translations: string[] }>(sys, JSON.stringify(body.texts), { temperature: 0.2, maxTokens: 4000 });
-    if (!Array.isArray(j.translations) || j.translations.length !== body.texts.length) {
-      return NextResponse.json({ statusCode: 502, error: "BadGateway", message: "translation count mismatch" }, { status: 502 });
+    let lastErr: unknown;
+    for (const fn of [translateGroq, translateGemini]) {
+      try {
+        const out = await fn(body.texts);
+        return ok({ translations: out });
+      } catch (e) { lastErr = e; }
     }
-    return ok({ translations: j.translations });
+    return NextResponse.json({ statusCode: 502, error: "BadGateway", message: String(lastErr).slice(0, 300) }, { status: 502 });
   } catch (e) { return handleError(e); }
 }

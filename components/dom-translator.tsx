@@ -9,7 +9,7 @@ import { useLang } from "@/lib/i18n";
 
 const STORAGE_KEY = "vexo_tr_he_v2";
 const ENDPOINT = "/api/v1/ai/translate";
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 30;
 const BATCH_DELAY = 120; // ms
 
 let cache: Record<string, string> = {};

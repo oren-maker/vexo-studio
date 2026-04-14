@@ -74,10 +74,12 @@ function walkAndCollect(root: Node, list: { node: Text; original: string }[]) {
 function applyToNode(item: { node: Text; original: string }) {
   const tr = cache[item.original];
   if (!tr) return false;
-  // If cached "translation" is just the English source (no Hebrew chars), ignore so we retry.
+  // If cached "translation" is just the English source (no Hebrew chars), invalidate + queue retranslate.
   if (tr === item.original || !/[\u0590-\u05FF]/.test(tr)) {
     delete cache[item.original];
     saveCacheSoon();
+    pending.add(item.original);
+    setTimeout(flush, 80);
     return false;
   }
   const original = item.node.textContent ?? "";
@@ -110,6 +112,8 @@ function applyAttr(item: { el: Element; attr: string; original: string }) {
   if (tr === item.original || !/[\u0590-\u05FF]/.test(tr)) {
     delete cache[item.original];
     saveCacheSoon();
+    pending.add(item.original);
+    setTimeout(flush, 80);
     return false;
   }
   const cur = item.el.getAttribute(item.attr) ?? "";

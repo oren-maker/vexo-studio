@@ -17,6 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     const f = requirePermission(ctx, "edit_project"); if (f) return f;
     await assertProjectInOrg(params.id, ctx.organizationId);
+    (await import("@/lib/request-context")).setActiveProject(params.id);
 
     const project = await prisma.project.findUnique({
       where: { id: params.id },

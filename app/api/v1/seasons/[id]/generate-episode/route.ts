@@ -36,6 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
     });
     if (!season) throw Object.assign(new Error("season not found"), { statusCode: 404 });
+    (await import("@/lib/request-context")).setActiveProject(season.series.projectId);
     await assertEpisodeQuota(ctx.organizationId, season.seriesId);
 
     // 1. Pull the cached series bible. NEVER rebuild here — that would cost

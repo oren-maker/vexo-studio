@@ -110,9 +110,9 @@ async function callGeminiViaFal(messages: ChatMessage[], opts: AiOptions): Promi
       if (orgId) {
         await chargeUsd({
           organizationId: orgId,
-          projectId: opts.projectId ?? null,
+          projectId: opts.projectId ?? actor?.projectId ?? null,
           entityType: "AI_TEXT",
-          entityId: opts.projectId ?? "global",
+          entityId: opts.projectId ?? actor?.projectId ?? "global",
           providerName: "fal.ai",
           category: "TOKEN",
           description: opts.description ?? `Gemini text · in:${r.inputTokens} out:${r.outputTokens}`,
@@ -129,11 +129,18 @@ async function callGeminiViaFal(messages: ChatMessage[], opts: AiOptions): Promi
 }
 
 export async function groqChat(messages: ChatMessage[], opts: AiOptions = {}): Promise<string> {
-  // PRIMARY: paid Gemini through fal.ai (cost tracked in wallet + financial report)
-  // FALLBACK 1: Groq Llama 3.3 70B (free tier) if fal fails or no key
-  // FALLBACK 2: Free Gemini direct (only if no fal key configured at all)
+  // Order chosen for reliability + budget control:
+  //   1. Free Gemini direct (fast, free, primary path while fal any-llm proxy
+  //      sometimes returns 5xx / hangs)
+  //   2. Paid Gemini via fal (charged automatically — used when free Gemini is
+  //      rate-limited / quota-exceeded)
+  //   3. Groq Llama 3.3 70B (free fallback when both Gemini paths fail)
+  // Set USE_PAID_GEMINI_FIRST=1 to swap fal-Gemini to position 1.
+  const order = process.env.USE_PAID_GEMINI_FIRST === "1"
+    ? [callGeminiViaFal, callGemini, callGroq]
+    : [callGemini, callGeminiViaFal, callGroq];
   let lastErr: unknown;
-  for (const fn of [callGeminiViaFal, callGroq, callGemini]) {
+  for (const fn of order) {
     try {
       return await fn(messages, opts);
     } catch (e) { lastErr = e; }

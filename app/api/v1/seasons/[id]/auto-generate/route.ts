@@ -29,6 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       include: { series: { include: { project: true } }, episodes: { orderBy: { episodeNumber: "desc" }, take: 1 } },
     });
     if (!season) throw Object.assign(new Error("season not found"), { statusCode: 404 });
+    (await import("@/lib/request-context")).setActiveProject(season.series.projectId);
 
     // Outline season episodes
     const startNum = (season.episodes[0]?.episodeNumber ?? 0) + 1;

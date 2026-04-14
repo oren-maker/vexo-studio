@@ -185,7 +185,7 @@ export async function chatGeminiViaFal(opts: {
   if (opts.responseFormat === "json") body.response_format = { type: "json_object" };
 
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), opts.timeoutMs ?? 15_000);
+  const timer = setTimeout(() => ctl.abort(), opts.timeoutMs ?? 10_000);
   let res: Response;
   try {
     res = await fetch(ANY_LLM_URL, {

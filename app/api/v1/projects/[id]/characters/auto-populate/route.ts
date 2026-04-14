@@ -52,6 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     const f = requirePermission(ctx, "edit_project"); if (f) return f;
     await assertProjectInOrg(params.id, ctx.organizationId);
+    (await import("@/lib/request-context")).setActiveProject(params.id);
 
     const body = req.headers.get("content-length") && Number(req.headers.get("content-length")) > 0
       ? Body.parse(await req.json()) : Body.parse({});

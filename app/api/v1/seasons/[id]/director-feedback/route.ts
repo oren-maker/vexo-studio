@@ -15,6 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       include: { episodes: { orderBy: { episodeNumber: "asc" }, select: { id: true, episodeNumber: true, title: true, synopsis: true, status: true } }, series: true },
     });
     if (!season) throw Object.assign(new Error("season not found"), { statusCode: 404 });
+    (await import("@/lib/request-context")).setActiveProject(season.series.projectId);
 
     const epSummary = season.episodes.map((e) => `EP${e.episodeNumber}: ${e.title} [${e.status}] — ${e.synopsis ?? ""}`).join("\n");
 

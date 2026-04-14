@@ -15,6 +15,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       include: { scenes: { orderBy: { sceneNumber: "asc" }, select: { sceneNumber: true, title: true, summary: true, scriptText: true, status: true } } },
     });
     if (!ep) throw Object.assign(new Error("episode not found"), { statusCode: 404 });
+    const epWithProj = await prisma.episode.findUnique({ where: { id: params.id }, select: { season: { select: { series: { select: { projectId: true } } } } } });
+    if (epWithProj?.season.series.projectId) (await import("@/lib/request-context")).setActiveProject(epWithProj.season.series.projectId);
 
     const sceneSummary = ep.scenes.map((s) => `Scene ${s.sceneNumber}${s.title ? ` (${s.title})` : ""} [${s.status}]\n${s.summary ?? ""}\n${s.scriptText?.slice(0, 600) ?? ""}`).join("\n\n");
 

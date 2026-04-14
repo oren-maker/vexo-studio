@@ -14,6 +14,9 @@ export type RequestActor = {
   organizationId: string;
   userId: string;
   ipAddress?: string;
+  /** Set by endpoints once they resolve which project they're acting on,
+   * so background helpers (e.g. Gemini cost charging) can attribute spend. */
+  projectId?: string;
 };
 
 const storage = new AsyncLocalStorage<RequestActor>();
@@ -24,4 +27,12 @@ export function setRequestActor(actor: RequestActor) {
 
 export function getRequestActor(): RequestActor | undefined {
   return storage.getStore();
+}
+
+/** Annotate the current request with the project the endpoint is acting on.
+ * Idempotent — call as many times as you like. Safe even if no actor is set. */
+export function setActiveProject(projectId: string) {
+  const cur = storage.getStore();
+  if (!cur) return;
+  storage.enterWith({ ...cur, projectId });
 }

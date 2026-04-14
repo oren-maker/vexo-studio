@@ -22,6 +22,15 @@ const Body = z.object({
 }).partial();
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  let stage = "init";
+  async function step<T>(label: string, fn: () => Promise<T> | T): Promise<T> {
+    stage = label;
+    try { return await fn(); }
+    catch (e) {
+      const orig = (e as Error).message ?? String(e);
+      throw Object.assign(new Error(`[${label}] ${orig}`), { statusCode: (e as { statusCode?: number }).statusCode ?? 500, stack: (e as Error).stack });
+    }
+  }
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     const f = requirePermission(ctx, "edit_project"); if (f) return f;
@@ -63,22 +72,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // 2. Outline the new episode from the bible + the last 2 episodes' synopses
     const recent = season.episodes.slice(-2).map((e) => `EP${e.episodeNumber} "${e.title}": ${e.synopsis ?? ""}`).join("\n");
 
-    const outline = await groqJson<{ title: string; synopsis: string; targetDurationSeconds: number; characterNames: string[] }>(
+    const outline = await step("outline-ai", () => groqJson<{ title?: string; synopsis?: string; targetDurationSeconds?: number; characterNames?: string[] }>(
       `Continue the series. Return JSON { title, synopsis (2-4 sentences), targetDurationSeconds (1500-2400), characterNames: string[] — subset of recurring cast }. Must stay consistent with the bible and advance the arc. Don't repeat a prior plot.`,
       `SERIES BIBLE (authoritative — respect it):\n${bible}\n\nRECENT EPISODES (immediate predecessors):\n${recent || "(first episode)"}\n\nNEXT EPISODE #${nextNumber}${body.title ? ` — requested title: "${body.title}"` : ""}${body.hint ? `\nHINT: ${body.hint}` : ""}\nLANGUAGE: ${season.series.project.language}`,
       { temperature: 0.85, maxTokens: 1000 },
-    );
+    ));
+    if (!outline?.title || !outline?.synopsis) {
+      throw Object.assign(new Error("AI outline missing title/synopsis — try again or provide a hint"), { statusCode: 502 });
+    }
 
-    const ep = await prisma.episode.create({
+    const ep = await step("episode-create", () => prisma.episode.create({
       data: {
         seasonId: season.id,
         episodeNumber: nextNumber,
-        title: body.title || outline.title,
-        synopsis: outline.synopsis,
+        title: body.title || outline.title!,
+        synopsis: outline.synopsis!,
         targetDurationSeconds: outline.targetDurationSeconds ?? 1800,
         status: "REVIEW",
       },
-    });
+    }));
 
     const appearing = characters.filter((c) => outline.characterNames?.some((n) => n.toLowerCase() === c.name.toLowerCase()));
     if (appearing.length > 0) {
@@ -91,11 +103,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // 3. Plan all scenes in ONE call (cheaper than N calls)
     const scenesPerEpisode = body.scenesPerEpisode ?? 4;
     const framesPerScene = body.framesPerScene ?? 3;
-    const scenesPlan = await groqJson<{ scenes: { title: string; summary: string; scriptText: string; location?: string; mood?: string; characterNames?: string[] }[] }>(
+    const scenesPlan = await step("scenes-ai", () => groqJson<{ scenes?: { title?: string; summary?: string; scriptText?: string; location?: string; mood?: string; characterNames?: string[] }[] }>(
       `Plan ${scenesPerEpisode} scenes. Return JSON { scenes: [{ title, summary, scriptText (4-8 screenplay lines), location, mood, characterNames: string[] }] }. Keep characters consistent with the bible.`,
       `BIBLE:\n${bible}\n\nEPISODE ${nextNumber}: ${outline.title}\n${outline.synopsis}\n\nAvailable cast: ${appearing.map((c) => c.name).join(", ") || "(any)"}`,
       { temperature: 0.8, maxTokens: 3500 },
-    ).catch(() => ({ scenes: [] }));
+    ).catch(() => ({ scenes: [] as { title?: string; summary?: string; scriptText?: string; location?: string; mood?: string; characterNames?: string[] }[] })));
 
     const plannedScenes = Array.isArray(scenesPlan?.scenes) ? scenesPlan.scenes : [];
     if (plannedScenes.length === 0) {
@@ -103,40 +115,44 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // 4. Create scenes + frames in parallel (all AI calls concurrent)
-    const createdScenes = await Promise.all(
+    const createdScenes = await step("scenes-persist", () => Promise.all(
       plannedScenes.slice(0, scenesPerEpisode).map(async (sp, s) => {
+        if (!sp?.title || !sp?.scriptText) return { sceneId: null, frames: 0 };
         const scene = await prisma.scene.create({
           data: {
             parentType: "EPISODE", parentId: ep.id, episodeId: ep.id,
-            sceneNumber: s + 1, title: sp.title, summary: sp.summary,
+            sceneNumber: s + 1, title: sp.title, summary: sp.summary ?? null,
             scriptText: sp.scriptText, scriptSource: "AI_GENERATED",
             targetDurationSeconds: 60, status: "STORYBOARD_REVIEW",
             memoryContext: { location: sp.location, mood: sp.mood, characters: sp.characterNames ?? [] } as any,
           },
         });
 
-        const fp = await groqJson<{ frames: { beatSummary: string; imagePrompt: string; negativePrompt?: string }[] }>(
+        const fp = await groqJson<{ frames?: { beatSummary?: string; imagePrompt?: string; negativePrompt?: string }[] }>(
           `Plan ${framesPerScene} storyboard frames. Return JSON { frames: [{ beatSummary, imagePrompt, negativePrompt }] }. Cinematic image prompts.`,
           `Scene: ${sp.title}\nMood: ${sp.mood ?? "—"}\nLocation: ${sp.location ?? "—"}\nCharacters: ${(sp.characterNames ?? []).join(", ") || "—"}\n${sp.scriptText}`,
           { temperature: 0.7, maxTokens: 1200 },
-        ).catch(() => ({ frames: [] }));
+        ).catch(() => ({ frames: [] as { beatSummary?: string; imagePrompt?: string; negativePrompt?: string }[] }));
 
         const plannedFrames = Array.isArray(fp?.frames) ? fp.frames : [];
-        await prisma.sceneFrame.createMany({
-          data: plannedFrames.slice(0, framesPerScene).map((fr, fi) => ({
-            sceneId: scene.id,
-            orderIndex: fi,
-            beatSummary: fr.beatSummary,
-            imagePrompt: fr.imagePrompt,
-            negativePrompt: fr.negativePrompt,
-            status: "PENDING",
-          })),
-          skipDuplicates: true,
-        });
+        const validFrames = plannedFrames.filter((fr) => fr?.imagePrompt).slice(0, framesPerScene);
+        if (validFrames.length > 0) {
+          await prisma.sceneFrame.createMany({
+            data: validFrames.map((fr, fi) => ({
+              sceneId: scene.id,
+              orderIndex: fi,
+              beatSummary: fr.beatSummary ?? null,
+              imagePrompt: fr.imagePrompt!,
+              negativePrompt: fr.negativePrompt ?? null,
+              status: "PENDING",
+            })),
+            skipDuplicates: true,
+          });
+        }
 
-        return { sceneId: scene.id, frames: plannedFrames.length };
+        return { sceneId: scene.id, frames: validFrames.length };
       }),
-    );
+    ));
 
     return ok({
       episodeId: ep.id,
@@ -147,5 +163,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       characters: appearing.length,
       usedCache: !!contextCache,
     });
-  } catch (e) { return handleError(e); }
+  } catch (e) {
+    const err = e as { message?: string; statusCode?: number; stack?: string };
+    if (!err.message?.startsWith("[")) err.message = `[${stage}] ${err.message ?? "unknown"}`;
+    return handleError(err);
+  }
 }

@@ -1,9 +1,80 @@
-import { Card, EmptyState } from "@/components/page-shell";
-export default function Page() {
+"use client";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { api } from "@/lib/api";
+import { Card } from "@/components/page-shell";
+
+type Director = { id: string; mode: string; learningEnabled: boolean; autopilotEnabled: boolean; experienceScore: number };
+type Log = { id: string; actorType: string; actionType: string; createdAt: string; decisionReason: string | null; successScore: number | null };
+
+export default function AIDirectorPage() {
+  const { id } = useParams<{ id: string }>();
+  const [director, setDirector] = useState<Director | null>(null);
+  const [logs, setLogs] = useState<Log[]>([]);
+
+  async function load() {
+    setDirector(await api(`/api/v1/projects/${id}/ai-director`));
+    setLogs(await api(`/api/v1/projects/${id}/ai-logs`).catch(() => []));
+  }
+  useEffect(() => { load(); }, [id]);
+
+  async function update(body: Partial<Director>) {
+    await api(`/api/v1/projects/${id}/ai-director`, { method: "PATCH", body });
+    load();
+  }
+
+  async function run() {
+    await api(`/api/v1/projects/${id}/ai-director/run`, { method: "POST" });
+    load();
+  }
+
+  if (!director) return <div className="text-text-muted">Loading…</div>;
   return (
-    <div className="p-6">
-      <Card title="AI Director" subtitle="Autonomous production agent">
-        <EmptyState icon="✨" title="Coming together" body="This screen is part of the v2 spec — wiring to API in upcoming iterations." />
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">AI Director</h1>
+      <Card title="Configuration" subtitle="The autonomous production agent for this project">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold">Mode</div>
+              <div className="text-xs text-text-muted">MANUAL · ASSISTED · AUTOPILOT</div>
+            </div>
+            <select value={director.mode} onChange={(e) => update({ mode: e.target.value })} className="px-3 py-2 rounded-lg border border-bg-main"><option>MANUAL</option><option>ASSISTED</option><option>AUTOPILOT</option></select>
+          </div>
+          <label className="flex items-center justify-between cursor-pointer">
+            <div>
+              <div className="font-semibold">Learning enabled</div>
+              <div className="text-xs text-text-muted">Director learns from approvals/rejections.</div>
+            </div>
+            <input type="checkbox" checked={director.learningEnabled} onChange={(e) => update({ learningEnabled: e.target.checked })} />
+          </label>
+          <label className="flex items-center justify-between cursor-pointer">
+            <div>
+              <div className="font-semibold">Autopilot enabled</div>
+              <div className="text-xs text-text-muted">Director runs the production loop unattended.</div>
+            </div>
+            <input type="checkbox" checked={director.autopilotEnabled} onChange={(e) => update({ autopilotEnabled: e.target.checked })} />
+          </label>
+          <div className="flex justify-between items-center">
+            <div className="text-xs text-text-muted">Experience score: <span className="num font-bold">{director.experienceScore.toFixed(2)}</span></div>
+            <button onClick={run} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">Run next step</button>
+          </div>
+        </div>
+      </Card>
+      <Card title="Action log" subtitle={`${logs.length} entries`}>
+        {logs.length === 0 ? <div className="text-text-muted text-sm">No actions yet.</div> : (
+          <ul className="space-y-2 text-sm">
+            {logs.slice(0, 50).map((l) => (
+              <li key={l.id} className="bg-bg-main rounded-lg p-3">
+                <div className="flex justify-between text-xs">
+                  <span className="font-mono">{l.actorType} · {l.actionType}</span>
+                  <span className="text-text-muted">{new Date(l.createdAt).toLocaleString()}</span>
+                </div>
+                {l.decisionReason && <div className="text-text-secondary mt-1">{l.decisionReason}</div>}
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   );

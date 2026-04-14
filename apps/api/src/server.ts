@@ -36,6 +36,11 @@ import { collaborationRoutes } from "./routes/collaboration";
 import { templateRoutes } from "./routes/templates";
 import { courseRoutes } from "./routes/courses";
 import { jobRoutes } from "./routes/jobs";
+import { auditLogRoutes } from "./routes/audit-logs";
+import { startScheduler } from "./lib/scheduler";
+
+// JSON-safe BigInt serialization (Asset.sizeBytes etc.)
+(BigInt.prototype as unknown as { toJSON(): string }).toJSON = function () { return this.toString(); };
 
 const app = Fastify({
   logger: {
@@ -103,10 +108,12 @@ async function bootstrap() {
   await app.register(templateRoutes,        { prefix: "/api/v1/templates" });
   await app.register(courseRoutes,          { prefix: "/api/v1" });
   await app.register(jobRoutes,             { prefix: "/api/v1/jobs" });
+  await app.register(auditLogRoutes,        { prefix: "/api/v1/audit-logs" });
 
   const port = Number(process.env.API_PORT ?? 4000);
   await app.listen({ port, host: "0.0.0.0" });
   app.log.info(`vexo-api listening on :${port}`);
+  startScheduler(app.log);
 }
 
 bootstrap().catch((err) => {

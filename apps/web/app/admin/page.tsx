@@ -1,3 +1,9 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+import { useMe } from "@/components/auth-guard";
+
 function Kpi({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="bg-bg-card rounded-card shadow-card p-5 border border-bg-main">
@@ -7,38 +13,57 @@ function Kpi({ label, value, color }: { label: string; value: string; color: str
   );
 }
 
+type Project = { id: string; name: string; status: string };
+type Provider = { id: string; name: string; isActive: boolean };
+
 export default function AdminDashboard() {
+  const { me } = useMe();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
+
+  useEffect(() => {
+    api<Project[]>("/api/v1/projects").then(setProjects).catch(() => {});
+    api<Provider[]>("/api/v1/providers").then(setProviders).catch(() => {});
+  }, []);
+
+  const activeProjects = projects.filter((p) => p.status !== "ARCHIVED").length;
+  const activeProviders = providers.filter((p) => p.isActive).length;
+
   return (
     <div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Kpi label="Total cost" value="$0" color="#e03a4e" />
-        <Kpi label="Total revenue" value="$0" color="#1db868" />
-        <Kpi label="Net profit" value="$0" color="#0091d4" />
-        <Kpi label="Active projects" value="0" color="#1a2540" />
+        <Kpi label="Active projects" value={String(activeProjects)} color="#0091d4" />
+        <Kpi label="Active providers" value={String(activeProviders)} color="#1db868" />
+        <Kpi label="Plan" value={me?.user?.organizations?.[0]?.organization?.plan ?? "—"} color="#1a2540" />
+        <Kpi label="Members" value="1+" color="#1a2540" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-bg-card rounded-card shadow-card p-6 border border-bg-main">
-          <h2 className="text-lg font-semibold mb-2">Welcome to VEXO Studio</h2>
-          <p className="text-text-secondary text-sm mb-3">
-            Multi-tenant scaffold (v2) is ready. Bring up infra and seed:
-          </p>
-          <pre className="text-xs bg-bg-main rounded p-3 overflow-x-auto">{`docker compose up -d postgres redis
-npm run db:generate && npm run db:migrate && npm run db:seed
-npm run dev`}</pre>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Recent projects</h2>
+            <Link href="/projects" className="text-sm text-accent">View all →</Link>
+          </div>
+          {projects.length === 0 ? (
+            <div className="text-sm text-text-muted">No projects yet. <Link href="/projects/new" className="text-accent">Create one</Link>.</div>
+          ) : (
+            <ul className="space-y-2">
+              {projects.slice(0, 5).map((p) => (
+                <li key={p.id} className="flex items-center justify-between py-2 border-b border-bg-main last:border-0">
+                  <Link href={`/projects/${p.id}`} className="font-medium hover:text-accent">{p.name}</Link>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-bg-main text-text-secondary">{p.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="bg-bg-card rounded-card shadow-card p-6 border border-bg-main">
-          <h2 className="text-lg font-semibold mb-3">Phase 1 status</h2>
-          <ul className="text-sm space-y-1 text-text-secondary">
-            <li>✓ Organizations + multi-tenancy</li>
-            <li>✓ Auth + JWT + Refresh + 2FA (TOTP)</li>
-            <li>✓ Roles & Permissions (24 perms × 7 roles)</li>
-            <li>✓ Sessions management</li>
-            <li>✓ API Keys (SHA-256 hashed)</li>
-            <li>✓ Webhooks (outbound + incoming HMAC)</li>
-            <li>✓ In-app Notifications + SSE stream</li>
-            <li>✓ Health + Ready endpoints</li>
-            <li>✓ Rate limiting (Redis-backed)</li>
-          </ul>
+          <h2 className="text-lg font-semibold mb-3">Quick actions</h2>
+          <div className="grid grid-cols-2 gap-2">
+            <Link href="/projects/new" className="px-4 py-3 rounded-lg border border-bg-main hover:bg-bg-main text-sm font-medium">+ New project</Link>
+            <Link href="/admin/users" className="px-4 py-3 rounded-lg border border-bg-main hover:bg-bg-main text-sm font-medium">Manage users</Link>
+            <Link href="/admin/providers" className="px-4 py-3 rounded-lg border border-bg-main hover:bg-bg-main text-sm font-medium">Add provider</Link>
+            <Link href="/admin/api-keys" className="px-4 py-3 rounded-lg border border-bg-main hover:bg-bg-main text-sm font-medium">API keys</Link>
+          </div>
         </div>
       </div>
     </div>

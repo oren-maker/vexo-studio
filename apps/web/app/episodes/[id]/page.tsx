@@ -1,9 +1,107 @@
-import { Card, EmptyState } from "@/components/page-shell";
-export default function Page() {
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { api } from "@/lib/api";
+import { Card } from "@/components/page-shell";
+
+type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; actualCost: number; revenueTotal: number; publishedAt: string | null };
+type Scene = { id: string; sceneNumber: number; title: string | null; status: string; actualCost: number };
+
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT: "bg-bg-main text-text-secondary",
+  PLANNING: "bg-status-warningBg text-status-warnText",
+  IN_PRODUCTION: "bg-status-warningBg text-status-warnText",
+  REVIEW: "bg-status-warningBg text-status-warnText",
+  READY_FOR_PUBLISH: "bg-accent/20 text-accent",
+  PUBLISHED: "bg-status-okBg text-status-okText",
+  ARCHIVED: "bg-bg-main text-text-muted",
+};
+
+export default function EpisodePage() {
+  const { id } = useParams<{ id: string }>();
+  const [ep, setEp] = useState<Episode | null>(null);
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [creating, setCreating] = useState(false);
+
+  async function load() {
+    setEp(await api(`/api/v1/episodes/${id}`));
+    setScenes(await api(`/api/v1/episodes/${id}/scenes`));
+  }
+  useEffect(() => { load(); }, [id]);
+
+  async function createScene(e: React.FormEvent) {
+    e.preventDefault();
+    const f = e.currentTarget as HTMLFormElement;
+    await api(`/api/v1/episodes/${id}/scenes`, {
+      method: "POST",
+      body: { sceneNumber: Number((f.elements.namedItem("n") as HTMLInputElement).value), title: (f.elements.namedItem("t") as HTMLInputElement).value },
+    });
+    setCreating(false); load();
+  }
+
+  async function publish() {
+    if (!confirm("Publish this episode to YouTube?")) return;
+    await api(`/api/v1/episodes/${id}/publish/youtube`, { method: "POST" });
+    load();
+  }
+
+  async function generateSEO() {
+    await api(`/api/v1/episodes/${id}/seo/generate`, { method: "POST" });
+    alert("SEO regenerated");
+  }
+
+  if (!ep) return <div className="text-text-muted">Loading…</div>;
+
   return (
-    <div className="p-6">
-      <Card title="Episode Workspace" subtitle="Scenes, music, subtitles, dubbing">
-        <EmptyState icon="✨" title="Coming together" body="This screen is part of the v2 spec — wiring to API in upcoming iterations." />
+    <div className="space-y-6">
+      <div className="flex justify-between items-start">
+        <div>
+          <div className="text-xs text-text-muted font-mono">EP{String(ep.episodeNumber).padStart(2, "0")}</div>
+          <h1 className="text-3xl font-bold">{ep.title}</h1>
+          {ep.synopsis && <p className="text-text-secondary mt-1">{ep.synopsis}</p>}
+        </div>
+        <span className={`text-xs px-3 py-1 rounded-full font-bold ${STATUS_COLOR[ep.status] ?? "bg-bg-main"}`}>{ep.status}</span>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        <Link href={`/episodes/${id}/seo`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">SEO</Link>
+        <Link href={`/episodes/${id}/thumbnails`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">Thumbnails</Link>
+        <button onClick={generateSEO} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">Auto-generate SEO</button>
+        <button onClick={publish} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold ml-auto">Publish to YouTube</button>
+      </div>
+
+      <Card title="Scenes" subtitle={`${scenes.length} scenes`}>
+        <div className="flex justify-end mb-3">
+          <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">+ Scene</button>
+        </div>
+        {creating && (
+          <form onSubmit={createScene} className="bg-bg-main rounded-lg p-3 mb-3 flex gap-2">
+            <input name="n" required type="number" min="1" defaultValue={scenes.length + 1} className="w-20 px-3 py-2 rounded-lg border border-bg-main bg-white" />
+            <input name="t" required placeholder="Scene title" className="flex-1 px-3 py-2 rounded-lg border border-bg-main bg-white" />
+            <button className="px-4 py-2 rounded-lg bg-accent text-white text-sm">Add</button>
+          </form>
+        )}
+        {scenes.length === 0 ? (
+          <div className="text-center py-8 text-text-muted">No scenes yet.</div>
+        ) : (
+          <ul className="space-y-1">
+            {scenes.map((s) => (
+              <li key={s.id}>
+                <Link href={`/scenes/${s.id}`} className="flex justify-between items-center bg-bg-main rounded-lg p-3 hover:bg-bg-main/60">
+                  <div>
+                    <span className="font-mono text-xs text-text-muted">SC{String(s.sceneNumber).padStart(2, "0")}</span>
+                    <span className="ml-3 font-medium">{s.title ?? "Untitled"}</span>
+                  </div>
+                  <div className="flex gap-3 text-xs">
+                    <span className="px-2 py-0.5 rounded-full bg-bg-card text-text-secondary">{s.status}</span>
+                    <span className="num">${s.actualCost.toFixed(2)}</span>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   );

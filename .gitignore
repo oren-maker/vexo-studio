@@ -6,6 +6,15 @@ build/
 *.tsbuildinfo
 next-env.d.ts
 
+# Compiled outputs that shouldn't ever be in src/
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts.map
+apps/*/src/**/*.js
+apps/*/src/**/*.d.ts
+apps/*/src/**/*.js.map
+
 .env
 .env.*.local
 .env.local

@@ -1,6 +1,35 @@
 import fp from "fastify-plugin";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import crypto from "node:crypto";
 import { prisma } from "@vexo/db";
+
+function hashKey(plain: string) {
+  return crypto.createHash("sha256").update(plain).digest("hex");
+}
+
+async function tryApiKeyAuth(req: FastifyRequest): Promise<boolean> {
+  const auth = req.headers["authorization"];
+  if (!auth || typeof auth !== "string") return false;
+  const m = auth.match(/^Bearer\s+(vexo_sk_[^\s]+)$/i);
+  if (!m) return false;
+  const key = await prisma.apiKey.findUnique({ where: { keyHash: hashKey(m[1]) } });
+  if (!key || !key.isActive || (key.expiresAt && key.expiresAt < new Date())) return false;
+  await prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } });
+  // Build a minimal currentUser representing the key owner
+  req.currentUser = {
+    id: key.createdByUserId,
+    email: "api-key",
+    totpEnabled: true,
+    memberships: [{
+      organizationId: key.organizationId,
+      roleName: "API_KEY",
+      permissions: new Set(key.scopes as string[]),
+      isOwner: false,
+    }],
+  };
+  req.organizationId = key.organizationId;
+  return true;
+}
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -35,6 +64,8 @@ const ENFORCE_2FA_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
 
 const plugin: FastifyPluginAsync = async (app) => {
   app.decorate("requireAuth", async (req, reply) => {
+    // API key path
+    if (await tryApiKeyAuth(req)) return;
     try {
       await req.jwtVerify();
       const userId = (req.user as { sub: string }).sub;

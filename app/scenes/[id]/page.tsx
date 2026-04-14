@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
+import { useLang } from "@/lib/i18n";
 
 type Frame = { id: string; orderIndex: number; beatSummary: string | null; imagePrompt: string | null; status: string; generatedImageUrl: string | null; approvedImageUrl: string | null };
 type Comment = { id: string; body: string; resolved: boolean; createdAt: string; user: { id: string; fullName: string; email: string } };
@@ -11,6 +12,8 @@ type Scene = { id: string; sceneNumber: number; title: string | null; summary: s
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
+  const lang = useLang();
+  const he = lang === "he";
   const [scene, setScene] = useState<Scene | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -78,7 +81,7 @@ export default function ScenePage() {
     await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { scriptText: text } });
   }
 
-  if (!scene) return <div className="text-text-muted">Loading…</div>;
+  if (!scene) return <div className="text-text-muted">{he ? "טוען…" : "Loading…"}</div>;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -86,7 +89,7 @@ export default function ScenePage() {
         <div className="flex justify-between items-start">
           <div>
             <div className="text-xs text-text-muted font-mono">SC{String(scene.sceneNumber).padStart(2, "0")}</div>
-            <h1 className="text-2xl font-bold">{scene.title ?? "Untitled scene"}</h1>
+            <h1 className="text-2xl font-bold">{scene.title ?? (he ? "סצנה ללא שם" : "Untitled scene")}</h1>
             {scene.summary && <p className="text-text-secondary text-sm mt-1">{scene.summary}</p>}
           </div>
           <span className="text-xs px-3 py-1 rounded-full bg-bg-main font-bold whitespace-nowrap">{scene.status}</span>
@@ -94,20 +97,20 @@ export default function ScenePage() {
 
         <div className="bg-bg-card rounded-card p-3 border border-bg-main flex flex-wrap items-end gap-3">
           <label className="text-xs">
-            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">Image model</span>
+            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">{he ? "מודל תמונה" : "Image model"}</span>
             <select value={imageModel} onChange={(e) => setImageModel(e.target.value as never)} className="px-2 py-1 rounded border border-bg-main text-sm">
               <option value="nano-banana">Nano Banana (Gemini 2.5 Flash Image)</option>
             </select>
           </label>
           <label className="text-xs">
-            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">Video model</span>
+            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">{he ? "מודל וידאו" : "Video model"}</span>
             <select value={videoModel} onChange={(e) => setVideoModel(e.target.value as never)} className="px-2 py-1 rounded border border-bg-main text-sm">
               <option value="seedance">SeeDance Pro (ByteDance)</option>
               <option value="kling">Kling 2.1 Master</option>
             </select>
           </label>
           <label className="text-xs">
-            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">Aspect</span>
+            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">{he ? "יחס" : "Aspect"}</span>
             <select value={aspect} onChange={(e) => setAspect(e.target.value as never)} className="px-2 py-1 rounded border border-bg-main text-sm">
               <option value="16:9">16:9</option>
               <option value="9:16">9:16</option>
@@ -117,20 +120,20 @@ export default function ScenePage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button disabled={busy} onClick={genStoryboard} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">Generate storyboard</button>
-          <button disabled={busy} onClick={genVideo} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">Generate video</button>
-          <button onClick={breakdown} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">Script breakdown</button>
-          <button onClick={critic} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">AI critic</button>
-          <button onClick={approve} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">Approve</button>
+          <button disabled={busy} onClick={genStoryboard} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור תשריט" : "Generate storyboard"}</button>
+          <button disabled={busy} onClick={genVideo} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור וידאו" : "Generate video"}</button>
+          <button onClick={breakdown} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold hover:bg-accent/10">{he ? "פירוק תסריט" : "Script breakdown"}</button>
+          <button onClick={critic} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold hover:bg-accent/10">{he ? "מבקר AI" : "AI critic"}</button>
+          <button onClick={approve} className="px-3 py-1.5 rounded-lg border border-status-okText text-status-okText text-sm font-semibold hover:bg-status-okBg">{he ? "אשר סצנה" : "Approve"}</button>
         </div>
 
-        <Card title="Script">
-          <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder="NARRATOR: Once upon a time…" />
+        <Card title={he ? "תסריט" : "Script"}>
+          <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder={he ? "מספר: פעם אחת..." : "NARRATOR: Once upon a time…"} />
         </Card>
 
-        <Card title="Storyboard frames" subtitle={`${scene.frames.length} frames`}>
+        <Card title={he ? "מסגרות תשריט" : "Storyboard frames"} subtitle={`${scene.frames.length} ${he ? "מסגרות" : "frames"}`}>
           {scene.frames.length === 0 ? (
-            <div className="text-text-muted text-sm">No frames yet. Click "Generate storyboard" to start.</div>
+            <div className="text-text-muted text-sm">{he ? "אין מסגרות עדיין. לחץ \"צור תשריט\" להתחיל." : "No frames yet. Click \"Generate storyboard\" to start."}</div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {scene.frames.map((f) => (
@@ -138,7 +141,7 @@ export default function ScenePage() {
                   <div className="aspect-video bg-bg-card rounded mb-2 grid place-items-center text-text-muted">
                     {f.approvedImageUrl || f.generatedImageUrl ? "🖼️" : "—"}
                   </div>
-                  <div className="font-semibold">Frame {f.orderIndex + 1}</div>
+                  <div className="font-semibold">{he ? `מסגרת ${f.orderIndex + 1}` : `Frame ${f.orderIndex + 1}`}</div>
                   <div className="text-text-secondary line-clamp-2">{f.beatSummary ?? "—"}</div>
                   <div className="text-text-muted mt-1">{f.status}</div>
                 </div>
@@ -149,9 +152,9 @@ export default function ScenePage() {
       </div>
 
       <div className="space-y-6">
-        <Card title="AI Critic" subtitle={`${scene.criticReviews.length} reviews`}>
+        <Card title={he ? "מבקר AI" : "AI Critic"} subtitle={`${scene.criticReviews.length} ${he ? "ביקורות" : "reviews"}`}>
           {scene.criticReviews.length === 0 ? (
-            <div className="text-text-muted text-sm">No reviews yet.</div>
+            <div className="text-text-muted text-sm">{he ? "אין ביקורות עדיין." : "No reviews yet."}</div>
           ) : (
             <ul className="space-y-3">
               {scene.criticReviews.map((r) => (
@@ -167,13 +170,13 @@ export default function ScenePage() {
           )}
         </Card>
 
-        <Card title="Comments" subtitle={`${comments.length} comments`}>
+        <Card title={he ? "תגובות" : "Comments"} subtitle={`${comments.length} ${he ? "תגובות" : "comments"}`}>
           <form onSubmit={postComment} className="mb-4">
-            <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} rows={2} placeholder="Leave a comment…" className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm mb-2" />
-            <button className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">Post</button>
+            <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} rows={2} placeholder={he ? "השאר תגובה..." : "Leave a comment…"} className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm mb-2" />
+            <button className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">{he ? "פרסם" : "Post"}</button>
           </form>
           {comments.length === 0 ? (
-            <div className="text-text-muted text-sm">No comments yet.</div>
+            <div className="text-text-muted text-sm">{he ? "אין תגובות עדיין." : "No comments yet."}</div>
           ) : (
             <ul className="space-y-3">
               {comments.map((c) => (

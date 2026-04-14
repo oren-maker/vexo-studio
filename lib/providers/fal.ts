@@ -169,9 +169,9 @@ export async function fetchBalance(): Promise<FalBalance> {
       if (!res.ok) { lastErr = `${url} ${res.status}`; continue; }
       const data = await res.json();
       // Various shapes seen across fal API versions:
-      const b = data?.current_balance ?? data?.balance ?? data?.available ?? data?.remaining;
-      const exp = data?.expiring_soon ?? data?.expiring ?? data?.credits_expiring_in_365_days;
-      const usage = data?.usage_this_month ?? data?.usage_month ?? data?.month_usage;
+      const b = data?.user_balance ?? data?.current_balance ?? data?.balance ?? data?.available ?? data?.remaining ?? data?.amount ?? data?.usd;
+      const exp = data?.expiring_soon ?? data?.expiring ?? data?.credits_expiring_in_365_days ?? data?.expiring_credits;
+      const usage = data?.usage_this_month ?? data?.usage_month ?? data?.month_usage ?? data?.this_month_usage ?? data?.month_to_date;
       return {
         currentBalance: typeof b === "number" ? b : undefined,
         expiringSoon: typeof exp === "number" ? exp : undefined,

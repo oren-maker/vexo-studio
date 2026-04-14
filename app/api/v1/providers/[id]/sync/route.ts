@@ -45,6 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         usageThisMonth: b.usageThisMonth ?? 0,
         expiringSoon: b.expiringSoon ?? 0,
         source: b.source,
+        rawResponse: b.raw,
         wallet: { id: wallet.id, availableCredits: wallet.availableCredits },
       });
     }

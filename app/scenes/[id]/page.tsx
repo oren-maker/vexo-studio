@@ -218,6 +218,15 @@ export default function ScenePage() {
     await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { memoryContext: merged } });
     load();
   }
+  const [soundBusy, setSoundBusy] = useState(false);
+  async function generateSoundNotes() {
+    setSoundBusy(true);
+    try {
+      await api(`/api/v1/scenes/${id}/sound-notes`, { method: "POST" });
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setSoundBusy(false); }
+  }
   async function saveField(field: "title" | "summary", value: string) {
     await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { [field]: value } });
     load();
@@ -573,10 +582,16 @@ export default function ScenePage() {
         </Card>
 
         <Card title={he ? "🔊 הערות סאונד" : "🔊 Sound notes"} subtitle={he ? "מוזיקה · אפקטים · דיבוב. ה-AI מצרף את זה ל-[Audio] של הוידאו" : "Music · SFX · dubbing — fed into the [Audio] section of the prompt"}>
+          <div className="flex justify-end mb-2">
+            <button disabled={soundBusy} onClick={generateSoundNotes} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-50">
+              {soundBusy ? (he ? "מייצר…" : "Generating…") : scene.memoryContext?.soundNotes ? (he ? "🔁 ייצר מחדש עם AI" : "🔁 Regenerate with AI") : (he ? "✨ ייצר עם AI" : "✨ Generate with AI")}
+            </button>
+          </div>
           <textarea
+            key={scene.memoryContext?.soundNotes ?? "empty"}
             defaultValue={scene.memoryContext?.soundNotes ?? ""}
             onBlur={(e) => saveSoundNotes(e.target.value)}
-            rows={4}
+            rows={6}
             placeholder={he ? "למשל: מוזיקה מתמתחת ברקע · תקתוקי שעון · נשימות כבדות של הדמות · קול טלפון מצלצל לעצירה חדה" : "e.g. tense music builds under · clock ticking · heavy breathing · phone ring, sharp cut"}
             className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm"
           />

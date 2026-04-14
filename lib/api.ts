@@ -55,7 +55,21 @@ export async function api<T = unknown>(path: string, opts: RequestInit & { body?
   }
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  if (text) {
+    const ct = res.headers.get("content-type") ?? "";
+    if (ct.includes("application/json")) {
+      try { data = JSON.parse(text); } catch { /* fall through to text */ }
+    }
+    if (data === null) {
+      // Non-JSON response (HTML error page from Vercel timeout, etc.)
+      const snippet = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
+      const looksLikeTimeout = /FUNCTION_INVOCATION_TIMEOUT|An error occurred with your deployment/i.test(text);
+      const message = looksLikeTimeout ? "Server timed out. Try again in a moment." : (snippet || `HTTP ${res.status}`);
+      if (!res.ok) throw Object.assign(new Error(message), { statusCode: res.status, error: "ServerError" });
+      throw Object.assign(new Error(message), { statusCode: 502, error: "InvalidResponse" });
+    }
+  }
   if (!res.ok) {
     const err = (data as ApiError) ?? { statusCode: res.status, error: "Error", message: res.statusText };
     throw Object.assign(new Error(err.message), err);

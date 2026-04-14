@@ -45,7 +45,9 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
     generationConfig: {
       temperature: opts.temperature ?? 0.7,
       maxOutputTokens: opts.maxTokens ?? 1024,
-      ...(opts.responseFormat === "json" ? { responseMimeType: "application/json" } : {}),
+      ...(opts.responseFormat === "json"
+        ? { responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } }
+        : {}),
     },
   };
   let res!: Response;

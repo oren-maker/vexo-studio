@@ -151,7 +151,7 @@ export default function ProjectDetailPage() {
         </div>
         <div className="flex flex-col gap-2 items-end shrink-0">
           <span className="text-xs px-3 py-1 rounded-full bg-bg-main font-bold">{project.status}</span>
-          <button onClick={projectFeedback} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold whitespace-nowrap">🤖 {lang === "he" ? "במאי AI · משוב" : "AI Director · Feedback"}</button>
+          <button onClick={projectFeedback} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold whitespace-nowrap">🤖 {lang === "he" ? "משוב במאי" : "Director feedback"}</button>
         </div>
       </div>
 
@@ -169,14 +169,6 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <Link href={`/projects/${id}/characters`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">🎭 {lang === "he" ? "דמויות" : "Characters"}</Link>
-        <Link href={`/projects/${id}/finance`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">💰 {lang === "he" ? "כספים" : "Finance"}</Link>
-        <Link href={`/projects/${id}/distribution`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">📡 {lang === "he" ? "הפצה" : "Distribution"}</Link>
-        <Link href={`/projects/${id}/analytics`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">📊 {lang === "he" ? "אנליטיקס" : "Analytics"}</Link>
-        <Link href={`/projects/${id}/calendar`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">📅 {lang === "he" ? "לוח שנה" : "Calendar"}</Link>
-        <Link href={`/projects/${id}/ai-director`} className="bg-bg-card rounded-card border border-bg-main p-4 hover:border-accent text-sm">🤖 {lang === "he" ? "במאי AI" : "AI Director"}</Link>
-      </div>
 
       <div className="bg-bg-card rounded-card border border-bg-main p-5">
         <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">

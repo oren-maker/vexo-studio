@@ -92,7 +92,9 @@ export default function ScenePage() {
   }
 
   async function genVideo() {
-    setVeoModalOpen(true);
+    // One-click: start immediately with current defaults (SeeDance 2 by default)
+    // and show progress under the buttons. User can tweak via ⚙.
+    await runVeo();
   }
 
   async function runVeo() {

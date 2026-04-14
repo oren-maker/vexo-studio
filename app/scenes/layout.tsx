@@ -13,6 +13,7 @@ import { api } from "@/lib/api";
 export default function ScenesLayout({ children }: { children: React.ReactNode }) {
   const params = useParams<{ id: string }>();
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [episodeId, setEpisodeId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!params.id) return;
@@ -20,6 +21,7 @@ export default function ScenesLayout({ children }: { children: React.ReactNode }
       try {
         const sc = await api<{ episodeId: string | null }>(`/api/v1/scenes/${params.id}`);
         if (!sc.episodeId) return;
+        setEpisodeId(sc.episodeId);
         const ep = await api<{ seasonId: string }>(`/api/v1/episodes/${sc.episodeId}`);
         const se = await api<{ series: { projectId: string } }>(`/api/v1/seasons/${ep.seasonId}`);
         setProjectId(se.series.projectId);
@@ -36,7 +38,7 @@ export default function ScenesLayout({ children }: { children: React.ReactNode }
             <div className="text-xl font-bold tracking-tight text-white">VEXO <span className="text-accent-cyan">STUDIO</span></div>
           </Link>
           <Link href="/projects" className="block px-6 py-2 text-sm text-sidebar-text hover:text-white hover:bg-white/5">← Projects</Link>
-          <ProjectNav projectId={projectId} />
+          <ProjectNav projectId={projectId} activeEpisodeId={episodeId} activeSceneId={params.id} />
         </aside>
         <div className="flex-1 flex flex-col">
           <Topbar title="Scene" />

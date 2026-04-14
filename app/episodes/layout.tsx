@@ -34,7 +34,7 @@ export default function EpisodesLayout({ children }: { children: React.ReactNode
             <div className="text-xl font-bold tracking-tight text-white">VEXO <span className="text-accent-cyan">STUDIO</span></div>
           </Link>
           <Link href="/projects" className="block px-6 py-2 text-sm text-sidebar-text hover:text-white hover:bg-white/5">← Projects</Link>
-          <ProjectNav projectId={projectId} />
+          <ProjectNav projectId={projectId} activeEpisodeId={params.id} />
         </aside>
         <div className="flex-1 flex flex-col">
           <Topbar title="Episode" />

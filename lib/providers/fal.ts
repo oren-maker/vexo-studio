@@ -60,15 +60,26 @@ export interface ImageResult {
   raw: unknown;
 }
 
-// User-approved photorealism template applied to every image generation.
-// Keywords proven to push nano-banana out of its default stylized look.
-const REALISM_PREFIX = "Photorealistic, hyper-realistic, cinematic shot. ";
-const REALISM_SUFFIX = " — Style: photorealistic, hyper-realistic, cinematic shot. Technical: 8k resolution, highly detailed, sharp focus, shot on 35mm lens, shallow depth of field. Lighting: natural lighting, soft shadows, golden hour where appropriate. Real human skin with visible pores and natural blemishes, real eyes with caught light and iris detail, real strands of hair, accurate physical shadows, subtle film grain. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D render, NOT illustration, NOT painted, NOT digital art, NOT stylized.";
+// Strong photorealism. nano-banana defaults to stylized/digital-art output,
+// especially when the incoming prompt contains "cinematic" or "dramatic lighting"
+// or anything sci-fi-leaning. We prefix with documentary/journalism framing
+// (impossible to interpret as an illustration) and reinforce heavily at the end.
+const REALISM_PREFIX = "REAL PHOTOGRAPH taken by a professional photographer on a Sony A7 IV camera, NOT a digital painting, NOT a 3D render, NOT AI art. Photojournalism documentary style, candid unposed moment. ";
+const REALISM_SUFFIX = " — Style: photorealistic, hyper-realistic, cinematic shot. Technical: 8k resolution, highly detailed, sharp focus, shot on 35mm lens, shallow depth of field. Lighting: natural lighting, soft shadows, golden hour where appropriate. Real human skin with visible pores and natural blemishes, real eyes with caught light and iris detail, real strands of hair, accurate physical shadows, subtle film grain. This is a REAL PHOTOGRAPH of REAL PEOPLE, not an illustration or render. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D render, NOT illustration, NOT painted, NOT digital art, NOT stylized, NOT holographic, NOT neon-lit sci-fi unless explicitly called for.";
+
+// Strip style words that routinely push nano-banana into digital-art territory.
+function sanitizeForRealism(prompt: string): string {
+  return prompt
+    // remove dramatic lighting jargon that the model renders as glowing neon
+    .replace(/\b(holographic|hologram|neon[- ]lit|digital[- ]art|rendered|cinematic lighting|dramatic lighting|glowing edges?|sci[- ]?fi|cyberpunk|vaporwave|dreamlike|surreal)\b/gi, "")
+    // cleanup double spaces
+    .replace(/\s{2,}/g, " ").trim();
+}
 
 export async function generateImage(opts: { prompt: string; negativePrompt?: string; aspectRatio?: "1:1" | "16:9" | "9:16"; model?: ImageModel; referenceImageUrls?: string[] }): Promise<ImageResult> {
   const model = IMAGE_MODELS[opts.model ?? "nano-banana"];
   const body: Record<string, unknown> = {
-    prompt: REALISM_PREFIX + opts.prompt + REALISM_SUFFIX,
+    prompt: REALISM_PREFIX + sanitizeForRealism(opts.prompt) + REALISM_SUFFIX,
     num_images: 1,
     output_format: "jpeg",
   };

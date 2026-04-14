@@ -42,8 +42,10 @@ function shouldTranslate(text: string): boolean {
   // Must contain at least 2 Latin letters
   const latinCount = (t.match(/[A-Za-z]/g) ?? []).length;
   if (latinCount < 2) return false;
-  // Skip pure CSS class-like / identifier-like / URL-like / email
-  if (/^[\w.-]+$/.test(t) && !/\s/.test(t)) return false;
+  // Skip identifier-like single token containing _ or . (e.g. manage_users, episode.published)
+  if (/^[\w.]+$/.test(t) && /[_.]/.test(t)) return false;
+  // Skip pure ALL_CAPS / status codes (e.g. PUBLISHED, READY_FOR_PUBLISH, OK)
+  if (/^[A-Z0-9_]+$/.test(t)) return false;
   if (/@.*\./.test(t)) return false; // email
   if (/^https?:\/\//i.test(t)) return false;
   return true;

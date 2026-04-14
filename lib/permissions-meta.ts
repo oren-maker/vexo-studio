@@ -62,7 +62,7 @@ export const PERMISSION_REGISTRY: PermissionMeta[] = [
 
   // Platform
   { key: "manage_api_keys",       category: "platform",     icon: "🔑", labelEn: "Manage API keys",         labelHe: "ניהול מפתחות API",        descEn: "Issue and revoke API keys.",                       descHe: "הנפקה וביטול של מפתחות API." },
-  { key: "manage_webhooks",       category: "platform",     icon: "🪝", labelEn: "Manage webhooks",         labelHe: "ניהול Webhooks",          descEn: "Subscribe to outbound platform events.",          descHe: "מינוי לאירועי פלטפורמה יוצאים." },
+  { key: "manage_webhooks",       category: "platform",     icon: "🪝", labelEn: "Manage webhooks",         labelHe: "ניהול התראות יוצאות",      descEn: "Subscribe to outbound platform events.",          descHe: "מינוי לאירועי פלטפורמה יוצאים." },
 ];
 
 export const CATEGORY_META: Record<PermissionCategory, { en: string; he: string; color: string }> = {

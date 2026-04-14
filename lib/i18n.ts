@@ -82,7 +82,7 @@ const DICT = {
     "nav.templates": "תבניות",
     "nav.notifications": "התראות",
     "nav.api.keys": "מפתחות API",
-    "nav.webhooks": "Webhooks",
+    "nav.webhooks": "התראות יוצאות",
     "nav.audit.logs": "יומן ביקורת",
     "nav.sessions": "כניסות",
     "nav.2fa": "אימות דו-שלבי",

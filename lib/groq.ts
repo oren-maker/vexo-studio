@@ -73,7 +73,17 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
   if (!usedModel) throw new Error(`Gemini chain exhausted: ${lastErr}`);
   try {
     const data = await res.json();
-    const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    // Gemini 2.5 may return multiple parts (thinking + answer). Concat every
+    // non-thought part so we never miss the actual JSON.
+    const parts: Array<{ text?: string; thought?: boolean }> = data.candidates?.[0]?.content?.parts ?? [];
+    const text: string = parts.filter((p) => !p.thought && p.text).map((p) => p.text).join("");
+    const finishReason: string | undefined = data.candidates?.[0]?.finishReason;
+    if (!text) {
+      throw new Error(`Gemini returned empty text (finishReason=${finishReason ?? "?"}, model=${usedModel})`);
+    }
+    if (finishReason === "MAX_TOKENS") {
+      throw new Error(`Gemini truncated at MAX_TOKENS (model=${usedModel}, got ${text.length} chars)`);
+    }
 
     // Track cost INLINE (serverless freezes background promises after response,
     // so fire-and-forget = lost data). Hard 4s timeout so billing latency can't
@@ -199,19 +209,33 @@ export async function groqChat(messages: ChatMessage[], opts: AiOptions = {}): P
 }
 
 export async function groqJson<T = unknown>(system: string, user: string, opts: AiOptions = {}): Promise<T> {
-  const raw = await groqChat(
-    [
-      { role: "system", content: `${system}\n\nYou MUST respond with valid JSON only. No markdown, no code fences, no commentary.` },
-      { role: "user", content: user },
-    ],
-    { ...opts, responseFormat: "json" },
-  );
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
-  try { return JSON.parse(cleaned) as T; } catch { /* try recovery */ }
-  const m = cleaned.match(/\{[\s\S]*\}/);
-  if (m) {
-    try { return JSON.parse(m[0]) as T; } catch { /* try truncated recovery */ }
+  async function tryOnce(mt: number | undefined) {
+    return await groqChat(
+      [
+        { role: "system", content: `${system}\n\nYou MUST respond with valid JSON only. No markdown, no code fences, no commentary. Your response must start with { and end with } and be complete valid JSON.` },
+        { role: "user", content: user },
+      ],
+      { ...opts, responseFormat: "json", maxTokens: mt ?? opts.maxTokens },
+    );
   }
+  function tryParse(s: string): T | null {
+    const cleaned = s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    try { return JSON.parse(cleaned) as T; } catch { /* fallthrough */ }
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) { try { return JSON.parse(m[0]) as T; } catch { /* fallthrough */ } }
+    return null;
+  }
+
+  let raw = await tryOnce(opts.maxTokens);
+  let parsed = tryParse(raw);
+  if (parsed) return parsed;
+  // One automatic retry with doubled budget — most "non-JSON" responses are
+  // truncations that succeed when given more room.
+  const bigger = Math.max((opts.maxTokens ?? 1024) * 2, 2048);
+  raw = await tryOnce(bigger);
+  parsed = tryParse(raw);
+  if (parsed) return parsed;
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
   // Truncated JSON: extract whatever key:"..." pairs we can parse, even if the
   // closing brace is missing. Each key like "style":"..." → into a partial obj.
   const partial: Record<string, string> = {};

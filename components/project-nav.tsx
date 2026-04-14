@@ -47,9 +47,11 @@ export function ProjectNav({ projectId, activeEpisodeId, activeSceneId }: {
     return () => { cancelled = true; };
   }, [projectId, pathname, activeEpisodeId]);
 
-  // Fetch scenes for any expanded episode
+  // Fetch scenes for any expanded episode + always pre-fetch for the active episode
   useEffect(() => {
-    const epIds = Object.keys(openEpisodes).filter((k) => openEpisodes[k] && !scenesByEp[k]);
+    const candidates = new Set<string>(Object.keys(openEpisodes).filter((k) => openEpisodes[k]));
+    if (activeEpisodeId) candidates.add(activeEpisodeId);
+    const epIds = [...candidates].filter((k) => !scenesByEp[k]);
     if (epIds.length === 0) return;
     let cancelled = false;
     Promise.all(epIds.map((epId) =>
@@ -59,7 +61,7 @@ export function ProjectNav({ projectId, activeEpisodeId, activeSceneId }: {
       setScenesByEp((m) => ({ ...m, ...Object.fromEntries(pairs) }));
     });
     return () => { cancelled = true; };
-  }, [openEpisodes]);
+  }, [openEpisodes, activeEpisodeId]);
 
   if (!projectId) return null;
 
@@ -109,7 +111,9 @@ export function ProjectNav({ projectId, activeEpisodeId, activeSceneId }: {
                   {s.episodes.length === 0 && <div className="text-[11px] text-sidebar-text/50 py-1">{he ? "אין פרקים" : "No episodes"}</div>}
                   {s.episodes.map((e) => {
                     const activeEp = pathname === `/episodes/${e.id}` || pathname.startsWith(`/episodes/${e.id}/`) || activeEpisodeId === e.id;
-                    const epOpen = openEpisodes[e.id] ?? false;
+                    // Auto-open the episode if it's the one the user is currently viewing,
+                    // even before the openEpisodes effect has run.
+                    const epOpen = openEpisodes[e.id] ?? (activeEpisodeId === e.id || pathname === `/episodes/${e.id}`);
                     const scenes = scenesByEp[e.id];
                     return (
                       <div key={e.id}>

@@ -30,43 +30,56 @@ export async function getContext(projectId: string) {
 }
 
 export async function buildContext(projectId: string) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      characters: true,
-      series: {
-        include: {
-          seasons: {
-            orderBy: { seasonNumber: "asc" },
-            include: {
-              episodes: {
-                orderBy: { episodeNumber: "asc" },
-                include: { scenes: { orderBy: { sceneNumber: "asc" } } },
+  // Lean fetch — only the fields we actually feed to the model.
+  const [project, sceneCountRow] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true, name: true, language: true, description: true, genreTag: true,
+        characters: { select: { name: true, roleType: true, appearance: true } },
+        series: {
+          select: {
+            seasons: {
+              orderBy: { seasonNumber: "asc" },
+              select: {
+                seasonNumber: true, description: true,
+                episodes: {
+                  orderBy: { episodeNumber: "asc" },
+                  select: { id: true, episodeNumber: true, title: true, synopsis: true, status: true },
+                },
               },
             },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.scene.count({ where: { episode: { season: { series: { projectId } } } } }),
+  ]);
   if (!project) throw new Error("project not found");
 
   const allEpisodes = project.series.flatMap((s) => s.seasons.flatMap((se) => se.episodes));
-  const sceneCount = allEpisodes.reduce((a, e) => a + e.scenes.length, 0);
+  const sceneCount = sceneCountRow;
 
-  // Feed AI a compact list; ask it to produce the bible.
-  const epDigest = allEpisodes.map((e) => `EP${e.episodeNumber}: ${e.title} [${e.status}] — ${(e.synopsis ?? "").slice(0, 260)}`).join("\n");
-  const charDigest = project.characters.map((c) => `- ${c.name} (${c.roleType ?? "—"}): ${(c.appearance ?? "").slice(0, 180)}`).join("\n") || "(none yet)";
-  const sceneSample = allEpisodes.slice(-2).flatMap((e) =>
-    e.scenes.slice(0, 3).map((s) => `EP${e.episodeNumber}·SC${s.sceneNumber}: ${(s.summary ?? "").slice(0, 140)}`),
-  ).join("\n");
+  // Only the last 2 episodes need scene samples
+  const lastEpisodeIds = allEpisodes.slice(-2).map((e) => e.id);
+  const sampleScenes = lastEpisodeIds.length > 0 ? await prisma.scene.findMany({
+    where: { episodeId: { in: lastEpisodeIds } },
+    orderBy: [{ episodeId: "asc" }, { sceneNumber: "asc" }],
+    take: 6,
+    select: { episodeId: true, sceneNumber: true, summary: true },
+  }) : [];
+
+  const epDigest = allEpisodes.slice(0, 20).map((e) => `EP${e.episodeNumber}: ${e.title} [${e.status}] — ${(e.synopsis ?? "").slice(0, 220)}`).join("\n");
+  const charDigest = project.characters.map((c) => `- ${c.name} (${c.roleType ?? "—"}): ${(c.appearance ?? "").slice(0, 160)}`).join("\n") || "(none yet)";
+  const epNumberById = new Map(allEpisodes.map((e) => [e.id, e.episodeNumber]));
+  const sceneSample = sampleScenes.map((s) => `EP${epNumberById.get(s.episodeId!) ?? "?"}·SC${s.sceneNumber}: ${(s.summary ?? "").slice(0, 120)}`).join("\n");
 
   let ai: ContextData;
   try {
     ai = await groqJson<ContextData>(
       `You are maintaining a series bible. Return JSON with keys { premise, tone, themes: [], characters: [{ name, roleType, appearance, arc }], episodes: [{ n, title, status, oneLine }], seasonArcs: [{ season, arc }], lastEpisodeBeats: [{ n, beats: [] }], buildStats: { episodes, scenes, characters } }. Be TIGHT — under 3000 chars total.`,
       `Project: ${project.name}\nLanguage: ${project.language}\nGenre: ${project.genreTag ?? "—"}\nPremise (user-provided): ${project.description ?? "(none)"}\n\nEPISODES:\n${epDigest || "(none yet)"}\n\nCHARACTERS:\n${charDigest}\n\nRECENT SCENES:\n${sceneSample || "(none)"}`,
-      { temperature: 0.3, maxTokens: 2200 },
+      { temperature: 0.3, maxTokens: 1600 },
     );
   } catch {
     // Soft fallback: build a mechanical summary so the cache always exists

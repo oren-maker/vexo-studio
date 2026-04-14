@@ -217,8 +217,9 @@ export default function BudgetsTokensPage() {
   );
 }
 
+type SourceStat = { calls: number; cost: number; in: number; out: number };
 function GeminiTextRow() {
-  const [data, setData] = useState<{ provider: string; pricingNote: string; totalCost: number; totalCalls: number; inputTokens: number; outputTokens: number; lastUsedAt: string | null } | null>(null);
+  const [data, setData] = useState<{ provider: string; pricingNote: string; totalCost: number; totalCalls: number; inputTokens: number; outputTokens: number; lastUsedAt: string | null; bySource?: { google: SourceStat; fal: SourceStat } } | null>(null);
   const [falBalance, setFalBalance] = useState<number | null>(null);
   const lang = useLang();
   const he = lang === "he";
@@ -232,7 +233,9 @@ function GeminiTextRow() {
   }, []);
 
   // Render even when no usage yet — so the user can see the provider is wired up.
-  const d = data ?? { provider: "Gemini 2.5 Flash via fal.ai", pricingNote: "$0.075 per 1M input · $0.30 per 1M output", totalCost: 0, totalCalls: 0, inputTokens: 0, outputTokens: 0, lastUsedAt: null };
+  const d = data ?? { provider: "Gemini 2.5 Flash (paid)", pricingNote: "$0.075 per 1M input · $0.30 per 1M output", totalCost: 0, totalCalls: 0, inputTokens: 0, outputTokens: 0, lastUsedAt: null, bySource: { google: { calls: 0, cost: 0, in: 0, out: 0 }, fal: { calls: 0, cost: 0, in: 0, out: 0 } } };
+  const google = d.bySource?.google ?? { calls: 0, cost: 0, in: 0, out: 0 };
+  const fal = d.bySource?.fal ?? { calls: 0, cost: 0, in: 0, out: 0 };
   return (
     <div className="bg-bg-main rounded-lg p-3 mb-4 space-y-2">
       <div className="flex items-center gap-4 flex-wrap">
@@ -256,12 +259,24 @@ function GeminiTextRow() {
           <div className="font-bold num text-status-errText">−${d.totalCost.toFixed(4)}</div>
         </div>
       </div>
-      {falBalance !== null && (
-        <div className="border-t border-bg-card pt-2 flex justify-between items-center text-xs">
-          <span className="text-text-muted">{he ? "הסכום הזה נוכה אוטומטית מארנק fal.ai. יתרה נוכחית:" : "This amount has been auto-deducted from the fal.ai wallet. Current balance:"}</span>
-          <span className="font-bold num">${falBalance.toFixed(2)}</span>
+      <div className="border-t border-bg-card pt-2 grid grid-cols-2 gap-2 text-xs">
+        <div className="bg-bg-card rounded-lg p-2">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold">{he ? "🔵 Google Gemini ישיר" : "🔵 Google Gemini direct"}</span>
+            <span className="num font-bold">${google.cost.toFixed(4)}</span>
+          </div>
+          <div className="text-[10px] text-text-muted mt-1">{google.calls} {he ? "קריאות · " : "calls · "}{google.in.toLocaleString()} → {google.out.toLocaleString()} {he ? "טוקנים" : "tokens"}</div>
+          <div className="text-[10px] text-text-muted">{he ? "מחויב מ-Google Cloud Billing" : "Billed to Google Cloud Billing"}</div>
         </div>
-      )}
+        <div className="bg-bg-card rounded-lg p-2">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold">{he ? "🟣 Gemini דרך fal" : "🟣 Gemini via fal"}</span>
+            <span className="num font-bold">${fal.cost.toFixed(4)}</span>
+          </div>
+          <div className="text-[10px] text-text-muted mt-1">{fal.calls} {he ? "קריאות · " : "calls · "}{fal.in.toLocaleString()} → {fal.out.toLocaleString()} {he ? "טוקנים" : "tokens"}</div>
+          <div className="text-[10px] text-text-muted">{he ? "ירד מארנק fal.ai" : "Deducted from fal.ai wallet"}{falBalance !== null ? ` · ${he ? "יתרה" : "balance"}: $${falBalance.toFixed(2)}` : ""}</div>
+        </div>
+      </div>
     </div>
   );
 }

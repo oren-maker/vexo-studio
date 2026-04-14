@@ -25,6 +25,9 @@ export function hasGroq(): boolean {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Google Gemini 2.5 Flash pricing (paid Google Cloud billing) — same passthrough as fal.
+const GEMINI_DIRECT_PRICING = { perMillionInput: 0.075, perMillionOutput: 0.30 };
+
 async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<string> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("no gemini key");
@@ -53,7 +56,38 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
     });
     if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+    // Track cost — Google Gemini direct is paid (Google Cloud billing), same per-token rates as fal passthrough
+    try {
+      const usage = data.usageMetadata ?? {};
+      const inputTokens = usage.promptTokenCount ?? Math.ceil((system.length + userTurns.reduce((a, t) => a + t.parts[0].text.length, 0)) / 4);
+      const outputTokens = usage.candidatesTokenCount ?? Math.ceil(text.length / 4);
+      const costUsd = +(((inputTokens / 1_000_000) * GEMINI_DIRECT_PRICING.perMillionInput) + ((outputTokens / 1_000_000) * GEMINI_DIRECT_PRICING.perMillionOutput)).toFixed(6);
+      if (costUsd > 0) {
+        const { chargeUsd } = await import("./billing");
+        const { getRequestActor } = await import("./request-context");
+        const actor = getRequestActor();
+        const orgId = opts.organizationId ?? actor?.organizationId;
+        if (orgId) {
+          await chargeUsd({
+            organizationId: orgId,
+            projectId: opts.projectId ?? actor?.projectId ?? null,
+            entityType: "AI_TEXT",
+            entityId: opts.projectId ?? actor?.projectId ?? "global",
+            providerName: "Google Gemini",
+            category: "TOKEN",
+            description: opts.description ?? `Gemini direct · in:${inputTokens} out:${outputTokens}`,
+            unitCost: costUsd,
+            quantity: 1,
+            userId: actor?.userId,
+            meta: { inputTokens, outputTokens, model: "gemini-2.5-flash", source: "google-direct" },
+          });
+        }
+      }
+    } catch { /* never throw from billing path */ }
+
+    return text;
   } finally { clearTimeout(timer); }
 }
 
@@ -119,7 +153,7 @@ async function callGeminiViaFal(messages: ChatMessage[], opts: AiOptions): Promi
           unitCost: r.costUsd,
           quantity: 1,
           userId: actor?.userId,
-          meta: { inputTokens: r.inputTokens, outputTokens: r.outputTokens, model: "gemini-2.5-flash" },
+          meta: { inputTokens: r.inputTokens, outputTokens: r.outputTokens, model: "gemini-2.5-flash", source: "fal-any-llm" },
         });
       }
     } catch { /* never throw from billing path */ }

@@ -34,12 +34,18 @@ export default function ScenePage() {
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
 
   async function genStoryboard() {
+    // Client-side guard: if the scene lists characters, all must have gallery images
+    const missing = (scene?.sceneCharacters ?? []).filter((c) => c.media.length === 0);
+    if (missing.length > 0) {
+      alert((he ? "לא ניתן לייצר תשריט — לדמויות הבאות אין תמונות בגלריה: " : "Cannot generate — these characters have no gallery images: ") + missing.map((c) => c.name).join(", "));
+      return;
+    }
     setBusy(true);
     try {
       const r = await api<{ framesGenerated: number; framesTotal: number; estimate: { estimate: number }; model: string }>(`/api/v1/scenes/${id}/generate-storyboard`, {
         method: "POST", body: { imageModel, aspectRatio: aspect },
       });
-      alert(`Generated ${r.framesGenerated}/${r.framesTotal} frames with ${r.model}. Est cost: $${r.estimate.estimate.toFixed(2)}`);
+      alert((he ? `נוצרו ${r.framesGenerated}/${r.framesTotal} מסגרות עם ${r.model}. עלות משוערת: $${r.estimate.estimate.toFixed(2)}` : `Generated ${r.framesGenerated}/${r.framesTotal} frames with ${r.model}. Est cost: $${r.estimate.estimate.toFixed(2)}`));
       setTimeout(load, 1500);
     } catch (e: unknown) { alert((e as Error).message); }
     finally { setBusy(false); }
@@ -135,6 +141,30 @@ export default function ScenePage() {
           <button onClick={critic} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors">{he ? "מבקר AI" : "AI critic"}</button>
           <button onClick={approve} className="px-3 py-1.5 rounded-lg border-2 border-status-okText text-status-okText bg-white text-sm font-semibold hover:bg-status-okText hover:text-white transition-colors">{he ? "אשר סצנה" : "Approve"}</button>
         </div>
+
+        {scene.sceneCharacters && scene.sceneCharacters.length > 0 && (
+          <Card title={he ? "דמויות בסצנה" : "Characters in this scene"} subtitle={he ? "מי שמופיעים (משמש גם לעקביות חזותית בייצור)" : "Who appears (also used for visual consistency during generation)"}>
+            <div className="flex gap-3 flex-wrap">
+              {scene.sceneCharacters.map((c) => {
+                const missing = c.media.length === 0;
+                return (
+                  <div key={c.id} className={`flex items-center gap-2 rounded-full pe-3 ps-0.5 py-0.5 ${missing ? "bg-status-errBg" : "bg-bg-main"}`}>
+                    {c.media[0] ? (
+                      <img src={c.media[0].fileUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-bg-card flex items-center justify-center text-xs">🎭</div>
+                    )}
+                    <div className="text-sm">
+                      <div className="font-medium">{c.name}</div>
+                      {missing && <div className="text-[10px] text-status-errText">{he ? "חסרה גלריה" : "needs gallery"}</div>}
+                      {!missing && c.roleType && <div className="text-[10px] text-text-muted">{c.roleType}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         <Card title={he ? "תסריט" : "Script"}>
           <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder={he ? "מספר: פעם אחת..." : "NARRATOR: Once upon a time…"} />

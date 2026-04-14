@@ -29,10 +29,31 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     await assertSceneInOrg(params.id, ctx.organizationId);
-    return ok(await prisma.scene.findUnique({
+    const scene = await prisma.scene.findUnique({
       where: { id: params.id },
       include: { frames: { orderBy: { orderIndex: "asc" } }, criticReviews: true, comments: true },
-    }));
+    });
+    if (!scene) return ok(null);
+    let sceneCharacters: unknown[] = [];
+    if (scene.episodeId) {
+      const ep = await prisma.episode.findUnique({
+        where: { id: scene.episodeId },
+        select: { season: { select: { series: { select: { projectId: true } } } } },
+      });
+      const projectId = ep?.season.series.projectId;
+      if (projectId) {
+        const mem = (scene.memoryContext as { characters?: string[] } | null) ?? {};
+        const names = (mem.characters ?? []).map((n) => n.toLowerCase().trim());
+        if (names.length > 0) {
+          const all = await prisma.character.findMany({
+            where: { projectId },
+            include: { media: { take: 1, orderBy: { createdAt: "asc" } } },
+          });
+          sceneCharacters = all.filter((c) => names.includes(c.name.toLowerCase().trim()));
+        }
+      }
+    }
+    return ok({ ...scene, sceneCharacters });
   } catch (e) { return handleError(e); }
 }
 

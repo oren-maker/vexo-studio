@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { authenticate, isAuthResponse } from "@/lib/auth";
 import { groqJson } from "@/lib/groq";
 import { handleError, ok } from "@/lib/route-utils";
 
-export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 30;
+export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
 const Body = z.object({
   texts: z.array(z.string().min(1).max(2000)).min(1).max(80),
@@ -14,7 +13,6 @@ const Body = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     const body = Body.parse(await req.json());
     if (body.target === "en") return ok({ translations: body.texts });
 

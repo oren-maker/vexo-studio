@@ -38,14 +38,19 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
       ...(opts.responseFormat === "json" ? { responseMimeType: "application/json" } : {}),
     },
   };
-  const res = await fetch(`${GEMINI_URL}?key=${key}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 12_000);
+  try {
+    const res = await fetch(`${GEMINI_URL}?key=${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    });
+    if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  } finally { clearTimeout(timer); }
 }
 
 async function callGroq(messages: ChatMessage[], opts: AiOptions): Promise<string> {
@@ -58,11 +63,17 @@ async function callGroq(messages: ChatMessage[], opts: AiOptions): Promise<strin
     max_tokens: opts.maxTokens ?? 1024,
   };
   if (opts.responseFormat === "json") body.response_format = { type: "json_object" };
-  const res = await fetch(GROQ_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify(body),
-  });
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 12_000);
+  let res: Response;
+  try {
+    res = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    });
+  } finally { clearTimeout(timer); }
   if (res.status === 429) {
     const retry = parseFloat(res.headers.get("retry-after") ?? "3");
     await sleep((retry + 0.5) * 1000);

@@ -87,31 +87,37 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // In t2v mode we send the full director sheet so it has everything.
     const willUseI2V = !!(firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl) || characterRefImgs.length > 0;
 
+    // Pull dialogue lines out of the script into an explicit DIALOGUE block —
+    // VEO 3 picks these up natively to generate spoken audio.
+    const dialogueLines = scene.scriptText
+      ? scene.scriptText.split(/\n+/).filter((l) => /^[A-Z][A-Z .'-]{1,30}\s*[:(]/.test(l.trim())).slice(0, 12).join("\n")
+      : "";
+
     const basePrompt = willUseI2V
       ? [
           // Compact, action-focused for image-to-video
-          `Continue from the starting image.`,
+          `Continue from the starting image as a real-life, live-action, photorealistic film. Real human actors, real skin texture, real eyes, no animation or CGI look.`,
           inScene.length > 0 && `Characters on screen: ${inScene.map((c) => c.name).join(", ")} — keep their faces, hair, wardrobe EXACTLY as in the image, no drift.`,
           scene.summary && `What happens: ${scene.summary}`,
-          scene.scriptText && `Dialogue + action from the script:\n${scene.scriptText.slice(0, 1000)}`,
+          dialogueLines && `DIALOGUE (spoken aloud, sync the lips, match emotion):\n${dialogueLines}`,
+          scene.scriptText && `Full script for context:\n${scene.scriptText.slice(0, 1000)}`,
           sheet?.camera && `Camera: ${sheet.camera}`,
-          sheet?.audio && `Audio: ${sheet.audio}`,
-          mem.soundNotes && `Sound cues: ${mem.soundNotes.slice(0, 300)}`,
-          mem.directorNotes && `Director notes: ${mem.directorNotes.slice(0, 400)}`,
+          `AUDIO: ${[sheet?.audio, mem.soundNotes].filter(Boolean).join(" · ") || "natural ambient room tone, breathing, footsteps. Music sub-audible."} Include the spoken dialogue above with clear, intelligible voices.`,
+          mem.directorNotes && `Director notes (highest priority): ${mem.directorNotes.slice(0, 400)}`,
           sheet?.effects && sheet.effects.toLowerCase() !== "none" && `Effects: ${sheet.effects}`,
-          "Cinematic, 24fps, real physical lighting, identity locked to the starting image.",
+          "Photorealistic cinematic film, 24fps, real physical lighting and shadows, shallow depth of field, film grain. Identity locked to the starting image. NO cartoon, NO illustration, NO 3D render look.",
         ].filter(Boolean).join("\n\n")
       : sheet
       ? [
-          `[Style] ${sheet.style}`,
+          `[Style] ${sheet.style} — Photorealistic live-action film. Real human actors with real skin, real eyes. NO cartoon, NO 3D render, NO illustration.`,
           `[Scene] ${sheet.scene}`,
           `[Character] ${sheet.character}`,
           characterBlock,
           `[Camera] ${sheet.camera}`,
           `[Shots] ${sheet.shots}`,
           `[Effects] ${sheet.effects}`,
-          `[Audio] ${sheet.audio}`,
-          `[Technical] ${sheet.technical}`,
+          `[Audio] ${sheet.audio}${dialogueLines ? `\nDIALOGUE (spoken aloud, lip-sync):\n${dialogueLines}` : ""}`,
+          `[Technical] ${sheet.technical} · 24fps · real physical lighting, film grain.`,
           scene.scriptText && `[Script]\n${scene.scriptText.slice(0, 1500)}`,
           mem.directorNotes && `[Director notes]\n${mem.directorNotes.slice(0, 600)}`,
           mem.soundNotes && `[Sound notes]\n${mem.soundNotes.slice(0, 400)}`,
@@ -121,9 +127,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           scene.summary && `Summary: ${scene.summary}`,
           characterBlock,
           scene.scriptText && `Script:\n${scene.scriptText}`,
+          dialogueLines && `DIALOGUE (spoken aloud):\n${dialogueLines}`,
           mem.directorNotes && `Director notes:\n${mem.directorNotes}`,
           mem.soundNotes && `Sound notes:\n${mem.soundNotes}`,
-          "Cinematic, high quality, 24fps.",
+          "Photorealistic live-action film, real actors, 24fps, real physical lighting. NO cartoon, NO illustration.",
         ].filter(Boolean).join("\n\n");
 
     // Pull Seedance reference prompts to guide tone/level of detail

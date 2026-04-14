@@ -50,6 +50,7 @@ export default function ScenePage() {
   const [videoModel, setVideoModel] = useState<"seedance" | "kling" | "veo3-pro" | "veo3-fast">("veo3-fast");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
+  const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean } | null>(null);
   const [veoModel, setVeoModel] = useState<"seedance" | "kling" | "veo3-fast" | "veo3-pro">("seedance");
   const [veoDuration, setVeoDuration] = useState(5);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
@@ -89,20 +90,37 @@ export default function ScenePage() {
 
   async function runVeo() {
     setVeoModalOpen(false);
-    setBusy(true);
-    const ml = MODEL_LABEL[veoModel];
+    const beforeCount = scene?.videos?.length ?? 0;
+    setVeoJob({ startedAt: Date.now(), durationGoal: 90, elapsed: 0, videoCountBefore: beforeCount, done: false });
     try {
       await api(`/api/v1/scenes/${id}/generate-video`, {
         method: "POST",
         body: { videoModel: veoModel, aspectRatio: veoAspect, durationSeconds: veoDuration },
       });
-      alert(he
-        ? `${ml.emoji} ${ml.name} · ${veoDuration}s · $${veoEstimate.toFixed(2)}\nהתוצאה תופיע בגלריה תוך 30-90 שניות.`
-        : `${ml.emoji} ${ml.name} · ${veoDuration}s · $${veoEstimate.toFixed(2)}\nResult in gallery in 30-90s.`);
-      setTimeout(load, 3000);
-    } catch (e: unknown) { alert((e as Error).message); }
-    finally { setBusy(false); }
+    } catch (e: unknown) {
+      alert((e as Error).message);
+      setVeoJob(null);
+    }
   }
+
+  // Tick the job progress + poll scene for new videos
+  useEffect(() => {
+    if (!veoJob || veoJob.done) return;
+    const tick = setInterval(() => {
+      setVeoJob((j) => j ? { ...j, elapsed: Math.round((Date.now() - j.startedAt) / 1000) } : null);
+    }, 1000);
+    const poll = setInterval(async () => {
+      try {
+        const fresh = await api<{ videos?: { id: string; fileUrl: string }[] }>(`/api/v1/scenes/${id}`);
+        setScene((prev) => prev ? { ...prev, videos: fresh.videos ?? prev.videos } : prev);
+        if ((fresh.videos?.length ?? 0) > veoJob.videoCountBefore) {
+          setVeoJob((j) => j ? { ...j, done: true, elapsed: Math.round((Date.now() - j.startedAt) / 1000) } : null);
+          clearInterval(tick); clearInterval(poll);
+        }
+      } catch { /* ignore */ }
+    }, 5000);
+    return () => { clearInterval(tick); clearInterval(poll); };
+  }, [veoJob?.startedAt, veoJob?.done, id]);
 
   async function approve() {
     setBusy(true);
@@ -292,6 +310,37 @@ export default function ScenePage() {
         <Card title={he ? "תסריט" : "Script"}>
           <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder={he ? "מספר: פעם אחת..." : "NARRATOR: Once upon a time…"} />
         </Card>
+
+        {veoJob && (
+          <Card title={he ? "🎬 מייצר וידאו" : "🎬 Generating video"} subtitle={veoJob.done ? (he ? "הושלם" : "Done") : (he ? "fal מעבד את הבקשה (בממוצע 30-90 שניות)" : "fal is processing (typical 30-90s)")}>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-sm">
+                <div>
+                  <div className="font-semibold">{MODEL_LABEL[veoModel].emoji} {MODEL_LABEL[veoModel].name}</div>
+                  <div className="text-xs text-text-muted">{veoDuration}s · {veoAspect} · <span className="num">${veoEstimate.toFixed(2)}</span></div>
+                </div>
+                <div className="text-end">
+                  <div className="text-xs text-text-muted">{he ? "זמן שעבר" : "Elapsed"}</div>
+                  <div className="text-2xl font-bold num">{veoJob.elapsed}s</div>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-bg-main overflow-hidden">
+                <div className={`h-full transition-all ${veoJob.done ? "bg-status-okText" : "bg-accent"}`} style={{ width: `${Math.min(100, (veoJob.elapsed / veoJob.durationGoal) * 100)}%` }} />
+              </div>
+              {veoJob.done ? (
+                <div className="flex items-center justify-between text-sm text-status-okText">
+                  <span>✅ {he ? "הוידאו מוכן — גלול למטה לצפייה" : "Video ready — scroll down"}</span>
+                  <button onClick={() => setVeoJob(null)} className="text-xs text-text-muted hover:text-text-primary">{he ? "סגור" : "Dismiss"}</button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-xs text-text-muted">
+                  <span>{he ? "אפשר להמשיך לעבוד. העמוד יתרענן אוטומטית כשהוידאו יהיה מוכן." : "You can keep working. Page auto-refreshes when ready."}</span>
+                  <button onClick={() => setVeoJob(null)} className="hover:text-text-primary">{he ? "הסתר" : "Hide"}</button>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
 
         <Card title={he ? "דף הבמאי · Director Sheet" : "Director Sheet"} subtitle={he ? "8 סעיפים שמוזנים לפרומפט של ייצור הוידאו" : "8 sections fed into the video generation prompt"}>
           <div className="flex justify-end mb-3">

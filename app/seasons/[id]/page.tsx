@@ -256,26 +256,23 @@ export default function SeasonPage() {
   const seasonPct = avg(epPercents);
 
   return (
-    <div className="space-y-6">
-      <button onClick={() => router.push(`/projects/${season.series.project.id}`)} className="text-sm text-accent">{lang === "he" ? "→" : "←"} {season.series.project.name}</button>
-
-      <div className="bg-bg-card rounded-card border border-bg-main p-6">
-        <div className="flex justify-between items-start gap-4">
-          <div>
-            <div className="text-xs text-text-muted">{season.series.project.name}</div>
-            <h1 className="text-3xl font-bold mt-1">{lang === "he" ? `עונה ${season.seasonNumber}` : `Season ${season.seasonNumber}`}{season.title && ` · ${season.title}`}</h1>
-            {season.description && <p className="text-text-secondary mt-2">{season.description}</p>}
-          </div>
-          <div className="text-end shrink-0">
-            <div className="text-4xl font-bold num" style={{ color: progressColor(seasonPct) }}>{seasonPct}%</div>
-            <div className="text-xs text-text-muted">{progressLabel(seasonPct, lang)}</div>
-            <button onClick={seasonFeedback} className="mt-3 px-3 py-1.5 rounded-lg border border-accent text-accent text-xs font-semibold whitespace-nowrap">🤖 {lang === "he" ? "במאי AI · משוב" : "AI Director · Feedback"}</button>
-          </div>
+    <div className="space-y-4">
+      <div className="bg-bg-card rounded-card border border-bg-main px-4 py-3 flex items-center gap-3 flex-wrap">
+        <h1 className="text-lg font-bold truncate">
+          <span className="text-text-muted font-normal text-sm">{season.series.project.name} · </span>
+          {lang === "he" ? `עונה ${season.seasonNumber}` : `S${season.seasonNumber}`}{season.title && ` · ${season.title}`}
+        </h1>
+        <div className="flex items-center gap-1 ms-auto">
+          <span className="text-lg font-bold num" style={{ color: progressColor(seasonPct) }}>{seasonPct}%</span>
+          <span className="text-[10px] text-text-muted">{progressLabel(seasonPct, lang)}</span>
         </div>
-        <div className="h-2 rounded-full bg-bg-main mt-4 overflow-hidden">
+        <div className="w-32 h-1.5 rounded-full bg-bg-main overflow-hidden">
           <div className="h-full transition-all" style={{ width: `${seasonPct}%`, background: progressColor(seasonPct) }} />
         </div>
+        <button onClick={seasonFeedback} className="px-3 py-1 rounded-lg border border-accent text-accent text-xs font-semibold whitespace-nowrap">🤖 {lang === "he" ? "במאי AI" : "AI Director"}</button>
       </div>
+
+      <button onClick={() => router.push(`/projects/${season.series.project.id}`)} className="text-xs text-accent hover:underline">{lang === "he" ? "→" : "←"} {season.series.project.name}</button>
 
       {feedback && (
         <div className="bg-bg-card rounded-card border border-accent p-5 space-y-3">

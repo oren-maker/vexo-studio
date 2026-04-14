@@ -16,7 +16,7 @@ export default function EpisodesLayout({ children }: { children: React.ReactNode
             <div className="text-xl font-bold tracking-tight text-white">VEXO <span className="text-accent-cyan">STUDIO</span></div>
           </Link>
           <nav className="py-4">
-            <Link href="/projects" className="block px-6 py-2 text-sm font-medium hover:bg-white/5 hover:text-white border-l-[3px] border-transparent">← Back to Projects</Link>
+            <Link href="/projects" className="block px-6 py-2 text-sm font-medium hover:bg-white/5 hover:text-white border-s-[3px] border-transparent"><span className="rtl:hidden">← Back to Projects</span><span className="ltr:hidden">→ חזרה לפרויקטים</span></Link>
           </nav>
         </aside>
         <div className="flex-1 flex flex-col">

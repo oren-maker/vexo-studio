@@ -199,7 +199,7 @@ export default function SeasonPage() {
 
   return (
     <div className="space-y-6">
-      <button onClick={() => router.push(`/projects/${season.series.project.id}`)} className="text-sm text-accent">← {season.series.project.name}</button>
+      <button onClick={() => router.push(`/projects/${season.series.project.id}`)} className="text-sm text-accent">{lang === "he" ? "→" : "←"} {season.series.project.name}</button>
 
       <div className="bg-bg-card rounded-card border border-bg-main p-6">
         <div className="flex justify-between items-start gap-4">

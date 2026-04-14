@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
+import { useLang } from "@/lib/i18n";
 
 type EpChar = { character: { id: string; name: string; roleType: string | null; media: { fileUrl: string }[] } };
 type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; actualCost: number; revenueTotal: number; publishedAt: string | null; seasonId: string; characters?: EpChar[] };
@@ -21,6 +22,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function EpisodePage() {
   const { id } = useParams<{ id: string }>();
+  const lang = useLang();
   const [ep, setEp] = useState<Episode | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [creating, setCreating] = useState(false);
@@ -59,7 +61,7 @@ export default function EpisodePage() {
   return (
     <div className="space-y-6">
       {ep.seasonId && (
-        <Link href={`/seasons/${ep.seasonId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">← Back to season</Link>
+        <Link href={`/seasons/${ep.seasonId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">{lang === "he" ? "→ חזרה לעונה" : "← Back to season"}</Link>
       )}
       <div className="flex justify-between items-start">
         <div>

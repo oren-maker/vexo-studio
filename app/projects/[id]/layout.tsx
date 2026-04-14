@@ -27,7 +27,7 @@ export default function ProjectIdLayout({ children }: { children: React.ReactNod
           href={`/projects/${id}`}
           className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
         >
-          ← {name || (lang === "he" ? "חזרה לפרויקט" : "Back to project")}
+          {lang === "he" ? "→" : "←"} {name || (lang === "he" ? "חזרה לפרויקט" : "Back to project")}
         </Link>
       )}
       {children}

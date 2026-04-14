@@ -44,31 +44,38 @@ export async function POST(req: NextRequest) {
         const projectId = ep?.season.series.projectId ?? "";
         const orgId = ep?.season.series.project.organizationId;
 
+        const reportedSec = Number(result?.video?.duration ?? result?.duration ?? 0);
+        const finalSec = reportedSec > 0 && reportedSec <= 20
+          ? reportedSec
+          : (submittedDuration > 0 && submittedDuration <= 20 ? submittedDuration : 5);
+        const modelForMeta = submittedModel ?? ((typeof result?.model === "string" && result.model.includes("kling")) ? "kling" : "seedance");
+        const ratePerSec: Record<string, number> = { seedance: 0.124, kling: 0.056, "veo3-fast": 0.40, "veo3-pro": 0.75 };
+        const costUsd = +(ratePerSec[modelForMeta] * finalSec).toFixed(4);
+
         await prisma.asset.create({
           data: {
             projectId, entityType: "SCENE", entityId: sceneId, assetType: "VIDEO",
             fileUrl: videoUrl, mimeType: "video/mp4", status: "READY",
-            metadata: { provider: "fal", requestId } as object,
+            metadata: {
+              provider: "fal",
+              requestId,
+              model: modelForMeta,
+              durationSeconds: finalSec,
+              costUsd,
+            } as object,
           },
         });
         await prisma.scene.update({ where: { id: sceneId }, data: { status: "VIDEO_REVIEW" } });
 
-        // Charge wallet by the ACTUAL video duration reported by fal, never the
-        // scene's target duration. fal clamps submissions to 3-10s anyway.
+        // Charge wallet — reuses the same finalSec + model we computed for Asset.metadata
         if (orgId) {
-          const reported = Number(result?.video?.duration ?? result?.duration ?? 0);
-          const seconds = reported > 0 && reported <= 20
-            ? reported
-            : (submittedDuration > 0 && submittedDuration <= 20 ? submittedDuration : 5);
-          const modelHint: VideoModel = submittedModel
-            ?? ((typeof result?.model === "string" && result.model.includes("kling")) ? "kling" : "seedance");
           await chargeUsd({
             organizationId: orgId, projectId,
             entityType: "SCENE", entityId: sceneId,
             providerName: "fal.ai", category: "GENERATION",
-            description: `Video · ${modelHint} · ${seconds}s`,
-            unitCost: priceVideo(modelHint, seconds), quantity: 1,
-            meta: { requestId, model: modelHint, durationSeconds: seconds, reportedByProvider: reported > 0 },
+            description: `Video · ${modelForMeta} · ${finalSec}s`,
+            unitCost: priceVideo(modelForMeta as VideoModel, finalSec), quantity: 1,
+            meta: { requestId, model: modelForMeta, durationSeconds: finalSec, reportedByProvider: reportedSec > 0 },
           });
         }
       }

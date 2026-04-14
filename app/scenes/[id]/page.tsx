@@ -10,7 +10,13 @@ type Frame = { id: string; orderIndex: number; beatSummary: string | null; image
 type Comment = { id: string; body: string; resolved: boolean; createdAt: string; user: { id: string; fullName: string; email: string } };
 type Critic = { id: string; contentType: string; score: number; feedback: string | null; createdAt: string };
 type SceneChar = { id: string; name: string; roleType: string | null; media: { fileUrl: string }[] };
-type SceneVideo = { id: string; fileUrl: string; createdAt: string; metadata?: { model?: string; durationSeconds?: number; costUsd?: number } };
+type SceneVideo = { id: string; fileUrl: string; createdAt: string; metadata?: { model?: string; durationSeconds?: number; costUsd?: number; provider?: string } };
+const VIDEO_MODEL_PRETTY: Record<string, string> = {
+  seedance: "⚡ SeeDance 2",
+  kling: "🎬 Kling 2.1",
+  "veo3-fast": "🟪 VEO 3 Fast",
+  "veo3-pro": "💎 VEO 3 Pro",
+};
 type DirectorSheet = { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string; generatedAt: string };
 type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[] };
 
@@ -397,17 +403,27 @@ export default function ScenePage() {
         </Card>
 
         {scene.videos && scene.videos.length > 0 && (
-          <Card title={he ? "סרטוני הסצנה" : "Scene videos"} subtitle={`${scene.videos.length} ${he ? "סרטונים" : "videos"}`}>
+          <Card title={he ? "סרטוני הסצנה" : "Scene videos"} subtitle={`${scene.videos.length} ${he ? "סרטונים" : "videos"} · ${he ? "סה\"כ" : "total"}: $${scene.videos.reduce((s, v) => s + (v.metadata?.costUsd ?? 0), 0).toFixed(3)}`}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {scene.videos.map((v) => (
-                <div key={v.id} className="bg-bg-main rounded-lg overflow-hidden">
-                  <video src={v.fileUrl} controls className="w-full aspect-video bg-black" />
-                  <div className="p-2 text-[11px] text-text-muted flex justify-between">
-                    <span>{new Date(v.createdAt).toLocaleString()}</span>
-                    {v.metadata?.model && <span className="font-mono">{v.metadata.model}</span>}
+              {scene.videos.map((v) => {
+                const m = v.metadata ?? {};
+                const modelPretty = m.model ? (VIDEO_MODEL_PRETTY[m.model] ?? m.model) : "—";
+                return (
+                  <div key={v.id} className="bg-bg-main rounded-lg overflow-hidden">
+                    <video src={v.fileUrl} controls className="w-full aspect-video bg-black" />
+                    <div className="p-3 text-xs space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold">{modelPretty}</span>
+                        {m.costUsd !== undefined && <span className="font-bold num text-accent">${m.costUsd.toFixed(4)}</span>}
+                      </div>
+                      <div className="flex justify-between text-[11px] text-text-muted">
+                        <span>{m.durationSeconds ? `${m.durationSeconds}s` : ""}</span>
+                        <span>{new Date(v.createdAt).toLocaleString()}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         )}

@@ -72,11 +72,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       : "";
 
     const firstFrame = scene.frames[0];
-    const firstFrameImg = firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl;
     const characterRefImgs = inScene
       .map((c) => c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0])
       .map((m) => m?.fileUrl)
       .filter((u): u is string => !!u);
+    // Prefer the first storyboard frame as the starting image. If no frame
+    // image exists yet, fall back to the first character's front-angle image —
+    // still guarantees identity lock via image-to-video.
+    const firstFrameImg = (firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl) || characterRefImgs[0];
 
     const basePrompt = sheet
       ? [

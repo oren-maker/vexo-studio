@@ -113,7 +113,9 @@ export async function submitVideo(opts: {
     aspect_ratio: opts.aspectRatio ?? "16:9",
   };
   if (useI2V && opts.imageUrl) body.image_url = opts.imageUrl;
-  if (opts.referenceImageUrls && opts.referenceImageUrls.length > 0) {
+  // image_urls is only supported on the text-to-video path of specific models
+  // (some fal endpoints 400 on unknown fields). Only send when NOT using i2v.
+  if (!useI2V && opts.referenceImageUrls && opts.referenceImageUrls.length > 0) {
     body.image_urls = opts.referenceImageUrls.slice(0, 3);
   }
 

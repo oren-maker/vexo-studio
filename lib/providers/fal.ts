@@ -120,3 +120,66 @@ export async function videoResult(model: string, requestId: string): Promise<{ v
 }
 
 export const FAL_MODELS = { IMAGE_MODELS, VIDEO_MODELS };
+
+// ---------------------------------------------------------------------------
+// PRICING (USD per generation). Update as fal changes prices.
+// ---------------------------------------------------------------------------
+export const FAL_PRICING_USD = {
+  // Image: per image
+  "nano-banana": 0.039,
+
+  // Video: per second of output
+  // SeeDance Pro: ~$0.62 / 5s @ 1080p → ~$0.124 per second
+  seedance: { perSecond: 0.124 },
+  // Kling 2.1 Master: ~$0.28 / 5s @ 720p → ~$0.056 per second
+  kling: { perSecond: 0.056 },
+} as const;
+
+export function priceImage(model: ImageModel = "nano-banana", count = 1): number {
+  return (FAL_PRICING_USD[model] ?? 0) * count;
+}
+export function priceVideo(model: VideoModel = "seedance", durationSeconds = 5): number {
+  const m = FAL_PRICING_USD[model];
+  if (!m || typeof m !== "object") return 0;
+  return m.perSecond * durationSeconds;
+}
+
+// ---------------------------------------------------------------------------
+// BALANCE — query fal.ai user balance + usage. Endpoint may evolve.
+// ---------------------------------------------------------------------------
+export interface FalBalance {
+  currentBalance?: number;       // remaining USD
+  expiringSoon?: number;         // USD expiring within 365d
+  usageThisMonth?: number;       // USD spent in current calendar month
+  source: string;                // which endpoint succeeded
+  raw: unknown;
+}
+
+const BALANCE_ENDPOINTS = [
+  "https://rest.alpha.fal.ai/billing/user_balance",
+  "https://api.fal.ai/billing/user_balance",
+  "https://api.fal.ai/v1/billing/balance",
+];
+
+export async function fetchBalance(): Promise<FalBalance> {
+  let lastErr: unknown;
+  for (const url of BALANCE_ENDPOINTS) {
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Key ${key()}` } });
+      if (!res.ok) { lastErr = `${url} ${res.status}`; continue; }
+      const data = await res.json();
+      // Various shapes seen across fal API versions:
+      const b = data?.current_balance ?? data?.balance ?? data?.available ?? data?.remaining;
+      const exp = data?.expiring_soon ?? data?.expiring ?? data?.credits_expiring_in_365_days;
+      const usage = data?.usage_this_month ?? data?.usage_month ?? data?.month_usage;
+      return {
+        currentBalance: typeof b === "number" ? b : undefined,
+        expiringSoon: typeof exp === "number" ? exp : undefined,
+        usageThisMonth: typeof usage === "number" ? usage : undefined,
+        source: url,
+        raw: data,
+      };
+    } catch (e) { lastErr = e; }
+  }
+  throw new Error(`fal balance: all endpoints failed (${String(lastErr).slice(0, 200)})`);
+}

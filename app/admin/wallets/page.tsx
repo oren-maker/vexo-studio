@@ -169,6 +169,13 @@ export default function WalletsPage() {
                   <td className="py-3 text-end num text-text-muted">{w.totalCreditsAdded.toFixed(2)}</td>
                   <td className="py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}`}>{status}</span></td>
                   <td className="py-3 text-end space-x-2 rtl:space-x-reverse whitespace-nowrap">
+                    <button onClick={async () => {
+                      try {
+                        const r = await api<{ balance: number; usageThisMonth: number }>(`/api/v1/providers/${w.provider.id}/sync`, { method: "POST" });
+                        alert(`Synced ${w.provider.name}\nBalance: $${r.balance.toFixed(2)}\nUsage this month: $${r.usageThisMonth.toFixed(2)}`);
+                        load();
+                      } catch (e: unknown) { alert((e as Error).message); }
+                    }} className="text-xs text-accent hover:underline">⟳ <T>Sync</T></button>
                     <button onClick={() => setTopup({ wallet: w, mode: "add" })} className="text-xs text-status-okText hover:underline">+ <T>Top up</T></button>
                     <button onClick={() => setTopup({ wallet: w, mode: "reduce" })} className="text-xs text-status-errText hover:underline">- <T>Deduct</T></button>
                     <button onClick={() => showTx(w)} className="text-xs text-accent hover:underline"><T>History</T></button>

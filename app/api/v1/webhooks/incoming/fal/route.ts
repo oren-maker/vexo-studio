@@ -5,6 +5,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { chargeUsd } from "@/lib/billing";
+import { priceVideo, type VideoModel } from "@/lib/providers/fal";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 
@@ -36,9 +38,10 @@ export async function POST(req: NextRequest) {
     if (sceneId && videoUrl) {
       const scene = await prisma.scene.findUnique({ where: { id: sceneId } });
       if (scene) {
-        const projectId = scene.episodeId
-          ? (await prisma.episode.findUniqueOrThrow({ where: { id: scene.episodeId }, include: { season: { include: { series: true } } } })).season.series.projectId
-          : "";
+        const ep = scene.episodeId ? await prisma.episode.findUnique({ where: { id: scene.episodeId }, include: { season: { include: { series: { include: { project: true } } } } } }) : null;
+        const projectId = ep?.season.series.projectId ?? "";
+        const orgId = ep?.season.series.project.organizationId;
+
         await prisma.asset.create({
           data: {
             projectId, entityType: "SCENE", entityId: sceneId, assetType: "VIDEO",
@@ -47,6 +50,21 @@ export async function POST(req: NextRequest) {
           },
         });
         await prisma.scene.update({ where: { id: sceneId }, data: { status: "VIDEO_REVIEW" } });
+
+        // Charge wallet — fal payload may include duration. Default 5s if unknown.
+        if (orgId) {
+          const seconds = result?.video?.duration ?? result?.duration ?? scene.targetDurationSeconds ?? 5;
+          // Detect model from URL or metadata; default to seedance
+          const modelHint: VideoModel = (typeof result?.model === "string" && result.model.includes("kling")) ? "kling" : "seedance";
+          await chargeUsd({
+            organizationId: orgId, projectId,
+            entityType: "SCENE", entityId: sceneId,
+            providerName: "fal.ai", category: "GENERATION",
+            description: `Video · ${modelHint} · ${seconds}s`,
+            unitCost: priceVideo(modelHint, seconds), quantity: 1,
+            meta: { requestId },
+          });
+        }
       }
     }
 

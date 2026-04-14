@@ -37,5 +37,23 @@ export async function GET(req: NextRequest) {
     calendarPublished++;
   }
 
-  return NextResponse.json({ ok: true, tick: now.toISOString(), scheduledPublished, calendarPublished });
+  // 3. Auto-sync provider wallets (fal.ai for now)
+  let walletsSynced = 0;
+  try {
+    const { fetchBalance } = await import("@/lib/providers/fal");
+    const falProviders = await prisma.provider.findMany({ where: { isActive: true, name: { contains: "fal", mode: "insensitive" } } });
+    for (const p of falProviders) {
+      try {
+        const b = await fetchBalance();
+        await prisma.creditWallet.upsert({
+          where: { providerId: p.id },
+          update: { availableCredits: b.currentBalance ?? 0 },
+          create: { providerId: p.id, availableCredits: b.currentBalance ?? 0, totalCreditsAdded: b.currentBalance ?? 0, isTrackingEnabled: true },
+        });
+        walletsSynced++;
+      } catch { /* ignore single-provider failures */ }
+    }
+  } catch { /* fal lib not configured */ }
+
+  return NextResponse.json({ ok: true, tick: now.toISOString(), scheduledPublished, calendarPublished, walletsSynced });
 }

@@ -12,11 +12,6 @@
     "isolatedModules": true,
     "declaration": true,
     "sourceMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@vexo/db": ["packages/db/src/index.ts"],
-      "@vexo/queue": ["packages/queue/src/index.ts"],
-      "@vexo/shared": ["packages/shared/src/index.ts"]
-    }
+    "baseUrl": "."
   }
 }

@@ -60,6 +60,15 @@ const plugin: FastifyPluginAsync = async (app) => {
         })),
       };
 
+      // Resolve current org
+      if (!req.organizationId && req.currentUser.memberships.length) {
+        const headerOrg = (req.headers["x-organization-id"] as string | undefined)?.trim();
+        const m = headerOrg
+          ? req.currentUser.memberships.find((mm) => mm.organizationId === headerOrg)
+          : req.currentUser.memberships[0];
+        if (m) req.organizationId = m.organizationId;
+      }
+
       // 2FA enforcement for ADMIN/SUPER_ADMIN
       const hasPrivilegedRole = req.currentUser.memberships.some((m) => ENFORCE_2FA_ROLES.has(m.roleName));
       if (hasPrivilegedRole && !user.totpEnabled) {
@@ -76,8 +85,16 @@ const plugin: FastifyPluginAsync = async (app) => {
   app.decorate("requirePermission", (key: string) => async (req, reply) => {
     await app.requireAuth(req, reply);
     if (reply.sent) return;
-    const orgId = req.organizationId;
-    const member = req.currentUser?.memberships.find((m) => m.organizationId === orgId);
+    // Resolve org context (the global org hook runs before auth, so we re-resolve here)
+    if (!req.organizationId && req.currentUser?.memberships?.length) {
+      const headerOrg = (req.headers["x-organization-id"] as string | undefined)?.trim();
+      const m = headerOrg
+        ? req.currentUser.memberships.find((mm) => mm.organizationId === headerOrg)
+        : req.currentUser.memberships[0];
+      if (!m) return reply.forbidden("not a member of organization");
+      req.organizationId = m.organizationId;
+    }
+    const member = req.currentUser?.memberships.find((m) => m.organizationId === req.organizationId);
     if (!member?.permissions.has(key)) {
       return reply.forbidden(`missing permission: ${key}`);
     }

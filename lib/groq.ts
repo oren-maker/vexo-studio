@@ -13,6 +13,10 @@ interface AiOptions {
   temperature?: number;
   maxTokens?: number;
   responseFormat?: "json" | "text";
+  // For cost attribution / audit
+  projectId?: string;
+  organizationId?: string;
+  description?: string;
 }
 
 export function hasGroq(): boolean {
@@ -84,9 +88,52 @@ async function callGroq(messages: ChatMessage[], opts: AiOptions): Promise<strin
   return data.choices?.[0]?.message?.content ?? "";
 }
 
+async function callGeminiViaFal(messages: ChatMessage[], opts: AiOptions): Promise<string> {
+  if (!process.env.FAL_API_KEY) throw new Error("no fal key");
+  // Lazy-import to keep client bundle clean
+  const { chatGeminiViaFal } = await import("./providers/fal");
+  const r = await chatGeminiViaFal({
+    messages,
+    temperature: opts.temperature,
+    maxTokens: opts.maxTokens,
+    responseFormat: opts.responseFormat,
+  });
+
+  // Persist cost — fire-and-forget. Goes to the fal.ai provider so it shows up
+  // in the wallet + financial report alongside image / video charges.
+  if (r.costUsd > 0) {
+    try {
+      const { chargeUsd } = await import("./billing");
+      const { getRequestActor } = await import("./request-context");
+      const actor = getRequestActor();
+      const orgId = opts.organizationId ?? actor?.organizationId;
+      if (orgId) {
+        await chargeUsd({
+          organizationId: orgId,
+          projectId: opts.projectId ?? null,
+          entityType: "AI_TEXT",
+          entityId: opts.projectId ?? "global",
+          providerName: "fal.ai",
+          category: "TOKEN",
+          description: opts.description ?? `Gemini text · in:${r.inputTokens} out:${r.outputTokens}`,
+          unitCost: r.costUsd,
+          quantity: 1,
+          userId: actor?.userId,
+          meta: { inputTokens: r.inputTokens, outputTokens: r.outputTokens, model: "gemini-2.5-flash" },
+        });
+      }
+    } catch { /* never throw from billing path */ }
+  }
+
+  return r.text;
+}
+
 export async function groqChat(messages: ChatMessage[], opts: AiOptions = {}): Promise<string> {
+  // PRIMARY: paid Gemini through fal.ai (cost tracked in wallet + financial report)
+  // FALLBACK 1: Groq Llama 3.3 70B (free tier) if fal fails or no key
+  // FALLBACK 2: Free Gemini direct (only if no fal key configured at all)
   let lastErr: unknown;
-  for (const fn of [callGemini, callGroq]) {
+  for (const fn of [callGeminiViaFal, callGroq, callGemini]) {
     try {
       return await fn(messages, opts);
     } catch (e) { lastErr = e; }

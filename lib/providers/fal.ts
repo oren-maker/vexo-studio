@@ -138,7 +138,87 @@ export const FAL_PRICING_USD = {
   seedance: { perSecond: 0.124 },
   // Kling 2.1 Master: ~$0.28 / 5s @ 720p → ~$0.056 per second
   kling: { perSecond: 0.056 },
+
+  // Text — Gemini 2.5 Flash via fal-ai/any-llm. Per 1M tokens (passthrough).
+  "gemini-2.5-flash": { perMillionInput: 0.075, perMillionOutput: 0.30 },
+  "gemini-2.5-pro":   { perMillionInput: 1.25,  perMillionOutput: 10.00 },
 } as const;
+
+// ---------------------------------------------------------------------------
+// TEXT — Gemini via fal-ai/any-llm. Used as the primary text path so calls
+// flow through the fal balance and show up in the wallet.
+// ---------------------------------------------------------------------------
+export interface GeminiChatResult {
+  text: string;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+}
+
+const ANY_LLM_URL = `${FAL_RUN}/fal-ai/any-llm`;
+
+export async function chatGeminiViaFal(opts: {
+  messages: { role: "system" | "user" | "assistant"; content: string }[];
+  model?: "gemini-2.5-flash" | "gemini-2.5-pro";
+  temperature?: number;
+  maxTokens?: number;
+  responseFormat?: "json" | "text";
+  timeoutMs?: number;
+}): Promise<GeminiChatResult> {
+  const model = opts.model ?? "gemini-2.5-flash";
+  const falModel = model === "gemini-2.5-pro" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+
+  // any-llm wants a prompt + optional system_prompt + history
+  const system = opts.messages.filter((m) => m.role === "system").map((m) => m.content).join("\n") || undefined;
+  const userTurns = opts.messages.filter((m) => m.role !== "system");
+  const lastUser = userTurns.at(-1)?.content ?? "";
+  const history = userTurns.slice(0, -1).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
+
+  const body: Record<string, unknown> = {
+    model: falModel,
+    prompt: lastUser,
+    temperature: opts.temperature ?? 0.7,
+    max_tokens: opts.maxTokens ?? 1024,
+  };
+  if (system) body.system_prompt = system;
+  if (history.length > 0) body.history = history;
+  if (opts.responseFormat === "json") body.response_format = { type: "json_object" };
+
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), opts.timeoutMs ?? 15_000);
+  let res: Response;
+  try {
+    res = await fetch(ANY_LLM_URL, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    });
+  } finally { clearTimeout(timer); }
+
+  if (!res.ok) throw new Error(`fal Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data = await res.json();
+  const text: string =
+    data?.output ??
+    data?.response ??
+    data?.choices?.[0]?.message?.content ??
+    data?.text ??
+    "";
+
+  // Token counts: prefer server-reported, fall back to char/4 heuristic
+  const usage = data?.usage ?? data?.tokens ?? {};
+  const inputTokens =
+    usage.prompt_tokens ?? usage.input_tokens ??
+    Math.ceil((lastUser.length + (system?.length ?? 0) + history.reduce((a, h) => a + h.content.length, 0)) / 4);
+  const outputTokens =
+    usage.completion_tokens ?? usage.output_tokens ??
+    Math.ceil(text.length / 4);
+
+  const pricing = FAL_PRICING_USD[model];
+  const costUsd = +(((inputTokens / 1_000_000) * pricing.perMillionInput) + ((outputTokens / 1_000_000) * pricing.perMillionOutput)).toFixed(6);
+
+  return { text, inputTokens, outputTokens, costUsd };
+}
 
 export function priceImage(model: ImageModel = "nano-banana", count = 1): number {
   return (FAL_PRICING_USD[model] ?? 0) * count;

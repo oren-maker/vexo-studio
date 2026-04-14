@@ -52,11 +52,20 @@ export default function ProjectDetailPage() {
     finally { setAiBusy(false); }
   }
 
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
   async function projectFeedback() {
-    if (seasons.length === 0) return alert(lang === "he" ? "אין עונות עדיין" : "No seasons yet");
+    if (seasons.length === 0) return alert(lang === "he" ? "אין עונות עדיין — צור עונה לפני שאפשר לקבל משוב" : "No seasons yet — create one first");
     setFeedback(null);
-    const r = await api<typeof feedback>(`/api/v1/seasons/${seasons[0].id}/director-feedback`, { method: "POST" }).catch((e) => { alert((e as Error).message); return null; });
-    if (r) setFeedback(r);
+    setFeedbackBusy(true);
+    try {
+      const r = await api<{ overall: string; arc?: string; pacing?: string; strengths: string[]; concerns: string[]; suggestions: string[] }>(`/api/v1/seasons/${seasons[0].id}/director-feedback`, { method: "POST", body: {} });
+      if (r) {
+        setFeedback(r);
+        // Scroll to the feedback panel since it renders below the fold
+        setTimeout(() => document.getElementById("director-feedback-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+      }
+    } catch (e) { alert((e as Error).message); }
+    finally { setFeedbackBusy(false); }
   }
 
   async function newSeason() {
@@ -151,12 +160,12 @@ export default function ProjectDetailPage() {
         </div>
         <div className="flex flex-col gap-2 items-end shrink-0">
           <span className="text-xs px-3 py-1 rounded-full bg-bg-main font-bold">{project.status}</span>
-          <button onClick={projectFeedback} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold whitespace-nowrap">🤖 {lang === "he" ? "משוב במאי" : "Director feedback"}</button>
+          <button disabled={feedbackBusy} onClick={projectFeedback} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold whitespace-nowrap disabled:opacity-50">🤖 {feedbackBusy ? (lang === "he" ? "חושב…" : "Thinking…") : (lang === "he" ? "משוב במאי" : "Director feedback")}</button>
         </div>
       </div>
 
       {feedback && (
-        <div className="bg-bg-card rounded-card border border-accent p-5 space-y-3">
+        <div id="director-feedback-panel" className="bg-bg-card rounded-card border border-accent p-5 space-y-3">
           <div className="flex justify-between"><div className="text-sm font-bold">🤖 {lang === "he" ? "משוב של במאי AI" : "AI Director Feedback"}</div><button onClick={() => setFeedback(null)} className="text-xs text-text-muted">✕</button></div>
           <div className="text-sm">{feedback.overall}</div>
           {feedback.arc && <div className="text-xs"><span className="font-semibold">{lang === "he" ? "קשת" : "Arc"}: </span>{feedback.arc}</div>}

@@ -194,16 +194,37 @@ export default function SeasonPage() {
   }
 
   const [genBusy, setGenBusy] = useState(false);
+  const [genProgress, setGenProgress] = useState<{ step: number; total: number; label: string; elapsed: number; done?: boolean; error?: string; result?: { title: string; scenes: number; episodeNumber: number } } | null>(null);
+
   async function generateEpisodeWithAi() {
-    const hint = prompt(lang === "he" ? "רמז אופציונלי לפרק החדש (עלילה/טון/אירוע מרכזי). השאר ריק לאוטומטי:" : "Optional hint for the new episode (plot/tone/key event). Leave empty for full auto:");
+    const hint = prompt(lang === "he" ? "רמז אופציונלי לפרק החדש (עלילה/טון/אירוע מרכזי). השאר ריק לאוטומטי:" : "Optional hint for the new episode. Leave empty for full auto:");
     if (hint === null) return;
     setGenBusy(true);
+    const steps = lang === "he"
+      ? ["קורא את הקאש של הסדרה", "מתכנן עלילת פרק", "יוצר את הפרק במסד נתונים", "מתכנן סצנות", "מייצר frames לכל סצנה", "מסיים"]
+      : ["Reading series cache", "Planning episode plot", "Creating episode in DB", "Planning scenes", "Generating frames per scene", "Finalizing"];
+    setGenProgress({ step: 0, total: steps.length, label: steps[0], elapsed: 0 });
+    const started = Date.now();
+    // Virtual-step advancer — moves forward on estimated timing (real endpoint is one-shot).
+    const stepDurations = [3, 12, 2, 12, 20, 3]; // seconds per step, roughly
+    const tick = setInterval(() => {
+      const sec = Math.round((Date.now() - started) / 1000);
+      let acc = 0; let idx = 0;
+      for (let i = 0; i < stepDurations.length; i++) { acc += stepDurations[i]; if (sec < acc) { idx = i; break; } idx = stepDurations.length - 1; }
+      setGenProgress((p) => p && !p.done ? { ...p, step: idx, label: steps[idx], elapsed: sec } : p);
+    }, 1000);
+
     try {
       const r = await api<{ episodeNumber: number; title: string; scenes: number }>(`/api/v1/seasons/${id}/generate-episode`, { method: "POST", body: hint ? { hint } : {} });
-      alert((lang === "he" ? `נוצר פרק ${r.episodeNumber}: ${r.title} (${r.scenes} סצנות)` : `Created episode ${r.episodeNumber}: ${r.title} (${r.scenes} scenes)`));
+      clearInterval(tick);
+      setGenProgress((p) => p ? { ...p, step: steps.length - 1, label: steps[steps.length - 1], done: true, elapsed: Math.round((Date.now() - started) / 1000), result: r } : null);
       load();
-    } catch (e) { alert((e as Error).message); }
-    finally { setGenBusy(false); }
+    } catch (e) {
+      clearInterval(tick);
+      setGenProgress((p) => p ? { ...p, error: (e as Error).message, done: true, elapsed: Math.round((Date.now() - started) / 1000) } : null);
+    } finally {
+      setGenBusy(false);
+    }
   }
 
   async function autoSeason() {
@@ -216,10 +237,30 @@ export default function SeasonPage() {
     finally { setAutoBusy(false); }
   }
 
+  const [fbProgress, setFbProgress] = useState<{ step: number; total: number; label: string; elapsed: number; done?: boolean; error?: string } | null>(null);
   async function seasonFeedback() {
     setFeedback(null);
-    const r = await api<typeof feedback>(`/api/v1/seasons/${id}/director-feedback`, { method: "POST" }).catch((e) => { alert((e as Error).message); return null; });
-    if (r) setFeedback(r);
+    const steps = lang === "he"
+      ? ["טוען את הפרקים", "שולח לבמאי AI", "מקבל משוב", "מוכן"]
+      : ["Loading episodes", "Sending to AI director", "Receiving feedback", "Ready"];
+    setFbProgress({ step: 0, total: steps.length, label: steps[0], elapsed: 0 });
+    const started = Date.now();
+    const stepDurations = [2, 8, 8, 1];
+    const tick = setInterval(() => {
+      const sec = Math.round((Date.now() - started) / 1000);
+      let acc = 0; let idx = 0;
+      for (let i = 0; i < stepDurations.length; i++) { acc += stepDurations[i]; if (sec < acc) { idx = i; break; } idx = stepDurations.length - 1; }
+      setFbProgress((p) => p && !p.done ? { ...p, step: idx, label: steps[idx], elapsed: sec } : p);
+    }, 1000);
+    try {
+      const r = await api<typeof feedback>(`/api/v1/seasons/${id}/director-feedback`, { method: "POST" });
+      clearInterval(tick);
+      setFbProgress((p) => p ? { ...p, step: steps.length - 1, label: steps[steps.length - 1], done: true, elapsed: Math.round((Date.now() - started) / 1000) } : null);
+      if (r) { setFeedback(r); setTimeout(() => setFbProgress(null), 1500); }
+    } catch (e) {
+      clearInterval(tick);
+      setFbProgress((p) => p ? { ...p, error: (e as Error).message, done: true, elapsed: Math.round((Date.now() - started) / 1000) } : null);
+    }
   }
 
   async function episodeFeedback(epId: string) {
@@ -290,8 +331,11 @@ export default function SeasonPage() {
 
       <button onClick={() => router.push(`/projects/${season.series.project.id}`)} className="text-xs text-accent hover:underline">{lang === "he" ? "→" : "←"} {season.series.project.name}</button>
 
+      {genProgress && <ProgressPanel title={lang === "he" ? "🎬 יוצר פרק עם AI" : "🎬 Generating episode"} p={genProgress} onClose={() => setGenProgress(null)} successText={genProgress.result ? (lang === "he" ? `נוצר פרק ${genProgress.result.episodeNumber}: ${genProgress.result.title} (${genProgress.result.scenes} סצנות)` : `Created EP${genProgress.result.episodeNumber}: ${genProgress.result.title} (${genProgress.result.scenes} scenes)`) : undefined} lang={lang} />}
+      {fbProgress && <ProgressPanel title={lang === "he" ? "🤖 במאי AI קורא את העונה" : "🤖 AI director reading season"} p={fbProgress} onClose={() => setFbProgress(null)} lang={lang} />}
+
       {feedback && (
-        <div className="bg-bg-card rounded-card border border-accent p-5 space-y-3">
+        <div id="director-feedback-panel" className="bg-bg-card rounded-card border border-accent p-5 space-y-3">
           <div className="flex justify-between items-start gap-3">
             <div className="text-sm font-bold">🤖 {lang === "he" ? "משוב הבמאי לעונה" : "Season Director Feedback"}</div>
             <div className="flex gap-2">
@@ -640,6 +684,39 @@ export default function SeasonPage() {
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+function ProgressPanel({ title, p, onClose, successText, lang }: {
+  title: string;
+  p: { step: number; total: number; label: string; elapsed: number; done?: boolean; error?: string };
+  onClose: () => void;
+  successText?: string;
+  lang: string;
+}) {
+  const pct = p.done ? 100 : Math.min(99, Math.round(((p.step + 1) / p.total) * 100));
+  const he = lang === "he";
+  return (
+    <div className={`bg-bg-card rounded-card border p-4 space-y-3 ${p.error ? "border-status-errText" : p.done ? "border-status-okText" : "border-accent"}`}>
+      <div className="flex justify-between items-center">
+        <div className="font-semibold text-sm">{title}</div>
+        <button onClick={onClose} className="text-text-muted text-xs">✕</button>
+      </div>
+      {p.error ? (
+        <div className="text-sm text-status-errText">⚠ {p.error}</div>
+      ) : (
+        <>
+          <div className="flex justify-between items-center text-xs text-text-muted">
+            <span>{p.done ? (he ? "✅ הושלם" : "✅ Done") : `${p.label} (${p.step + 1}/${p.total})`}</span>
+            <span className="num">{p.elapsed}s</span>
+          </div>
+          <div className="h-2 rounded-full bg-bg-main overflow-hidden">
+            <div className={`h-full transition-all ${p.done ? "bg-status-okText" : "bg-accent"}`} style={{ width: `${pct}%` }} />
+          </div>
+          {p.done && successText && <div className="text-sm text-status-okText">{successText}</div>}
+        </>
+      )}
     </div>
   );
 }

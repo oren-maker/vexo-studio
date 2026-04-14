@@ -64,18 +64,33 @@ export default function ScenePage() {
   }
 
   async function approve() {
-    await api(`/api/v1/scenes/${id}/approve`, { method: "POST" });
-    load();
+    setBusy(true);
+    try {
+      await api(`/api/v1/scenes/${id}/approve`, { method: "POST" });
+      alert(he ? "הסצנה אושרה" : "Scene approved");
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setBusy(false); }
   }
 
   async function critic() {
-    await api(`/api/v1/scenes/${id}/critic/review`, { method: "POST" });
-    load();
+    setBusy(true);
+    try {
+      const r = await api<{ score: number; feedback: string }>(`/api/v1/scenes/${id}/critic/review`, { method: "POST" });
+      alert((he ? `ציון: ${(r.score * 100).toFixed(0)}%\n` : `Score: ${(r.score * 100).toFixed(0)}%\n`) + (r.feedback ?? ""));
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setBusy(false); }
   }
 
   async function breakdown() {
-    await api(`/api/v1/scenes/${id}/breakdown`, { method: "POST" });
-    alert("Script breakdown queued.");
+    setBusy(true);
+    try {
+      await api(`/api/v1/scenes/${id}/breakdown`, { method: "POST" });
+      alert(he ? "פירוק התסריט בוצע" : "Script breakdown done");
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setBusy(false); }
   }
 
   async function postComment(e: React.FormEvent) {
@@ -189,9 +204,9 @@ export default function ScenePage() {
         <div className="flex flex-wrap gap-2">
           <button disabled={busy} onClick={genStoryboard} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור תשריט" : "Generate storyboard"}</button>
           <button disabled={busy} onClick={genVideo} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור וידאו" : "Generate video"}</button>
-          <button onClick={breakdown} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors">{he ? "פירוק תסריט" : "Script breakdown"}</button>
-          <button onClick={critic} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors">{he ? "מבקר AI" : "AI critic"}</button>
-          <button onClick={approve} className="px-3 py-1.5 rounded-lg border-2 border-status-okText text-status-okText bg-white text-sm font-semibold hover:bg-status-okText hover:text-white transition-colors">{he ? "אשר סצנה" : "Approve"}</button>
+          <button disabled={busy} onClick={breakdown} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-50">{he ? "פירוק תסריט" : "Script breakdown"}</button>
+          <button disabled={busy} onClick={critic} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-50">{he ? "מבקר AI" : "AI critic"}</button>
+          <button disabled={busy} onClick={approve} className="px-3 py-1.5 rounded-lg border-2 border-status-okText text-status-okText bg-white text-sm font-semibold hover:bg-status-okText hover:text-white transition-colors disabled:opacity-50">{he ? "אשר סצנה" : "Approve"}</button>
         </div>
 
         {scene.sceneCharacters && scene.sceneCharacters.length > 0 && (

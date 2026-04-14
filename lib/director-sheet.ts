@@ -39,35 +39,53 @@ Return JSON with EXACTLY these keys, each a string (not nested):
 Match the tone/genre of the series. Keep each section TIGHT (under 400 chars). No markdown. No brackets.`;
 
 export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet> {
-  const scene = await prisma.scene.findUniqueOrThrow({
+  const scene = await prisma.scene.findUnique({
     where: { id: sceneId },
     include: {
       episode: { include: { season: { include: { series: { include: { project: true } } } }, characters: { include: { character: true } } } },
     },
   });
+  if (!scene) throw new Error("scene not found");
 
   const projectId = scene.episode?.season.series.projectId;
-  const bible = projectId ? (await getContext(projectId))?.summary ?? "" : "";
+  const bible = projectId ? (await getContext(projectId).catch(() => null))?.summary ?? "" : "";
   const project = scene.episode?.season.series.project;
   const episodeChars = scene.episode?.characters.map((ec) => ec.character.name).join(", ") ?? "";
 
   const user = [
     project && `SERIES: ${project.name} · language ${project.language}${project.genreTag ? ` · genre ${project.genreTag}` : ""}`,
-    bible && `BIBLE:\n${bible}`,
-    `EPISODE: #${scene.episode?.episodeNumber} ${scene.episode?.title ?? ""}`,
+    bible && `BIBLE:\n${bible.slice(0, 1500)}`,
+    `EPISODE: #${scene.episode?.episodeNumber ?? "?"} ${scene.episode?.title ?? ""}`,
     `SCENE ${scene.sceneNumber}: ${scene.title ?? ""}`,
     scene.summary && `SUMMARY: ${scene.summary}`,
-    scene.scriptText && `SCRIPT:\n${scene.scriptText}`,
+    scene.scriptText && `SCRIPT:\n${scene.scriptText.slice(0, 1200)}`,
     episodeChars && `RECURRING CAST AVAILABLE: ${episodeChars}`,
   ].filter(Boolean).join("\n\n");
 
-  const sheet = await groqJson<Omit<DirectorSheet, "generatedAt">>(
-    SYSTEM,
-    user,
-    { temperature: 0.4, maxTokens: 1400 },
-  );
+  let sheet: Omit<DirectorSheet, "generatedAt">;
+  try {
+    sheet = await groqJson<Omit<DirectorSheet, "generatedAt">>(
+      SYSTEM,
+      user,
+      { temperature: 0.4, maxTokens: 1200, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
+    );
+  } catch (e) {
+    throw new Error(`AI failed: ${(e as Error).message.slice(0, 200)}`);
+  }
 
-  const withTs: DirectorSheet = { ...sheet, generatedAt: new Date().toISOString() };
+  // Ensure every key exists as a string — Gemini sometimes drops one
+  const safe: Omit<DirectorSheet, "generatedAt"> = {
+    style:     String(sheet.style ?? "").slice(0, 1000),
+    scene:     String(sheet.scene ?? "").slice(0, 1000),
+    character: String(sheet.character ?? "").slice(0, 1000),
+    shots:     String(sheet.shots ?? "").slice(0, 1500),
+    camera:    String(sheet.camera ?? "").slice(0, 1000),
+    effects:   String(sheet.effects ?? "").slice(0, 1000),
+    audio:     String(sheet.audio ?? "").slice(0, 1000),
+    technical: String(sheet.technical ?? "").slice(0, 500),
+  };
+
+  const withTs: DirectorSheet = { ...safe, generatedAt: new Date().toISOString() };
   const merged = { ...(scene.memoryContext as object ?? {}), directorSheet: withTs };
   await prisma.scene.update({
     where: { id: sceneId },

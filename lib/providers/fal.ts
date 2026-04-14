@@ -97,14 +97,25 @@ export async function submitVideo(opts: {
   durationSeconds?: number;
   aspectRatio?: "16:9" | "9:16" | "1:1";
   webhookUrl?: string;
+  /** Optional starting frame URL. If set, we route to the image-to-video variant
+   * of the chosen model so the video's first frame locks to this image. */
+  imageUrl?: string;
+  /** Extra reference images (e.g. character galleries). Passed as image_urls where supported. */
+  referenceImageUrls?: string[];
 }): Promise<VideoSubmitResult> {
-  const model = VIDEO_MODELS[opts.model ?? "seedance"];
+  const modelKey = opts.model ?? "seedance";
+  const useI2V = !!opts.imageUrl;
+  const model = (useI2V ? VIDEO_MODELS_I2V[modelKey] : VIDEO_MODELS[modelKey]);
   const body: Record<string, unknown> = {
     prompt: opts.prompt,
     // Upper bound depends on model — seedance goes to 12, others to 8-10
     duration: String(Math.max(1, Math.min(opts.durationSeconds ?? 5, 20))),
     aspect_ratio: opts.aspectRatio ?? "16:9",
   };
+  if (useI2V && opts.imageUrl) body.image_url = opts.imageUrl;
+  if (opts.referenceImageUrls && opts.referenceImageUrls.length > 0) {
+    body.image_urls = opts.referenceImageUrls.slice(0, 3);
+  }
 
   const url = opts.webhookUrl
     ? `${FAL_QUEUE}/${model}?fal_webhook=${encodeURIComponent(opts.webhookUrl)}`

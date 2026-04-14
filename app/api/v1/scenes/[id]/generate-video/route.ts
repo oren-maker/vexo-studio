@@ -22,7 +22,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const body = req.headers.get("content-length") && Number(req.headers.get("content-length")) > 0
       ? Body.parse(await req.json()) : Body.parse({});
 
-    const scene = await prisma.scene.findFirst({ where: { id: params.id } });
+    const scene = await prisma.scene.findFirst({
+      where: { id: params.id },
+      include: {
+        frames: { orderBy: { orderIndex: "asc" } },
+        episode: {
+          include: {
+            characters: { include: { character: { include: { media: { orderBy: { createdAt: "asc" } } } } } },
+          },
+        },
+      },
+    });
     if (!scene) throw Object.assign(new Error("scene not found"), { statusCode: 404 });
     // Allow STORYBOARD_REVIEW too — auto-approve workflow
     if (!["STORYBOARD_APPROVED", "STORYBOARD_REVIEW", "VIDEO_REVIEW"].includes(scene.status)) {
@@ -38,25 +48,56 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return ok({ jobId: `stub-${Date.now()}`, estimate, note: "FAL_API_KEY not set; status flipped without generation." });
     }
 
-    // Prefer the Director Sheet (structured 8-section prompt) if available — same
-    // pattern vexo-learn uses. Falls back to raw title/summary/script otherwise.
-    const mem = (scene.memoryContext as { directorSheet?: { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string } } | null) ?? {};
+    // Build the video prompt from ALL available signals:
+    //   1. Director Sheet (8-section bible) if present
+    //   2. Raw script — so dialogue + actions feed the model verbatim
+    //   3. Character appearance + name for every character in the scene
+    //   4. Director's manual notes (scene.memoryContext.directorNotes)
+    //   5. First storyboard frame's prompt as the opening shot
+    //   6. Reference image URLs (characters + first frame) sent as image_urls
+    const mem = (scene.memoryContext as {
+      directorSheet?: { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string };
+      directorNotes?: string;
+      characters?: string[];
+    } | null) ?? {};
     const sheet = mem.directorSheet;
+    const sceneNames = (mem.characters ?? []).map((n) => n.toLowerCase().trim());
+    const episodeChars = scene.episode?.characters.map((ec) => ec.character) ?? [];
+    const inScene = sceneNames.length > 0
+      ? episodeChars.filter((c) => sceneNames.includes(c.name.toLowerCase().trim()))
+      : episodeChars;
+
+    const characterBlock = inScene.length > 0
+      ? "[Cast]\n" + inScene.map((c) => `- ${c.name}${c.roleType ? ` (${c.roleType})` : ""}: ${(c.appearance ?? "").slice(0, 220)}${c.wardrobeRules ? ` | wardrobe: ${c.wardrobeRules.slice(0, 150)}` : ""}`).join("\n")
+      : "";
+
+    const firstFrame = scene.frames[0];
+    const firstFrameImg = firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl;
+    const characterRefImgs = inScene
+      .map((c) => c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0])
+      .map((m) => m?.fileUrl)
+      .filter((u): u is string => !!u);
+
     const basePrompt = sheet
       ? [
           `[Style] ${sheet.style}`,
           `[Scene] ${sheet.scene}`,
           `[Character] ${sheet.character}`,
+          characterBlock,
           `[Camera] ${sheet.camera}`,
           `[Shots] ${sheet.shots}`,
           `[Effects] ${sheet.effects}`,
           `[Audio] ${sheet.audio}`,
           `[Technical] ${sheet.technical}`,
-        ].join("\n\n")
+          scene.scriptText && `[Script]\n${scene.scriptText.slice(0, 1500)}`,
+          mem.directorNotes && `[Director notes]\n${mem.directorNotes.slice(0, 600)}`,
+        ].filter(Boolean).join("\n\n")
       : [
           scene.title && `Title: ${scene.title}`,
           scene.summary && `Summary: ${scene.summary}`,
+          characterBlock,
           scene.scriptText && `Script:\n${scene.scriptText}`,
+          mem.directorNotes && `Director notes:\n${mem.directorNotes}`,
           "Cinematic, high quality, 24fps.",
         ].filter(Boolean).join("\n\n");
 
@@ -77,6 +118,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       durationSeconds: duration,
       aspectRatio: body.aspectRatio,
       webhookUrl,
+      imageUrl: firstFrameImg ?? undefined,   // triggers image-to-video routing when present
+      referenceImageUrls: characterRefImgs,   // character identity locks
     });
 
     // Track in scene memoryContext for status polling

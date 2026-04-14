@@ -10,6 +10,7 @@ const SceneUpdate = z.object({
   title: z.string().optional(), summary: z.string().optional(),
   scriptText: z.string().optional(), targetDurationSeconds: z.number().int().optional(),
   status: z.enum(["DRAFT","PLANNING","STORYBOARD_GENERATING","STORYBOARD_REVIEW","STORYBOARD_APPROVED","VIDEO_GENERATING","VIDEO_REVIEW","APPROVED","LOCKED"]).optional(),
+  memoryContext: z.record(z.any()).optional(),
 }).partial();
 
 async function assertSceneInOrg(id: string, orgId: string) {

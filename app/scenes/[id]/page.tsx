@@ -12,7 +12,7 @@ type Critic = { id: string; contentType: string; score: number; feedback: string
 type SceneChar = { id: string; name: string; roleType: string | null; media: { fileUrl: string }[] };
 type SceneVideo = { id: string; fileUrl: string; createdAt: string; metadata?: { model?: string; durationSeconds?: number; costUsd?: number } };
 type DirectorSheet = { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string; generatedAt: string };
-type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[] };
+type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[] };
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
@@ -177,6 +177,12 @@ export default function ScenePage() {
 
   async function saveScript(text: string) {
     await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { scriptText: text } });
+  }
+  async function saveDirectorNotes(text: string) {
+    const current = (scene?.memoryContext as { directorNotes?: string } | null) ?? {};
+    const merged = { ...current, directorNotes: text };
+    await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { memoryContext: merged } });
+    load();
   }
   async function saveField(field: "title" | "summary", value: string) {
     await api(`/api/v1/scenes/${id}`, { method: "PATCH", body: { [field]: value } });
@@ -377,6 +383,17 @@ export default function ScenePage() {
               <div className="text-sm">{he ? "אין עדיין דף במאי. לחץ \"ייצר עם AI\"." : "No Director Sheet yet. Click Generate."}</div>
             </div>
           )}
+        </Card>
+
+        <Card title={he ? "📝 הערות במאי (ידני)" : "📝 Director notes (manual)"} subtitle={he ? "הערות שיתווספו לפרומפט של הוידאו — מעל הדף האוטומטי" : "Notes appended to the video prompt — above the auto sheet"}>
+          <textarea
+            defaultValue={scene.memoryContext?.directorNotes ?? ""}
+            onBlur={(e) => saveDirectorNotes(e.target.value)}
+            rows={3}
+            placeholder={he ? "כל הנחייה מקצועית נוספת: צבעוניות, תאורה, קצב, דברים שחשובים לך שיעברו לווידאו" : "Any additional professional note: colour, lighting, pacing, beats you want the video to honor"}
+            className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm"
+          />
+          <div className="text-[11px] text-text-muted mt-1">{he ? "יציאה שומרת" : "Blur saves"}</div>
         </Card>
 
         {scene.videos && scene.videos.length > 0 && (

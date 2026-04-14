@@ -55,5 +55,21 @@ export async function GET(req: NextRequest) {
     }
   } catch { /* fal lib not configured */ }
 
-  return NextResponse.json({ ok: true, tick: now.toISOString(), scheduledPublished, calendarPublished, walletsSynced });
+  // 4. Refresh stale series context caches (older than 5 min). Up to 5 per tick.
+  let contextsRefreshed = 0;
+  try {
+    const { buildContext, CACHE_TTL_MS } = await import("@/lib/project-context");
+    const staleCutoff = new Date(Date.now() - CACHE_TTL_MS);
+    const staleContexts = await prisma.projectContext.findMany({
+      where: { updatedAt: { lt: staleCutoff } },
+      orderBy: { updatedAt: "asc" },
+      take: 5,
+      select: { projectId: true },
+    });
+    for (const c of staleContexts) {
+      try { await buildContext(c.projectId); contextsRefreshed++; } catch { /* ignore single */ }
+    }
+  } catch { /* ignore */ }
+
+  return NextResponse.json({ ok: true, tick: now.toISOString(), scheduledPublished, calendarPublished, walletsSynced, contextsRefreshed });
 }

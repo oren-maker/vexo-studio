@@ -443,6 +443,7 @@ model Project {
   revenueSplits   RevenueSplit[]
   contentCalendar ContentCalendarEntry[]
   templates       ProjectTemplate[]
+  context         ProjectContext?
 
   @@index([organizationId, status])
 }
@@ -569,6 +570,18 @@ model Episode {
 
   @@unique([seasonId, episodeNumber])
   @@index([seasonId, status])
+}
+
+model ProjectContext {
+  id         String   @id @default(cuid())
+  projectId  String   @unique
+  summary    String   @db.Text
+  data       Json
+  tokenCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model EpisodeCharacter {

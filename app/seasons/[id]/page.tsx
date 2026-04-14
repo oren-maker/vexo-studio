@@ -38,7 +38,9 @@ export default function SeasonPage() {
 
   const [err, setErr] = useState<string | null>(null);
   const [costs, setCosts] = useState<Record<string, number>>({});
-  const [tab, setTab] = useState<"episodes" | "characters">("episodes");
+  const [tab, setTab] = useState<"episodes" | "characters" | "logs">("episodes");
+  const [contextData, setContextData] = useState<{ cache: { summary: string; data: any; updatedAt: string; tokenCount: number } | null; logs: { id: string; createdAt: string; decisionReason: string | null; output: any }[] } | null>(null);
+  const [ctxBusy, setCtxBusy] = useState(false);
   const [characters, setCharacters] = useState<ProjectCharacter[]>([]);
   const [charBusy, setCharBusy] = useState<"populate" | "gallery" | string | null>(null);
 
@@ -68,6 +70,22 @@ export default function SeasonPage() {
     if (!season) return;
     api<ProjectCharacter[]>(`/api/v1/projects/${season.series.project.id}/characters`).then(setCharacters).catch(() => setCharacters([]));
   }, [season?.series.project.id, tab]);
+
+  useEffect(() => {
+    if (!season || tab !== "logs") return;
+    api<typeof contextData>(`/api/v1/projects/${season.series.project.id}/context`).then(setContextData).catch(() => {});
+  }, [season?.series.project.id, tab]);
+
+  async function refreshContext() {
+    if (!season) return;
+    setCtxBusy(true);
+    try {
+      await api(`/api/v1/projects/${season.series.project.id}/context/refresh`, { method: "POST" });
+      const r = await api<typeof contextData>(`/api/v1/projects/${season.series.project.id}/context`);
+      setContextData(r);
+    } catch (e) { alert((e as Error).message); }
+    finally { setCtxBusy(false); }
+  }
 
   async function autoPopulateChars() {
     if (!season) return;
@@ -257,6 +275,12 @@ export default function SeasonPage() {
         >
           {lang === "he" ? "דמויות" : "Characters"} <span className="text-text-muted">({characters.length})</span>
         </button>
+        <button
+          onClick={() => setTab("logs")}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "logs" ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text-secondary"}`}
+        >
+          {lang === "he" ? "לוגים וזיכרון" : "Logs & memory"}
+        </button>
       </div>
 
       {tab === "episodes" && (
@@ -414,6 +438,65 @@ export default function SeasonPage() {
               );
             })}
           </ul>
+        )}
+      </Card>
+      )}
+
+      {tab === "logs" && (
+      <Card title={lang === "he" ? "זיכרון הסדרה · לוגים" : "Series memory · Logs"} subtitle={lang === "he" ? "קאש שהבמאי AI קורא לפני כל יצירה — מתעדכן כל 5 דקות" : "Cache the AI director reads before generating anything — refreshed every 5 minutes"}>
+        <div className="flex justify-end gap-2 mb-3 flex-wrap">
+          <button disabled={ctxBusy} onClick={refreshContext} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
+            {ctxBusy ? (lang === "he" ? "מרענן…" : "Refreshing…") : (lang === "he" ? "🔄 רענן עכשיו" : "🔄 Refresh now")}
+          </button>
+          <a
+            href={`/api/v1/projects/${season.series.project.id}/context?download=1`}
+            className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold"
+            download
+          >
+            {lang === "he" ? "⬇ הורד JSON" : "⬇ Download JSON"}
+          </a>
+        </div>
+
+        {!contextData?.cache ? (
+          <div className="text-center py-8 text-text-muted">
+            <div className="text-3xl mb-2">🧠</div>
+            <div>{lang === "he" ? "הקאש עדיין לא נבנה — לחץ \"רענן עכשיו\"" : "No cache yet — click Refresh now"}</div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex gap-4 text-xs flex-wrap">
+              <div className="bg-bg-main rounded-lg px-3 py-2"><div className="text-text-muted">{lang === "he" ? "עודכן" : "Updated"}</div><div className="font-semibold">{new Date(contextData.cache.updatedAt).toLocaleString()}</div></div>
+              <div className="bg-bg-main rounded-lg px-3 py-2"><div className="text-text-muted">{lang === "he" ? "טוקנים" : "Tokens"}</div><div className="font-semibold num">~{contextData.cache.tokenCount}</div></div>
+              <div className="bg-bg-main rounded-lg px-3 py-2"><div className="text-text-muted">{lang === "he" ? "פרקים בקאש" : "Episodes in cache"}</div><div className="font-semibold num">{contextData.cache.data?.buildStats?.episodes ?? 0}</div></div>
+              <div className="bg-bg-main rounded-lg px-3 py-2"><div className="text-text-muted">{lang === "he" ? "דמויות" : "Characters"}</div><div className="font-semibold num">{contextData.cache.data?.buildStats?.characters ?? 0}</div></div>
+            </div>
+
+            <details open>
+              <summary className="cursor-pointer text-sm font-semibold mb-2">{lang === "he" ? "סיכום (מה שהבמאי AI קורא)" : "Summary (what the AI director reads)"}</summary>
+              <pre className="bg-bg-main rounded-lg p-3 text-xs whitespace-pre-wrap font-mono leading-relaxed mt-2">{contextData.cache.summary}</pre>
+            </details>
+
+            <details>
+              <summary className="cursor-pointer text-sm font-semibold mb-2">{lang === "he" ? "נתוני JSON גולמיים" : "Raw JSON data"}</summary>
+              <pre className="bg-bg-main rounded-lg p-3 text-[11px] overflow-auto max-h-96 font-mono mt-2">{JSON.stringify(contextData.cache.data, null, 2)}</pre>
+            </details>
+
+            <div>
+              <div className="text-sm font-semibold mb-2">{lang === "he" ? `היסטוריית רענון (${contextData.logs.length})` : `Refresh log (${contextData.logs.length})`}</div>
+              {contextData.logs.length === 0 ? (
+                <div className="text-xs text-text-muted">{lang === "he" ? "אין לוגים עדיין" : "No logs yet"}</div>
+              ) : (
+                <ul className="space-y-1">
+                  {contextData.logs.map((l) => (
+                    <li key={l.id} className="text-[11px] bg-bg-main rounded px-2 py-1 flex justify-between gap-3">
+                      <span className="text-text-secondary flex-1 truncate">{l.decisionReason}</span>
+                      <span className="text-text-muted shrink-0">{new Date(l.createdAt).toLocaleString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         )}
       </Card>
       )}

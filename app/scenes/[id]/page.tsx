@@ -122,9 +122,9 @@ export default function ScenePage() {
         <div className="flex flex-wrap gap-2">
           <button disabled={busy} onClick={genStoryboard} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור תשריט" : "Generate storyboard"}</button>
           <button disabled={busy} onClick={genVideo} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור וידאו" : "Generate video"}</button>
-          <button onClick={breakdown} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold hover:bg-accent/10">{he ? "פירוק תסריט" : "Script breakdown"}</button>
-          <button onClick={critic} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold hover:bg-accent/10">{he ? "מבקר AI" : "AI critic"}</button>
-          <button onClick={approve} className="px-3 py-1.5 rounded-lg border border-status-okText text-status-okText text-sm font-semibold hover:bg-status-okBg">{he ? "אשר סצנה" : "Approve"}</button>
+          <button onClick={breakdown} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors">{he ? "פירוק תסריט" : "Script breakdown"}</button>
+          <button onClick={critic} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors">{he ? "מבקר AI" : "AI critic"}</button>
+          <button onClick={approve} className="px-3 py-1.5 rounded-lg border-2 border-status-okText text-status-okText bg-white text-sm font-semibold hover:bg-status-okText hover:text-white transition-colors">{he ? "אשר סצנה" : "Approve"}</button>
         </div>
 
         <Card title={he ? "תסריט" : "Script"}>

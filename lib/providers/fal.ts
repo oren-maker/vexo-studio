@@ -64,8 +64,15 @@ export interface ImageResult {
 // especially when the incoming prompt contains "cinematic" or "dramatic lighting"
 // or anything sci-fi-leaning. We prefix with documentary/journalism framing
 // (impossible to interpret as an illustration) and reinforce heavily at the end.
-const REALISM_PREFIX = "REAL PHOTOGRAPH taken by a professional photographer on a Sony A7 IV camera, NOT a digital painting, NOT a 3D render, NOT AI art. Photojournalism documentary style, candid unposed moment. ";
-const REALISM_SUFFIX = " — Style: photorealistic, hyper-realistic, cinematic shot. Technical: 8k resolution, highly detailed, sharp focus, shot on 35mm lens, shallow depth of field. Lighting: natural lighting, soft shadows, golden hour where appropriate. Real human skin with visible pores and natural blemishes, real eyes with caught light and iris detail, real strands of hair, accurate physical shadows, subtle film grain. This is a REAL PHOTOGRAPH of REAL PEOPLE, not an illustration or render. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D render, NOT illustration, NOT painted, NOT digital art, NOT stylized, NOT holographic, NOT neon-lit sci-fi unless explicitly called for.";
+// 6-layer prompt formula (Claude School guide, 2026-04-14):
+// Subject → Action → Environment → Art Style → Lighting → Technical.
+// The user's prompt supplies layers 1-3 (who/what, doing what, where).
+// The PREFIX front-loads "this is a REAL PHOTOGRAPH" framing (earliest tokens
+// carry the most weight), the SUFFIX lays down layers 4-6 in order plus the
+// anti-plastic phrases that kill the "AI look" (visible pores, fabric weave,
+// Rembrandt lighting) and negations for what we never want.
+const REALISM_PREFIX = "REAL PHOTOGRAPH taken by a professional photographer on a Sony A7 IV camera, NOT a digital painting, NOT a 3D render, NOT AI art. Photojournalism documentary style, candid unposed moment. Subject: ";
+const REALISM_SUFFIX = " [Art Style] photorealistic editorial photography in the style of a National Geographic or Kinfolk magazine feature, hyper-realistic, cinematic shot. [Lighting] natural daylight with soft shadows, Rembrandt lighting on faces, golden-hour warmth where the scene allows, light reflecting naturally off skin and fabric. [Technical] shot on 35mm full-frame lens at f/1.8, 8k resolution, sharp focus on eyes, shallow depth of field with creamy bokeh, subtle 35mm film grain. [Anti-plastic] real human skin with visible pores, faint freckles and natural blemishes, real eyes with caught catch-light and iris detail, individual hair strands, realistic fabric with visible weave and natural folds, accurate physical shadows, no skin smoothing. This is a REAL PHOTOGRAPH of REAL PEOPLE. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D render, NOT illustration, NOT painted, NOT digital art, NOT stylized, NOT holographic, NOT neon-lit sci-fi, NOT plastic skin, NOT doll-like faces.";
 
 // Strip style words that routinely push nano-banana into digital-art territory.
 function sanitizeForRealism(prompt: string): string {
@@ -125,8 +132,12 @@ export async function submitVideo(opts: {
   const model = (useI2V ? VIDEO_MODELS_I2V[modelKey] : VIDEO_MODELS[modelKey]);
   // Photorealism must be at the FRONT of the prompt for highest weight.
   // VEO 3 and SeeDance ignore negative_prompt; only Kling honors it.
-  const VIDEO_REALISM_PREFIX = "Photorealistic, hyper-realistic, cinematic shot. Live-action film footage. ";
-  const VIDEO_REALISM_SUFFIX = " — Style: photorealistic, hyper-realistic, cinematic shot. Technical: 8k resolution, highly detailed, sharp focus, shot on 35mm cinema lens, shallow depth of field, 35mm film grain. Lighting: natural lighting, soft shadows. Real human actors with real skin pores, real eye reflections and iris detail, natural breathing and micro-expressions, accurate physical shadows. Looks like a frame from a Netflix prestige drama. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D animation, NOT illustration, NOT a video game cutscene, NOT stylized, NOT a CGI render.";
+  // Same 6-layer formula applied to video. If the caller passes a reference frame
+  // (i2v), we ALSO tell the model to keep face/wardrobe identical to it — per the
+  // Claude School reference-image pattern.
+  const identityLock = useI2V ? "Keep the faces, hair color and length, skin tone, wardrobe and body shape of every person IDENTICAL to the starting image — zero drift. " : "";
+  const VIDEO_REALISM_PREFIX = `Live-action photorealistic film footage, REAL human actors filmed on a cinema camera, NOT animation, NOT CGI. ${identityLock}Subject: `;
+  const VIDEO_REALISM_SUFFIX = " [Art Style] photorealistic prestige-drama cinematography, Netflix/A24 feature-film look. [Lighting] natural physical lighting with soft shadows, Rembrandt lighting on faces, motivated practicals, light reflecting off skin and surfaces. [Technical] 8k, 24fps, shot on 35mm cinema lens at f/2, shallow depth of field, subtle film grain, natural color grade. [Anti-plastic] real skin with visible pores and freckles, real eye catch-light and iris detail, natural micro-expressions and breathing, individual hair strands, realistic fabric folds and weave. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D animation, NOT illustration, NOT a video game cutscene, NOT stylized, NOT a CGI render, NOT plastic skin.";
   const body: Record<string, unknown> = {
     prompt: VIDEO_REALISM_PREFIX + opts.prompt + VIDEO_REALISM_SUFFIX,
     duration: String(Math.max(1, Math.min(opts.durationSeconds ?? 5, 20))),

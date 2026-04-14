@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const outline = await groqJson<{ title: string; synopsis: string; targetDurationSeconds: number; characterNames: string[] }>(
       `Continue the series. Return JSON { title, synopsis (2-4 sentences), targetDurationSeconds (1500-2400), characterNames: string[] — subset of recurring cast }. Must stay consistent with the bible and advance the arc. Don't repeat a prior plot.`,
       `SERIES BIBLE (authoritative — respect it):\n${bible}\n\nRECENT EPISODES (immediate predecessors):\n${recent || "(first episode)"}\n\nNEXT EPISODE #${nextNumber}${body.title ? ` — requested title: "${body.title}"` : ""}${body.hint ? `\nHINT: ${body.hint}` : ""}\nLANGUAGE: ${season.series.project.language}`,
-      { temperature: 0.85, maxTokens: 600 },
+      { temperature: 0.85, maxTokens: 1000 },
     );
 
     const ep = await prisma.episode.create({
@@ -94,12 +94,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const scenesPlan = await groqJson<{ scenes: { title: string; summary: string; scriptText: string; location?: string; mood?: string; characterNames?: string[] }[] }>(
       `Plan ${scenesPerEpisode} scenes. Return JSON { scenes: [{ title, summary, scriptText (4-8 screenplay lines), location, mood, characterNames: string[] }] }. Keep characters consistent with the bible.`,
       `BIBLE:\n${bible}\n\nEPISODE ${nextNumber}: ${outline.title}\n${outline.synopsis}\n\nAvailable cast: ${appearing.map((c) => c.name).join(", ") || "(any)"}`,
-      { temperature: 0.8, maxTokens: 1800 },
+      { temperature: 0.8, maxTokens: 3500 },
     ).catch(() => ({ scenes: [] }));
+
+    const plannedScenes = Array.isArray(scenesPlan?.scenes) ? scenesPlan.scenes : [];
+    if (plannedScenes.length === 0) {
+      throw Object.assign(new Error("AI returned no scenes — try again or give a clearer hint"), { statusCode: 502 });
+    }
 
     // 4. Create scenes + frames in parallel (all AI calls concurrent)
     const createdScenes = await Promise.all(
-      scenesPlan.scenes.slice(0, scenesPerEpisode).map(async (sp, s) => {
+      plannedScenes.slice(0, scenesPerEpisode).map(async (sp, s) => {
         const scene = await prisma.scene.create({
           data: {
             parentType: "EPISODE", parentId: ep.id, episodeId: ep.id,
@@ -113,11 +118,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         const fp = await groqJson<{ frames: { beatSummary: string; imagePrompt: string; negativePrompt?: string }[] }>(
           `Plan ${framesPerScene} storyboard frames. Return JSON { frames: [{ beatSummary, imagePrompt, negativePrompt }] }. Cinematic image prompts.`,
           `Scene: ${sp.title}\nMood: ${sp.mood ?? "—"}\nLocation: ${sp.location ?? "—"}\nCharacters: ${(sp.characterNames ?? []).join(", ") || "—"}\n${sp.scriptText}`,
-          { temperature: 0.7, maxTokens: 700 },
+          { temperature: 0.7, maxTokens: 1200 },
         ).catch(() => ({ frames: [] }));
 
+        const plannedFrames = Array.isArray(fp?.frames) ? fp.frames : [];
         await prisma.sceneFrame.createMany({
-          data: fp.frames.slice(0, framesPerScene).map((fr, fi) => ({
+          data: plannedFrames.slice(0, framesPerScene).map((fr, fi) => ({
             sceneId: scene.id,
             orderIndex: fi,
             beatSummary: fr.beatSummary,
@@ -128,7 +134,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           skipDuplicates: true,
         });
 
-        return { sceneId: scene.id, frames: fp.frames.length };
+        return { sceneId: scene.id, frames: plannedFrames.length };
       }),
     );
 

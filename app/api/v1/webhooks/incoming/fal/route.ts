@@ -57,9 +57,9 @@ export async function POST(req: NextRequest) {
         // scene's target duration. fal clamps submissions to 3-10s anyway.
         if (orgId) {
           const reported = Number(result?.video?.duration ?? result?.duration ?? 0);
-          const seconds = reported > 0 && reported <= 10
+          const seconds = reported > 0 && reported <= 20
             ? reported
-            : (submittedDuration > 0 && submittedDuration <= 10 ? submittedDuration : 5);
+            : (submittedDuration > 0 && submittedDuration <= 20 ? submittedDuration : 5);
           const modelHint: VideoModel = submittedModel
             ?? ((typeof result?.model === "string" && result.model.includes("kling")) ? "kling" : "seedance");
           await chargeUsd({

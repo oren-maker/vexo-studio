@@ -101,7 +101,8 @@ export async function submitVideo(opts: {
   const model = VIDEO_MODELS[opts.model ?? "seedance"];
   const body: Record<string, unknown> = {
     prompt: opts.prompt,
-    duration: String(Math.max(3, Math.min(opts.durationSeconds ?? 5, 10))),
+    // Upper bound depends on model — seedance goes to 12, others to 8-10
+    duration: String(Math.max(1, Math.min(opts.durationSeconds ?? 5, 20))),
     aspect_ratio: opts.aspectRatio ?? "16:9",
   };
 

@@ -12,7 +12,7 @@ export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export 
 const Body = z.object({
   videoModel: z.enum(["seedance", "kling", "veo3-pro", "veo3-fast"]).default("veo3-fast"),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).default("16:9"),
-  durationSeconds: z.number().int().min(1).max(10).optional(),
+  durationSeconds: z.number().int().min(1).max(20).optional(),
 }).partial();
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

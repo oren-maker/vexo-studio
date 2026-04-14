@@ -22,27 +22,37 @@ export interface DirectorSheet {
   generatedAt: string;
 }
 
-const SYSTEM = `You are a senior AI video prompt engineer building a production-ready Director Sheet for ONE scene in a TV series.
+const SYSTEM = `You are a senior AI video prompt engineer building a production-ready Director Sheet for ONE scene in a TV series. You will be given: series bible, episode+scene details, the EXACT characters appearing (with appearance + reference image URLs), and the storyboard frame beats (with frame image URLs). Your output is fed directly into VEO 3 / SeeDance / Kling.
 
 Return JSON with EXACTLY these keys, each a string (not nested):
 {
-  "style":     "visual signature — palette, lens, depth of field, film grade, mood (1-3 sentences)",
-  "scene":     "location + lighting + atmosphere + foreground/midground/background layers (1-3 sentences)",
-  "character": "who appears, movie-level facial detail, expressions, stable identity, breathing/posture cues (1-3 sentences)",
-  "shots":     "timecoded beats: [00:00-00:0X] Establishing: … / [00:0X-00:0Y] Build: … / [00:0Y-00:0Z] Payoff: … (use real scene content)",
+  "style":     "visual signature — palette, lens, depth of field, film grade, mood (1-3 sentences). Must fit the series genre.",
+  "scene":     "location + lighting + atmosphere + foreground/midground/background layers, all specific to THIS scene (1-3 sentences)",
+  "character": "NAME every character from the input; repeat their exact appearance (hair, eyes, wardrobe, build, distinctive features) so the model locks their identity to the reference images. 2-4 sentences. Never invent a new character, never describe in generic terms if a ref_image_url was provided.",
+  "shots":     "timecoded beats that MAP to the storyboard frames in order. Format: [00:00-00:0X] <frame #1 beat>. [00:0X-00:0Y] <frame #2 beat>. If frames exist, use them verbatim as the shot list.",
   "camera":    "primary movement + secondary technique + operator feel (1-2 sentences)",
   "effects":   "VFX, physics, particles, any slow-mo moments (1-2 sentences or 'none' if nothing)",
-  "audio":     "SFX foreground, mid-layer ambience, music arc, dialogue strategy (2-3 sentences)",
-  "technical": "aspect ratio, total seconds (3-10), fps, identity-consistency rules (1-2 sentences)"
+  "audio":     "SFX foreground, mid-layer ambience, music arc, dialogue strategy with character names speaking (2-3 sentences)",
+  "technical": "aspect ratio, total seconds (match the number of frames × ~3s each, max 12), fps (24), identity-consistency rule: 'match the reference images for every character across all shots — no face drift'."
 }
 
-Match the tone/genre of the series. Keep each section TIGHT (under 400 chars). No markdown. No brackets.`;
+Match the tone/genre of the series. Keep each section TIGHT (under 500 chars). No markdown. No brackets in values.`;
 
 export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet> {
   const scene = await prisma.scene.findUnique({
     where: { id: sceneId },
     include: {
-      episode: { include: { season: { include: { series: { include: { project: true } } } }, characters: { include: { character: true } } } },
+      frames: { orderBy: { orderIndex: "asc" } },
+      episode: {
+        include: {
+          season: { include: { series: { include: { project: true } } } },
+          characters: {
+            include: {
+              character: { include: { media: { orderBy: { createdAt: "asc" } } } },
+            },
+          },
+        },
+      },
     },
   });
   if (!scene) throw new Error("scene not found");
@@ -50,7 +60,39 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
   const projectId = scene.episode?.season.series.projectId;
   const bible = projectId ? (await getContext(projectId).catch(() => null))?.summary ?? "" : "";
   const project = scene.episode?.season.series.project;
-  const episodeChars = scene.episode?.characters.map((ec) => ec.character.name).join(", ") ?? "";
+
+  // Resolve which characters appear in THIS scene (via memoryContext.characters),
+  // fall back to the whole episode's cast.
+  const sceneMem = (scene.memoryContext as { characters?: string[] } | null) ?? {};
+  const sceneNames = (sceneMem.characters ?? []).map((n) => n.toLowerCase().trim());
+  const episodeChars = scene.episode?.characters.map((ec) => ec.character) ?? [];
+  const inScene = sceneNames.length > 0
+    ? episodeChars.filter((c) => sceneNames.includes(c.name.toLowerCase().trim()))
+    : episodeChars;
+
+  const charactersBlock = inScene.length === 0
+    ? "(no recurring cast in this scene)"
+    : inScene.map((c) => {
+        const front = c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0];
+        return [
+          `• ${c.name}${c.roleType ? ` (${c.roleType})` : ""}`,
+          c.appearance && `   appearance: ${c.appearance.slice(0, 300)}`,
+          c.wardrobeRules && `   wardrobe: ${c.wardrobeRules.slice(0, 200)}`,
+          c.personality && `   personality: ${c.personality.slice(0, 200)}`,
+          front?.fileUrl && `   ref_image_url: ${front.fileUrl}`,
+        ].filter(Boolean).join("\n");
+      }).join("\n\n");
+
+  const framesBlock = scene.frames.length === 0
+    ? "(no storyboard frames yet)"
+    : scene.frames.map((f, i) => {
+        const img = f.approvedImageUrl || f.generatedImageUrl;
+        return [
+          `#${i + 1}: ${f.beatSummary ?? "—"}`,
+          f.imagePrompt && `   prompt: ${f.imagePrompt.slice(0, 200)}`,
+          img && `   frame_image_url: ${img}`,
+        ].filter(Boolean).join("\n");
+      }).join("\n");
 
   const user = [
     project && `SERIES: ${project.name} · language ${project.language}${project.genreTag ? ` · genre ${project.genreTag}` : ""}`,
@@ -59,7 +101,8 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
     `SCENE ${scene.sceneNumber}: ${scene.title ?? ""}`,
     scene.summary && `SUMMARY: ${scene.summary}`,
     scene.scriptText && `SCRIPT:\n${scene.scriptText.slice(0, 1200)}`,
-    episodeChars && `RECURRING CAST AVAILABLE: ${episodeChars}`,
+    `CHARACTERS IN THIS SCENE (use their exact appearance in [Character] section; lock identity to their ref_image_urls — DO NOT invent new faces):\n${charactersBlock}`,
+    `STORYBOARD FRAMES (build the [Shots] timeline around these exact beats, reference them in order):\n${framesBlock}`,
   ].filter(Boolean).join("\n\n");
 
   let sheet: Omit<DirectorSheet, "generatedAt">;

@@ -1,19 +1,9 @@
 node_modules/
-dist/
 .next/
+dist/
 out/
-build/
 *.tsbuildinfo
 next-env.d.ts
-
-# Compiled outputs that shouldn't ever be in src/
-packages/*/src/**/*.js
-packages/*/src/**/*.d.ts
-packages/*/src/**/*.js.map
-packages/*/src/**/*.d.ts.map
-apps/*/src/**/*.js
-apps/*/src/**/*.d.ts
-apps/*/src/**/*.js.map
 
 .env
 .env.*.local
@@ -24,5 +14,3 @@ apps/*/src/**/*.js.map
 npm-debug.log*
 
 .vercel/
-
-packages/db/node_modules/.prisma/

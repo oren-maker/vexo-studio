@@ -74,6 +74,12 @@ function walkAndCollect(root: Node, list: { node: Text; original: string }[]) {
 function applyToNode(item: { node: Text; original: string }) {
   const tr = cache[item.original];
   if (!tr) return false;
+  // If cached "translation" is just the English source (no Hebrew chars), ignore so we retry.
+  if (tr === item.original || !/[\u0590-\u05FF]/.test(tr)) {
+    delete cache[item.original];
+    saveCacheSoon();
+    return false;
+  }
   const original = item.node.textContent ?? "";
   const replaced = original.replace(item.original, tr);
   if (item.node.textContent !== replaced) item.node.textContent = replaced;
@@ -101,6 +107,11 @@ function walkAttributes(root: Element, list: { el: Element; attr: string; origin
 function applyAttr(item: { el: Element; attr: string; original: string }) {
   const tr = cache[item.original];
   if (!tr) return false;
+  if (tr === item.original || !/[\u0590-\u05FF]/.test(tr)) {
+    delete cache[item.original];
+    saveCacheSoon();
+    return false;
+  }
   const cur = item.el.getAttribute(item.attr) ?? "";
   const replaced = cur.replace(item.original, tr);
   if (cur !== replaced) item.el.setAttribute(item.attr, replaced);

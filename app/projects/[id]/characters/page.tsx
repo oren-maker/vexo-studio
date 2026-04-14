@@ -138,15 +138,21 @@ export default function CharactersPage() {
 
   return (
     <div className="space-y-4">
-      <Card title={lang === "he" ? "דמויות" : "Characters"} subtitle={lang === "he" ? "דמויות ראשיות חוזרות בסדרה — כל דמות יכולה להיות עם 5 תמונות בזוויות שונות" : "Recurring main characters in this project — each can have 5 angle images"}>
-        <div className="flex justify-end gap-2 mb-3 flex-wrap">
-          <button disabled={populateBusy} onClick={autoPopulate} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
-            {populateBusy ? (lang === "he" ? "מזהה…" : "Detecting…") : (lang === "he" ? "🪄 זהה מהפרקים" : "🪄 Detect from episodes")}
-          </button>
-          <button disabled={bulkBusy || chars.length === 0} onClick={generateAll} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
-            {bulkBusy ? (lang === "he" ? "מייצר תמונות…" : "Generating…") : (lang === "he" ? "✨ תמונות לכל הדמויות" : "✨ Gallery for all")}
-          </button>
-          <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">+ {lang === "he" ? "דמות חדשה" : "New character"}</button>
+      <div className="bg-bg-card rounded-card border border-bg-main p-5">
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-lg font-bold">{lang === "he" ? "דמויות" : "Characters"} <span className="text-text-muted text-sm font-normal">· {chars.length}</span></div>
+            <div className="text-xs text-text-muted">{lang === "he" ? "ראשיות חוזרות · 5 תמונות בזוויות לכל דמות" : "Recurring main · 5 angle images per character"}</div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button disabled={populateBusy} onClick={autoPopulate} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
+              {populateBusy ? (lang === "he" ? "מזהה…" : "Detecting…") : (lang === "he" ? "🪄 זהה מהפרקים" : "🪄 Detect from episodes")}
+            </button>
+            <button disabled={bulkBusy || chars.length === 0} onClick={generateAll} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
+              {bulkBusy ? (lang === "he" ? "מייצר תמונות…" : "Generating…") : (lang === "he" ? "✨ תמונות לכל הדמויות" : "✨ Gallery for all")}
+            </button>
+            <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">+ {lang === "he" ? "דמות חדשה" : "New character"}</button>
+          </div>
         </div>
 
         {creating && (
@@ -222,7 +228,7 @@ export default function CharactersPage() {
             ))}
           </ul>
         )}
-      </Card>
+      </div>
 
       {lightbox && (() => {
         const gallery = lightbox.character.media;

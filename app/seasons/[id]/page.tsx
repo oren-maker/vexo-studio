@@ -414,18 +414,24 @@ export default function SeasonPage() {
       )}
 
       {tab === "characters" && (
-      <Card title={lang === "he" ? "דמויות" : "Characters"} subtitle={lang === "he" ? "דמויות ראשיות חוזרות בסדרה" : "Recurring main characters"}>
-        <div className="flex justify-end gap-2 mb-3 flex-wrap">
-          <button disabled={charBusy === "populate"} onClick={autoPopulateChars} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
-            {charBusy === "populate" ? (lang === "he" ? "מזהה…" : "Detecting…") : (lang === "he" ? "🪄 זהה מהפרקים" : "🪄 Detect from episodes")}
-          </button>
-          <button disabled={charBusy === "gallery" || characters.length === 0} onClick={generateAllGalleries} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">
-            {charBusy === "gallery" ? (lang === "he" ? "מייצר…" : "Generating…") : (lang === "he" ? "✨ תמונות לכל הדמויות" : "✨ Gallery for all")}
-          </button>
-          <button disabled={charBusy === "regen" || characters.length === 0} onClick={regenerateAllStoryboards} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent text-sm font-semibold disabled:opacity-50">
-            {charBusy === "regen" ? (lang === "he" ? "מייצר מחדש…" : "Regenerating…") : (lang === "he" ? "🔁 ייצר תשריטים מחדש לפי הדמויות" : "🔁 Regenerate storyboards from characters")}
-          </button>
-          <Link href={`/projects/${season.series.project.id}/characters`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">{lang === "he" ? "ניהול מלא →" : "Manage →"}</Link>
+      <div className="bg-bg-card rounded-card border border-bg-main p-5">
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-lg font-bold">{lang === "he" ? "דמויות" : "Characters"} <span className="text-text-muted text-sm font-normal">· {characters.length}</span></div>
+            <div className="text-xs text-text-muted">{lang === "he" ? "ראשיות חוזרות בסדרה" : "Recurring main"}</div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button disabled={charBusy === "populate"} onClick={autoPopulateChars} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
+              {charBusy === "populate" ? (lang === "he" ? "מזהה…" : "Detecting…") : (lang === "he" ? "🪄 זהה מהפרקים" : "🪄 Detect")}
+            </button>
+            <button disabled={charBusy === "gallery" || characters.length === 0} onClick={generateAllGalleries} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">
+              {charBusy === "gallery" ? (lang === "he" ? "מייצר…" : "Generating…") : (lang === "he" ? "✨ תמונות" : "✨ Gallery")}
+            </button>
+            <button disabled={charBusy === "regen" || characters.length === 0} onClick={regenerateAllStoryboards} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent text-sm font-semibold disabled:opacity-50">
+              {charBusy === "regen" ? (lang === "he" ? "מייצר מחדש…" : "Regenerating…") : (lang === "he" ? "🔁 תשריטים מחדש" : "🔁 Regen")}
+            </button>
+            <Link href={`/projects/${season.series.project.id}/characters`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">{lang === "he" ? "ניהול מלא →" : "Manage →"}</Link>
+          </div>
         </div>
         {characters.length === 0 ? (
           <div className="text-center py-12 text-text-muted">
@@ -481,7 +487,7 @@ export default function SeasonPage() {
             })}
           </ul>
         )}
-      </Card>
+      </div>
       )}
 
       {tab === "logs" && (

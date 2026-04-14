@@ -7,7 +7,7 @@ import { useLang } from "@/lib/i18n";
 
 const CATS = ["VIDEO", "IMAGE", "AUDIO", "DUBBING", "MUSIC", "SUBTITLE", "DISTRIBUTION"] as const;
 
-type Provider = { id: string; name: string; category: string; isActive: boolean; apiUrl?: string | null; wallet?: Wallet | null };
+type Provider = { id: string; name: string; category: string; isActive: boolean; apiUrl?: string | null; wallet?: Wallet | null; totalSpent?: number; totalCalls?: number };
 type Wallet = {
   id: string; availableCredits: number; totalCreditsAdded: number; reservedCredits: number;
   lowBalanceThreshold: number | null; criticalBalanceThreshold: number | null;
@@ -145,7 +145,7 @@ export default function BudgetsTokensPage() {
               <th className="py-2 text-start"><T>Provider</T></th>
               <th className="py-2 text-start"><T>Category</T></th>
               <th className="py-2 text-end"><T>Available</T></th>
-              <th className="py-2 text-end"><T>Reserved</T></th>
+              <th className="py-2 text-end">{lang === "he" ? "סה\"כ הוצאה" : "Spent"}</th>
               <th className="py-2 text-end"><T>Total added</T></th>
               <th className="py-2"><T>Status</T></th>
               <th></th>
@@ -164,13 +164,14 @@ export default function BudgetsTokensPage() {
                   <td className="py-3 font-medium">{p.name}</td>
                   <td className="py-3 text-xs"><T>{p.category}</T></td>
                   <td className="py-3 text-end num">${avail.toFixed(2)}</td>
-                  <td className="py-3 text-end num text-text-muted">${(w?.reservedCredits ?? 0).toFixed(2)}</td>
+                  <td className="py-3 text-end num text-status-errText" title={`${p.totalCalls ?? 0} ${lang === "he" ? "פעולות" : "operations"}`}>−${(p.totalSpent ?? 0).toFixed(4)}</td>
                   <td className="py-3 text-end num text-text-muted">${(w?.totalCreditsAdded ?? 0).toFixed(2)}</td>
                   <td className="py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}`}>{status}</span></td>
                   <td className="py-3 text-end space-x-2 rtl:space-x-reverse whitespace-nowrap">
                     <button disabled={busySync === p.id} onClick={() => syncProvider(p)} className="text-xs text-accent hover:underline disabled:opacity-50">⟳ <T>Sync</T></button>
                     <button onClick={() => setTopup({ provider: p, mode: "add" })} className="text-xs text-status-okText hover:underline">+ <T>Top up</T></button>
                     <button onClick={() => setTopup({ provider: p, mode: "reduce" })} className="text-xs text-status-errText hover:underline">- <T>Deduct</T></button>
+                    <button onClick={async () => { try { const r = await api<{ totalSpent: number; newAvailable: number }>(`/api/v1/providers/${p.id}/reconcile`, { method: "POST" }); alert((lang === "he" ? `יושר: סה"כ הוצאה $${r.totalSpent.toFixed(4)}, יתרה חדשה $${r.newAvailable.toFixed(2)}` : `Reconciled: spent $${r.totalSpent.toFixed(4)}, new balance $${r.newAvailable.toFixed(2)}`)); load(); } catch (e) { alert((e as Error).message); } }} className="text-xs text-accent hover:underline">⚖ {lang === "he" ? "השוואה" : "Reconcile"}</button>
                     <button onClick={() => showTx(p)} className="text-xs text-accent hover:underline"><T>History</T></button>
                     {p.isActive && <button onClick={() => disableProvider(p)} className="text-xs text-status-errText hover:underline"><T>Disable</T></button>}
                   </td>

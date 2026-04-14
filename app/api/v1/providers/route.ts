@@ -33,11 +33,24 @@ export async function GET(req: NextRequest) {
       } catch { /* race — fine */ }
     }
 
-    return ok(await prisma.provider.findMany({
+    const providers = await prisma.provider.findMany({
       where: { organizationId: ctx.organizationId },
       include: { wallet: true },
       orderBy: { name: "asc" },
-    }));
+    });
+    // Aggregate spend per provider from CostEntry — true source of truth, independent of wallet balance.
+    const spendRows = await prisma.costEntry.groupBy({
+      by: ["providerId"],
+      where: { providerId: { in: providers.map((p) => p.id) } },
+      _sum: { totalCost: true },
+      _count: { id: true },
+    });
+    const spendByProvider = new Map(spendRows.map((r) => [r.providerId, { total: r._sum.totalCost ?? 0, calls: r._count.id }]));
+    return ok(providers.map((p) => ({
+      ...p,
+      totalSpent: +(spendByProvider.get(p.id)?.total ?? 0).toFixed(4),
+      totalCalls: spendByProvider.get(p.id)?.calls ?? 0,
+    })));
   } catch (e) { return handleError(e); }
 }
 

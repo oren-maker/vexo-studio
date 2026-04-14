@@ -277,14 +277,21 @@ export default function ScenePage() {
                       </button>
                     </div>
                     <div className="text-text-secondary line-clamp-2">{f.beatSummary ?? "—"}</div>
-                    <div className="flex justify-between items-center text-[10px] text-text-muted mt-1 gap-2">
-                      <span>{f.status}</span>
-                      {f.cost && f.cost > 0 ? (
-                        <span className="num text-text-secondary" title={f.lastChargedAt ? new Date(f.lastChargedAt).toLocaleString() : ""}>
-                          {f.model ? `${f.model} · ` : ""}<span className="font-bold">${f.cost.toFixed(4)}</span>
-                        </span>
-                      ) : (
-                        <span className="text-text-muted/60">{he ? "טרם נוצר" : "not generated"}</span>
+                    <div className="text-[10px] text-text-muted mt-1 space-y-0.5">
+                      <div className="flex justify-between items-center gap-2">
+                        <span>{f.status}</span>
+                        {f.cost && f.cost > 0 ? (
+                          <span className="num text-text-secondary">
+                            {f.model ? `${f.model} · ` : ""}<span className="font-bold">${f.cost.toFixed(4)}</span>
+                          </span>
+                        ) : (
+                          <span className="text-text-muted/60">{he ? "טרם נוצר" : "not generated"}</span>
+                        )}
+                      </div>
+                      {f.lastChargedAt && (
+                        <div className="text-text-muted/70 num text-[10px]" title={new Date(f.lastChargedAt).toISOString()}>
+                          {he ? "נוצר: " : "created: "}{new Date(f.lastChargedAt).toLocaleString()}
+                        </div>
                       )}
                     </div>
                   </div>

@@ -49,10 +49,17 @@ export default function ScenePage() {
   const [videoModel, setVideoModel] = useState<"seedance" | "kling" | "veo3-pro" | "veo3-fast">("veo3-fast");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
-  const [veoModel, setVeoModel] = useState<"veo3-pro" | "veo3-fast">("veo3-fast");
+  const [veoModel, setVeoModel] = useState<"seedance" | "kling" | "veo3-fast" | "veo3-pro">("seedance");
   const [veoDuration, setVeoDuration] = useState(5);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
-  const veoRate = veoModel === "veo3-pro" ? 0.75 : 0.40;
+  const RATES = { seedance: 0.124, kling: 0.056, "veo3-fast": 0.40, "veo3-pro": 0.75 };
+  const MODEL_LABEL = {
+    seedance:    { emoji: "⚡", name: "SeeDance Pro",  price: "$0.124/sec" },
+    kling:       { emoji: "🎬", name: "Kling 2.1",     price: "$0.056/sec" },
+    "veo3-fast": { emoji: "🟪", name: "VEO 3 Fast",    price: "$0.40/sec"  },
+    "veo3-pro":  { emoji: "💎", name: "VEO 3 Pro",     price: "$0.75/sec"  },
+  };
+  const veoRate = RATES[veoModel];
   const veoEstimate = veoRate * veoDuration;
 
   async function genStoryboard() {
@@ -80,14 +87,15 @@ export default function ScenePage() {
   async function runVeo() {
     setVeoModalOpen(false);
     setBusy(true);
+    const ml = MODEL_LABEL[veoModel];
     try {
       await api(`/api/v1/scenes/${id}/generate-video`, {
         method: "POST",
         body: { videoModel: veoModel, aspectRatio: veoAspect, durationSeconds: veoDuration },
       });
       alert(he
-        ? `🎬 VEO 3 ${veoModel === "veo3-pro" ? "Pro" : "Fast"} · ${veoDuration}s · $${veoEstimate.toFixed(2)}\nהתוצאה תופיע בגלריה תוך 30-90 שניות.`
-        : `🎬 VEO 3 ${veoModel === "veo3-pro" ? "Pro" : "Fast"} · ${veoDuration}s · $${veoEstimate.toFixed(2)}\nResult in gallery in 30-90s.`);
+        ? `${ml.emoji} ${ml.name} · ${veoDuration}s · $${veoEstimate.toFixed(2)}\nהתוצאה תופיע בגלריה תוך 30-90 שניות.`
+        : `${ml.emoji} ${ml.name} · ${veoDuration}s · $${veoEstimate.toFixed(2)}\nResult in gallery in 30-90s.`);
       setTimeout(load, 3000);
     } catch (e: unknown) { alert((e as Error).message); }
     finally { setBusy(false); }
@@ -400,14 +408,22 @@ export default function ScenePage() {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" onClick={() => setVeoModalOpen(false)}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl text-white p-5 space-y-4" style={{ background: "linear-gradient(180deg, #0b1020 0%, #111a35 100%)" }}>
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-lg">{he ? "הגדרות VEO 3" : "VEO 3 Settings"}</h3>
+              <h3 className="font-bold text-lg">{he ? "ייצור וידאו" : "Video generation"}</h3>
             </div>
 
             <div>
               <div className="text-xs text-white/60 mb-1.5">{he ? "מודל" : "Model"}</div>
-              <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-xl">
-                <button onClick={() => setVeoModel("veo3-pro")}  className={`py-2 rounded-lg text-sm font-semibold transition ${veoModel === "veo3-pro" ? "bg-pink-500/90" : "bg-transparent text-white/70 hover:text-white"}`}>💎 Pro ($0.75/sec)</button>
-                <button onClick={() => setVeoModel("veo3-fast")} className={`py-2 rounded-lg text-sm font-semibold transition ${veoModel === "veo3-fast" ? "bg-pink-500/90" : "bg-transparent text-white/70 hover:text-white"}`}>⚡ Fast ($0.40/sec)</button>
+              <div className="grid grid-cols-2 gap-2">
+                {(["seedance", "kling", "veo3-fast", "veo3-pro"] as const).map((k) => {
+                  const ml = MODEL_LABEL[k];
+                  const active = veoModel === k;
+                  return (
+                    <button key={k} onClick={() => setVeoModel(k)} className={`px-3 py-2 rounded-lg text-start transition border ${active ? "bg-pink-500/90 border-pink-400" : "bg-black/40 border-white/10 hover:border-white/30"}`}>
+                      <div className="text-sm font-semibold">{ml.emoji} {ml.name}</div>
+                      <div className="text-[10px] text-white/70">{ml.price}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -430,7 +446,7 @@ export default function ScenePage() {
             </div>
 
             <button onClick={runVeo} className="w-full py-3 rounded-xl text-white font-bold text-sm" style={{ background: "linear-gradient(90deg, #ec4899 0%, #f97316 100%)" }}>
-              🎬 {he ? "הפעל VEO 3" : "Run VEO 3"}
+              🎬 {he ? `הפעל ${MODEL_LABEL[veoModel].name}` : `Run ${MODEL_LABEL[veoModel].name}`}
             </button>
             <button onClick={() => setVeoModalOpen(false)} className="w-full text-center text-white/60 text-sm">{he ? "ביטול" : "Cancel"}</button>
           </div>

@@ -39,18 +39,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       mem.directorNotes && `Director notes: ${mem.directorNotes.slice(0, 200)}`,
     ].filter(Boolean).join("\n\n");
 
-    const SYSTEM = `You are a professional sound designer for film/TV. Read the script and write the SOUND NOTES for this scene as a single Hebrew paragraph (150-250 words). Cover ALL of these layers explicitly:
-1. Music — genre, mood arc (builds/recedes), instrumentation
-2. Foreground SFX — every important sound from the script's actions (footsteps, doors, phone rings, glass breaking, etc.)
-3. Mid-layer ambience — room tone, environment, weather
-4. Dialogue treatment — clear and intimate? whispered? overlapping? include any V.O. cues
-5. Specific moments — pin sound cues to script beats with timestamps if possible
+    const SYSTEM = `You are a senior production sound designer + dialogue editor for a TV series. Read the FULL script line by line and write detailed SOUND NOTES in Hebrew (300-450 words) — this goes straight to a video model that needs to hear EVERY layer.
 
-Be concrete and director-ready, not generic. Output ONLY the paragraph, no JSON, no labels.`;
+Output the notes as 6 LABELED sections in Hebrew, each with concrete specifics drawn from the script (no generic placeholders, no 'tense music'):
+
+🎵 מוזיקה: genre, instruments (specific: piano + cello + sub-bass synth), BPM range, when it enters/builds/recedes, what emotion it carries — tied to script beats by timecode.
+
+🔊 אפקטים מקדמת התמונה (Foley/SFX): list EVERY action from the script as its own SFX cue — footsteps on what surface, door (open/close how hard), keyboards, phone (ring tone? haptic?), paper rustle, breath, glass, etc. One bullet per cue with timestamp if clear.
+
+🌫 אמביינס/רעש סביבה: 3-6 specific environmental sounds layered under (e.g. distant traffic through window, fluorescent buzz at 60Hz, server room hum, rain on glass). Be precise about volume and panning.
+
+🎙 דיאלוג ולחץ שפתיים (Lip-sync): for EACH line of dialogue in the script, write: speaker name → exact line → emotion (tense / whispered / loud / breathy) → lip-sync direction (tight close-sync; off-screen V.O.; phone-filtered; whispered). Include any breath/pause beats between lines.
+
+🎚 מעברי סאונד וצמצומים (Mix moves): how dialogue ducks music, when ambience drops out for impact, any swell/cut/silence beats. Pin to script moments.
+
+⚡ רגעים מיוחדים: specific punch-in moments (ringing phone breaking silence, memory flash sting, heart-thump sub-drop, etc.) with exact timing.
+
+Stay grounded in THIS script's exact words and characters — name them. No generic 'newsroom ambience' — describe WHICH newsroom sounds (which keyboards, which TVs, which voices). Output Hebrew, no English headers other than the emojis.`;
 
     const text = await groqChat(
       [{ role: "system", content: SYSTEM }, { role: "user", content: user }],
-      { temperature: 0.6, maxTokens: 600, projectId: undefined, description: `Sound notes · scene ${scene.sceneNumber}` },
+      { temperature: 0.5, maxTokens: 1500, projectId: undefined, description: `Sound notes · scene ${scene.sceneNumber}` },
     );
 
     const merged = { ...(scene.memoryContext as object ?? {}), soundNotes: text.trim() };

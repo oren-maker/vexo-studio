@@ -24,13 +24,13 @@ export default function AIDirectorPage() {
   }
 
   const [busy, setBusy] = useState(false);
-  const [lastResult, setLastResult] = useState<{ action: string; reason: string } | null>(null);
+  const [lastResult, setLastResult] = useState<{ action: string; reason: string; executed?: Record<string, number> } | null>(null);
 
   async function run() {
     setBusy(true);
     setLastResult(null);
     try {
-      const r = await api<{ action: string; reason: string }>(`/api/v1/projects/${id}/ai-director/run`, { method: "POST" });
+      const r = await api<{ action: string; reason: string; executed?: Record<string, number> }>(`/api/v1/projects/${id}/ai-director/run`, { method: "POST" });
       setLastResult(r);
       await load();
     } catch (e: unknown) {
@@ -72,11 +72,23 @@ export default function AIDirectorPage() {
             <button disabled={busy} onClick={run} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">{busy ? "Thinking…" : "Run next step"}</button>
           </div>
           {lastResult && (
-            <div className={`rounded-lg p-3 text-sm ${lastResult.action === "ERROR" ? "bg-status-errBg text-status-errText" : "bg-status-okBg text-status-okText"}`}>
-              <div className="font-semibold">{lastResult.action}</div>
+            <div className={`rounded-lg p-3 text-sm ${lastResult.action === "ERROR" ? "bg-status-errBg text-status-errText" : lastResult.action === "autopilot_acted" ? "bg-accent/10 text-accent" : "bg-status-okBg text-status-okText"}`}>
+              <div className="font-semibold">{lastResult.action === "autopilot_acted" ? "🤖 Autopilot acted" : lastResult.action}</div>
               <div className="text-xs">{lastResult.reason}</div>
+              {lastResult.executed && Object.keys(lastResult.executed).length > 0 && (
+                <ul className="text-xs mt-2 grid grid-cols-2 gap-1">
+                  {Object.entries(lastResult.executed).map(([k, v]) => (
+                    <li key={k} className="bg-white/50 rounded px-2 py-1">{k.replace(/_/g, " ")}: <strong className="num">{v}</strong></li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
+          <div className="text-xs text-text-muted">
+            {director.autopilotEnabled
+              ? "🤖 Autopilot ON — Run next step will approve pending reviews, promote ready episodes, and publish those past their schedule."
+              : "ℹ️ Autopilot OFF — Run next step only recommends. Toggle Autopilot to act automatically."}
+          </div>
         </div>
       </Card>
       <Card title="Action log" subtitle={`${logs.length} entries`}>

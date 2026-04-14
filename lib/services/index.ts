@@ -123,36 +123,93 @@ export const AIDirector = {
   async runNextStep(projectId: string) {
     let action = "noop";
     let reason = "no AI provider configured";
+    let executed: Record<string, number> = {};
+
     try {
+      const director = await prisma.aIDirector.findUnique({ where: { projectId } });
+      const autopilot = director?.autopilotEnabled ?? false;
+
       // Lightweight project snapshot
-      const [project, scenesPending, episodesReview, episodesReady] = await Promise.all([
-        prisma.project.findUnique({ where: { id: projectId }, select: { name: true, status: true, contentType: true, genreTag: true } }),
-        prisma.scene.count({ where: { episode: { season: { series: { projectId } } }, status: { in: ["STORYBOARD_REVIEW", "VIDEO_REVIEW"] } } }),
-        prisma.episode.count({ where: { season: { series: { projectId } }, status: "REVIEW" } }),
+      const [project, scenesStoryboard, scenesVideo, episodesReview, episodesReady, episodesDue] = await Promise.all([
+        prisma.project.findUnique({ where: { id: projectId }, select: { name: true, status: true, contentType: true } }),
+        prisma.scene.findMany({ where: { episode: { season: { series: { projectId } } }, status: "STORYBOARD_REVIEW" }, select: { id: true, episodeId: true } }),
+        prisma.scene.findMany({ where: { episode: { season: { series: { projectId } } }, status: "VIDEO_REVIEW" }, select: { id: true, episodeId: true } }),
+        prisma.episode.findMany({ where: { season: { series: { projectId } }, status: "REVIEW" }, select: { id: true, scenes: { select: { status: true } } } }),
         prisma.episode.count({ where: { season: { series: { projectId } }, status: "READY_FOR_PUBLISH" } }),
+        prisma.episode.findMany({ where: { season: { series: { projectId } }, status: "READY_FOR_PUBLISH", scheduledPublishAt: { lte: new Date(), not: null }, publishedAt: null }, select: { id: true } }),
       ]);
-      if (hasGroq()) {
+
+      // ----- AUTOPILOT MODE: execute actions, don't just recommend -----
+      if (autopilot) {
+        // 1. Approve storyboards (STORYBOARD_REVIEW → STORYBOARD_APPROVED)
+        if (scenesStoryboard.length > 0) {
+          const r = await prisma.scene.updateMany({
+            where: { id: { in: scenesStoryboard.map((s) => s.id) } },
+            data: { status: "STORYBOARD_APPROVED" },
+          });
+          executed.storyboards_approved = r.count;
+        }
+        // 2. Approve video reviews (VIDEO_REVIEW → APPROVED)
+        if (scenesVideo.length > 0) {
+          const r = await prisma.scene.updateMany({
+            where: { id: { in: scenesVideo.map((s) => s.id) } },
+            data: { status: "APPROVED" },
+          });
+          executed.scenes_approved = r.count;
+        }
+        // 3. Promote episodes whose scenes are all APPROVED (REVIEW → READY_FOR_PUBLISH)
+        const promotable = episodesReview.filter((e) => e.scenes.length > 0 && e.scenes.every((s) => s.status === "APPROVED" || s.status === "LOCKED"));
+        if (promotable.length > 0) {
+          const r = await prisma.episode.updateMany({
+            where: { id: { in: promotable.map((e) => e.id) } },
+            data: { status: "READY_FOR_PUBLISH" },
+          });
+          executed.episodes_promoted = r.count;
+        }
+        // 4. Publish episodes whose scheduled time has come
+        if (episodesDue.length > 0) {
+          const r = await prisma.episode.updateMany({
+            where: { id: { in: episodesDue.map((e) => e.id) } },
+            data: { status: "PUBLISHED", publishedAt: new Date() },
+          });
+          executed.episodes_published = r.count;
+        }
+
+        const totalActed = Object.values(executed).reduce((a, b) => a + b, 0);
+        if (totalActed > 0) {
+          action = "autopilot_acted";
+          reason = Object.entries(executed).map(([k, v]) => `${k}: ${v}`).join(", ");
+          await prisma.aIDirector.update({ where: { projectId }, data: { experienceScore: { increment: 0.01 * totalActed } } });
+        } else {
+          action = "noop";
+          reason = "Autopilot ran but nothing was actionable (no pending reviews, no scheduled publishes ready).";
+        }
+      }
+      // ----- ASSISTED MODE: AI recommendation only -----
+      else if (hasGroq()) {
         try {
           const j = await groqJson<{ action: string; reason: string }>(
             "You are an AI production director. Pick exactly one next action. Allowed: create_episode, write_scene, generate_storyboard, review_pending, publish, noop. Respond JSON: {action, reason}",
-            `Project: ${project?.name}\nType: ${project?.contentType}\nStatus: ${project?.status}\nScenes pending review: ${scenesPending}\nEpisodes in review: ${episodesReview}\nEpisodes ready to publish: ${episodesReady}`,
-            { temperature: 0.4, maxTokens: 150 },
+            `Project: ${project?.name}\nType: ${project?.contentType}\nStatus: ${project?.status}\nScenes pending storyboard review: ${scenesStoryboard.length}\nScenes pending video review: ${scenesVideo.length}\nEpisodes in review: ${episodesReview.length}\nEpisodes ready to publish: ${episodesReady}\nEpisodes whose schedule is due: ${episodesDue.length}\n\nNote: Autopilot is OFF. The user wants a recommendation, not execution.`,
+            { temperature: 0.4, maxTokens: 200 },
           );
           action = j.action ?? "noop";
           reason = j.reason ?? "—";
         } catch (e) {
-          // Heuristic fallback
-          if (episodesReady > 0) { action = "publish"; reason = `${episodesReady} episode(s) ready (AI fallback)`; }
-          else if (scenesPending > 0) { action = "review_pending"; reason = `${scenesPending} scene(s) await review (AI fallback)`; }
+          if (episodesDue.length > 0) { action = "publish"; reason = `${episodesDue.length} episode(s) due (AI fallback)`; }
+          else if (scenesStoryboard.length + scenesVideo.length > 0) { action = "review_pending"; reason = `${scenesStoryboard.length + scenesVideo.length} scene(s) await review (AI fallback)`; }
           else { action = "noop"; reason = `AI error: ${(e as Error).message.slice(0, 100)}`; }
         }
       } else {
-        if (episodesReady > 0) { action = "publish"; reason = `${episodesReady} episode(s) ready`; }
-        else if (scenesPending > 0) { action = "review_pending"; reason = `${scenesPending} scene(s) await review`; }
+        if (episodesDue.length > 0) { action = "publish"; reason = `${episodesDue.length} episode(s) due`; }
+        else if (scenesStoryboard.length + scenesVideo.length > 0) { action = "review_pending"; reason = `${scenesStoryboard.length + scenesVideo.length} scene(s) await review`; }
       }
-    } catch (e) { reason = `error: ${(e as Error).message.slice(0, 100)}`; }
-    await prisma.aILog.create({ data: { projectId, actorType: "DIRECTOR", actionType: action, decisionReason: reason, input: {}, output: { action, reason } } });
-    return { action, reason };
+    } catch (e) { reason = `error: ${(e as Error).message.slice(0, 200)}`; }
+
+    await prisma.aILog.create({
+      data: { projectId, actorType: "DIRECTOR", actionType: action, decisionReason: reason, input: {}, output: { action, reason, executed } },
+    });
+    return { action, reason, executed };
   },
   async buildEpisodeOutline(_episodeId: string) { return; },
   async proposeScenes(_episodeId: string) { return []; },

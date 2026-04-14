@@ -33,16 +33,22 @@ export default function SeasonPage() {
   const [feedback, setFeedback] = useState<{ overall: string; arc?: string; pacing?: string; strengths: string[]; concerns: string[]; suggestions: string[] } | null>(null);
   const [epFeedback, setEpFeedback] = useState<{ episodeId: string; data: { overall: string; strengths: string[]; concerns: string[]; suggestions: string[]; sceneNotes?: { sceneNumber: number; note: string }[] } } | null>(null);
 
+  const [err, setErr] = useState<string | null>(null);
+
   async function load() {
-    const s = await api<Season>(`/api/v1/seasons/${id}`).catch(() => null);
-    if (s) setSeason(s);
-    const eps = await api<Episode[]>(`/api/v1/seasons/${id}/episodes`).catch(() => [] as Episode[]);
-    // Hydrate scenes for each episode for progress calc
-    const hydrated: Episode[] = await Promise.all(eps.map(async (e) => {
-      const detail = await api<{ scenes: Scene[] }>(`/api/v1/episodes/${e.id}`).catch(() => ({ scenes: [] as Scene[] }));
-      return { ...e, scenes: detail.scenes ?? [] };
-    }));
-    setEpisodes(hydrated);
+    setErr(null);
+    try {
+      const s = await api<Season>(`/api/v1/seasons/${id}`);
+      setSeason(s);
+    } catch (e: unknown) { setErr((e as Error).message); }
+    try {
+      const eps = await api<Episode[]>(`/api/v1/seasons/${id}/episodes`);
+      const hydrated: Episode[] = await Promise.all(eps.map(async (e) => {
+        const detail = await api<{ scenes: Scene[] }>(`/api/v1/episodes/${e.id}`).catch(() => ({ scenes: [] as Scene[] }));
+        return { ...e, scenes: detail.scenes ?? [] };
+      }));
+      setEpisodes(hydrated);
+    } catch { /* ignore */ }
   }
   useEffect(() => { load(); }, [id]);
 
@@ -76,7 +82,11 @@ export default function SeasonPage() {
     else setEpFeedback(null);
   }
 
-  if (!season) return <div className="text-text-muted">Loading…</div>;
+  if (!season) return (
+    <div className="text-text-muted">
+      {err ? <span className="text-status-errText">Error: {err}</span> : "Loading…"}
+    </div>
+  );
 
   const epPercents = episodes.map((ep) => avg(ep.scenes.map((sc) => sceneProgress({ status: sc.status, scriptText: sc.scriptText, frames: sc.frames }))));
   const seasonPct = avg(epPercents);

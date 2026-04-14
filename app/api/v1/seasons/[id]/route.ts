@@ -17,6 +17,18 @@ async function assertSeasonInOrg(id: string, orgId: string) {
   return s;
 }
 
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
+    const s = await prisma.season.findFirst({
+      where: { id: params.id, series: { project: { organizationId: ctx.organizationId } } },
+      include: { series: { include: { project: { select: { id: true, name: true } } } } },
+    });
+    if (!s) throw Object.assign(new Error("season not found"), { statusCode: 404 });
+    return ok(s);
+  } catch (e) { return handleError(e); }
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;

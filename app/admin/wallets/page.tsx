@@ -231,7 +231,8 @@ function GeminiTextRow() {
     }).catch(() => {});
   }, []);
 
-  if (!data) return null;
+  // Render even when no usage yet — so the user can see the provider is wired up.
+  const d = data ?? { provider: "Gemini 2.5 Flash via fal.ai", pricingNote: "$0.075 per 1M input · $0.30 per 1M output", totalCost: 0, totalCalls: 0, inputTokens: 0, outputTokens: 0, lastUsedAt: null };
   return (
     <div className="bg-bg-main rounded-lg p-3 mb-4 space-y-2">
       <div className="flex items-center gap-4 flex-wrap">
@@ -240,19 +241,19 @@ function GeminiTextRow() {
             <span>🤖 {he ? "Gemini טקסט (בתשלום דרך fal)" : "Gemini text (paid via fal)"}</span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/15 text-accent">{he ? "בתשלום · ספירה אוטומטית" : "Paid · auto-tracked"}</span>
           </div>
-          <div className="text-[11px] text-text-muted mt-0.5">{data.pricingNote}</div>
+          <div className="text-[11px] text-text-muted mt-0.5">{d.pricingNote}</div>
         </div>
         <div className="text-end shrink-0 text-xs">
           <div className="text-text-muted">{he ? "בוצעו" : "Calls"}</div>
-          <div className="font-bold num">{data.totalCalls}</div>
+          <div className="font-bold num">{d.totalCalls}</div>
         </div>
         <div className="text-end shrink-0 text-xs">
           <div className="text-text-muted">{he ? "טוקנים" : "Tokens"}</div>
-          <div className="font-bold num">{data.inputTokens.toLocaleString()} → {data.outputTokens.toLocaleString()}</div>
+          <div className="font-bold num">{d.inputTokens.toLocaleString()} → {d.outputTokens.toLocaleString()}</div>
         </div>
         <div className="text-end shrink-0 text-xs">
           <div className="text-text-muted">{he ? "סך נוצל" : "Spent"}</div>
-          <div className="font-bold num text-status-errText">−${data.totalCost.toFixed(4)}</div>
+          <div className="font-bold num text-status-errText">−${d.totalCost.toFixed(4)}</div>
         </div>
       </div>
       {falBalance !== null && (

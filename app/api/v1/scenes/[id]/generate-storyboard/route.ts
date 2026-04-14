@@ -31,9 +31,38 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const ep = await prisma.episode.findUniqueOrThrow({
       where: { id: scene.episodeId },
-      include: { season: { include: { series: true } } },
+      include: { season: { include: { series: true } }, characters: { include: { character: { include: { media: { orderBy: { createdAt: "asc" } } } } } } },
     });
     const projectId = ep.season.series.projectId;
+
+    // Resolve characters appearing in THIS scene. First look in memoryContext (names the
+    // scene planner wrote), else fall back to all episode-linked characters.
+    const sceneMemory = (scene.memoryContext as { characters?: string[] } | null) ?? {};
+    const sceneCharNames = (sceneMemory.characters ?? []).map((n) => n.toLowerCase().trim());
+    const episodeChars = ep.characters.map((ec) => ec.character);
+    const charactersForScene = sceneCharNames.length > 0
+      ? episodeChars.filter((c) => sceneCharNames.includes(c.name.toLowerCase().trim()))
+      : episodeChars;
+
+    // Hard block: if this scene has named characters but any of them has no gallery image,
+    // refuse to generate the storyboard. Consistency requires reference images.
+    const missingGallery = charactersForScene.filter((c) => c.media.length === 0);
+    if (charactersForScene.length > 0 && missingGallery.length > 0) {
+      throw Object.assign(
+        new Error(`Cannot generate storyboard — these characters are missing gallery images (generate them first): ${missingGallery.map((c) => c.name).join(", ")}`),
+        { statusCode: 400 },
+      );
+    }
+
+    // Pick the most useful reference image per character: prefer the front angle.
+    const charReferences = charactersForScene.map((c) => {
+      const front = c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0];
+      return { name: c.name, url: front?.fileUrl };
+    }).filter((r): r is { name: string; url: string } => !!r.url);
+    const referenceImageUrls = charReferences.map((r) => r.url);
+    const identityLine = charReferences.length > 0
+      ? `SAME CHARACTERS AS THE REFERENCE IMAGES: ${charReferences.map((r) => r.name).join(", ")}. Match their faces, hair, wardrobe and build EXACTLY across every frame.`
+      : "";
     const stylePrompt = await StyleEngine.generateStyleConstraints(projectId);
     const estimate = await CostStrategy.estimateSceneStoryboardCost(scene.id);
 
@@ -55,10 +84,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           const referenceCtx = buildReferenceContext(refs);
           const prompt = [
             basePrompt,
+            identityLine,
             stylePrompt && `Style: ${stylePrompt}`,
             referenceCtx,
           ].filter(Boolean).join("\n\n");
-          const r = await generateImage({ prompt, negativePrompt: frame.negativePrompt ?? undefined, aspectRatio: body.aspectRatio, model: body.imageModel });
+          const r = await generateImage({
+            prompt,
+            negativePrompt: frame.negativePrompt ?? undefined,
+            aspectRatio: body.aspectRatio,
+            model: body.imageModel,
+            referenceImageUrls,
+          });
           await prisma.sceneFrame.update({ where: { id: frame.id }, data: { generatedImageUrl: r.imageUrl, status: "READY" } });
           await prisma.asset.create({
             data: { projectId, entityType: "FRAME", entityId: frame.id, assetType: "IMAGE", fileUrl: r.imageUrl, mimeType: "image/jpeg", status: "READY", metadata: { provider: "fal", model: body.imageModel ?? "nano-banana", referencePromptIds: refs.map((r) => r.externalId).filter(Boolean) } },

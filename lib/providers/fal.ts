@@ -46,7 +46,7 @@ export interface ImageResult {
   raw: unknown;
 }
 
-export async function generateImage(opts: { prompt: string; negativePrompt?: string; aspectRatio?: "1:1" | "16:9" | "9:16"; model?: ImageModel }): Promise<ImageResult> {
+export async function generateImage(opts: { prompt: string; negativePrompt?: string; aspectRatio?: "1:1" | "16:9" | "9:16"; model?: ImageModel; referenceImageUrls?: string[] }): Promise<ImageResult> {
   const model = IMAGE_MODELS[opts.model ?? "nano-banana"];
   const body: Record<string, unknown> = {
     prompt: opts.prompt,
@@ -55,6 +55,11 @@ export async function generateImage(opts: { prompt: string; negativePrompt?: str
   };
   if (opts.aspectRatio) body.aspect_ratio = opts.aspectRatio;
   if (opts.negativePrompt) body.negative_prompt = opts.negativePrompt;
+  // nano-banana (Gemini 2.5 Flash Image) supports image_urls for identity reference.
+  // Passing up to 3 reference images keeps characters consistent across frames.
+  if (opts.referenceImageUrls && opts.referenceImageUrls.length > 0) {
+    body.image_urls = opts.referenceImageUrls.slice(0, 3);
+  }
 
   const res = await fetch(`${FAL_RUN}/${model}`, { method: "POST", headers: headers(), body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`fal image ${res.status}: ${(await res.text()).slice(0, 300)}`);

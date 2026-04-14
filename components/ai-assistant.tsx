@@ -38,7 +38,7 @@ export function AiAssistant() {
         ✨
       </button>
       {open && (
-        <div className="fixed inset-0 bg-black/50 z-30 flex items-end justify-end rtl:justify-start p-6">
+        <div className="fixed inset-0 bg-black/50 z-30 flex items-end justify-end p-6">
           <div className="bg-bg-card rounded-card shadow-card border border-bg-main w-full max-w-md flex flex-col" style={{ maxHeight: "80vh" }}>
             <div className="px-5 py-3 border-b border-bg-main flex items-center justify-between">
               <div>

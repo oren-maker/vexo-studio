@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { assertEpisodeQuota } from "@/lib/plan-limits";
 import { groqJson } from "@/lib/groq";
-import { ensureFreshContext } from "@/lib/project-context";
+import { getContext, buildContext } from "@/lib/project-context";
 import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
@@ -38,9 +38,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!season) throw Object.assign(new Error("season not found"), { statusCode: 404 });
     await assertEpisodeQuota(ctx.organizationId, season.seriesId);
 
-    // 1. Pull the cached series bible (refreshes if > 5 min old)
-    const contextCache = await ensureFreshContext(season.series.projectId);
-    const bible = contextCache?.summary ?? "";
+    // 1. Pull the cached series bible. NEVER rebuild here — that would cost
+    // another Gemini call and blow the 60s budget. If missing, we build a
+    // one-off mini-bible from the DB rows and kick the async rebuild.
+    let contextCache = await getContext(season.series.projectId);
+    let bible = contextCache?.summary ?? "";
+    if (!bible) {
+      // Fire-and-forget rebuild so next generation has the real cache.
+      buildContext(season.series.projectId).catch(() => {});
+      // Cheap fallback bible from what we already loaded
+      bible = [
+        `# ${season.series.project.name}`,
+        season.series.project.description ? `Premise: ${season.series.project.description}` : "",
+        season.series.project.genreTag ? `Genre: ${season.series.project.genreTag}` : "",
+        `Language: ${season.series.project.language}`,
+        season.episodes.length > 0 ? `\nEpisodes so far:\n${season.episodes.map((e) => `- EP${e.episodeNumber}: ${e.title} — ${(e.synopsis ?? "").slice(0, 150)}`).join("\n")}` : "",
+      ].filter(Boolean).join("\n");
+    }
 
     const characters = await prisma.character.findMany({ where: { projectId: season.series.projectId } });
     const nextNumber = (season.episodes.at(-1)?.episodeNumber ?? 0) + 1;
@@ -51,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const outline = await groqJson<{ title: string; synopsis: string; targetDurationSeconds: number; characterNames: string[] }>(
       `Continue the series. Return JSON { title, synopsis (2-4 sentences), targetDurationSeconds (1500-2400), characterNames: string[] — subset of recurring cast }. Must stay consistent with the bible and advance the arc. Don't repeat a prior plot.`,
       `SERIES BIBLE (authoritative — respect it):\n${bible}\n\nRECENT EPISODES (immediate predecessors):\n${recent || "(first episode)"}\n\nNEXT EPISODE #${nextNumber}${body.title ? ` — requested title: "${body.title}"` : ""}${body.hint ? `\nHINT: ${body.hint}` : ""}\nLANGUAGE: ${season.series.project.language}`,
-      { temperature: 0.85, maxTokens: 800 },
+      { temperature: 0.85, maxTokens: 600 },
     );
 
     const ep = await prisma.episode.create({
@@ -79,7 +93,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const scenesPlan = await groqJson<{ scenes: { title: string; summary: string; scriptText: string; location?: string; mood?: string; characterNames?: string[] }[] }>(
       `Plan ${scenesPerEpisode} scenes. Return JSON { scenes: [{ title, summary, scriptText (4-8 screenplay lines), location, mood, characterNames: string[] }] }. Keep characters consistent with the bible.`,
       `BIBLE:\n${bible}\n\nEPISODE ${nextNumber}: ${outline.title}\n${outline.synopsis}\n\nAvailable cast: ${appearing.map((c) => c.name).join(", ") || "(any)"}`,
-      { temperature: 0.8, maxTokens: 2200 },
+      { temperature: 0.8, maxTokens: 1800 },
     ).catch(() => ({ scenes: [] }));
 
     // 4. Create scenes + frames in parallel (all AI calls concurrent)
@@ -98,7 +112,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         const fp = await groqJson<{ frames: { beatSummary: string; imagePrompt: string; negativePrompt?: string }[] }>(
           `Plan ${framesPerScene} storyboard frames. Return JSON { frames: [{ beatSummary, imagePrompt, negativePrompt }] }. Cinematic image prompts.`,
           `Scene: ${sp.title}\nMood: ${sp.mood ?? "—"}\nLocation: ${sp.location ?? "—"}\nCharacters: ${(sp.characterNames ?? []).join(", ") || "—"}\n${sp.scriptText}`,
-          { temperature: 0.7, maxTokens: 900 },
+          { temperature: 0.7, maxTokens: 700 },
         ).catch(() => ({ frames: [] }));
 
         await prisma.sceneFrame.createMany({

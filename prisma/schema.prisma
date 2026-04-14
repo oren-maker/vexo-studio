@@ -199,6 +199,18 @@ model AuditLog {
 // 3. 2FA / TOTP
 // =====================================================================
 
+model Translation {
+  id         String   @id @default(cuid())
+  hash       String
+  source     String
+  targetLang String
+  text       String
+  createdAt  DateTime @default(now())
+
+  @@unique([hash, targetLang])
+  @@index([targetLang])
+}
+
 model TotpChallenge {
   id        String   @id @default(cuid())
   userId    String

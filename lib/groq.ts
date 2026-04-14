@@ -4,9 +4,10 @@
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
-// gemini-2.5-flash is the current paid model. v2.0 was deprecated; some keys
-// still respond to it but slowly / with quota errors that cause timeouts.
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+// 2.5-flash often returns 503 'high demand'. We try a chain: 2.5-flash → 1.5-flash → 2.0-flash
+// before giving up to Groq. All are billed similarly via the same key.
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
+const GEMINI_URL = (m: string) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -47,18 +48,28 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
       ...(opts.responseFormat === "json" ? { responseMimeType: "application/json" } : {}),
     },
   };
-  const ctl = new AbortController();
-  // 25s gives gemini-2.5-flash room for larger JSON responses; we still fit
-  // inside the 60s function budget even with the chargeUsd race afterwards.
-  const timer = setTimeout(() => ctl.abort(), 25_000);
+  let res!: Response;
+  let lastErr: string | null = null;
+  let usedModel = "";
+  for (const model of GEMINI_MODELS) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 18_000);
+    try {
+      res = await fetch(`${GEMINI_URL(model)}?key=${key}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body), signal: ctl.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) { usedModel = model; break; }
+      lastErr = `${model} ${res.status}: ${(await res.text()).slice(0, 200)}`;
+      if (res.status !== 503 && res.status !== 429) break; // not a capacity issue → don't waste time on other models
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = `${model} ${(e as Error).message.slice(0, 100)}`;
+    }
+  }
+  if (!usedModel) throw new Error(`Gemini chain exhausted: ${lastErr}`);
   try {
-    const res = await fetch(`${GEMINI_URL}?key=${key}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: ctl.signal,
-    });
-    if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
     const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
@@ -87,7 +98,7 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
             unitCost: costUsd,
             quantity: 1,
             userId: actor?.userId,
-            meta: { inputTokens, outputTokens, model: "gemini-2.5-flash", source: "google-direct" },
+            meta: { inputTokens, outputTokens, model: usedModel, source: "google-direct" },
           });
           await Promise.race([
             charge,
@@ -98,7 +109,7 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
     } catch (e) { console.warn("[gemini-cost-track]", (e as Error).message); }
 
     return text;
-  } finally { clearTimeout(timer); }
+  } catch (e) { throw e; }
 }
 
 async function callGroq(messages: ChatMessage[], opts: AiOptions): Promise<string> {

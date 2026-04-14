@@ -87,28 +87,60 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // In t2v mode we send the full director sheet so it has everything.
     const willUseI2V = !!(firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl) || characterRefImgs.length > 0;
 
-    // Pull dialogue lines out of the script into an explicit DIALOGUE block —
-    // VEO 3 picks these up natively to generate spoken audio.
-    const dialogueLines = scene.scriptText
-      ? scene.scriptText.split(/\n+/).filter((l) => /^[A-Z][A-Z .'-]{1,30}\s*[:(]/.test(l.trim())).slice(0, 12).join("\n")
-      : "";
+    // Parse dialogue into VEO 3-friendly format: speaker, tone hint (from neighboring action), and the line in quotes.
+    // VEO 3 generates speech when prompts use the pattern: `<Name> says: "<line>"`
+    // Pull SPEAKER:line pairs from script (handles both `MIRA:` and `MIRA (whispering):` patterns).
+    function parseDialogue(text: string | null): { veoFormatted: string; rawList: string } {
+      if (!text) return { veoFormatted: "", rawList: "" };
+      const lines = text.split(/\n+/);
+      const dlg: Array<{ speaker: string; mod?: string; line: string }> = [];
+      for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(/^([A-Z][A-Z .'-]{1,30})\s*(?:\(([^)]+)\))?\s*[:：]\s*(.*)$/);
+        if (!m) continue;
+        let line = (m[3] ?? "").trim();
+        // Some scripts put line on next row
+        if (!line && i + 1 < lines.length && !/^[A-Z][A-Z .'-]{1,30}\s*[:(]/.test(lines[i + 1])) {
+          line = lines[i + 1].trim();
+        }
+        if (line) dlg.push({ speaker: m[1].trim(), mod: m[2]?.trim(), line: line.replace(/^["']|["']$/g, "") });
+      }
+      const formatted = dlg.slice(0, 12).map((d) =>
+        `${toTitle(d.speaker)}${d.mod ? ` (${d.mod})` : ""} says, with synced lip movements: "${d.line}"`,
+      ).join(" ");
+      const raw = dlg.slice(0, 12).map((d) => `${d.speaker}: ${d.line}`).join("\n");
+      return { veoFormatted: formatted, rawList: raw };
+    }
+    function toTitle(s: string) { return s.split(" ").map((w) => w[0] + w.slice(1).toLowerCase()).join(" "); }
+    const { veoFormatted: veoDialogue, rawList: dialogueLines } = parseDialogue(scene.scriptText);
+
+    // AUDIO block at the TOP — VEO 3 weighs earlier tokens more and often
+    // omits sound when dialogue/music instructions are buried in a long prompt.
+    const audioBlock = [
+      veoDialogue && `Spoken dialogue (generate audible speech with synced lip movement, clear intelligible voices): ${veoDialogue}`,
+      sheet?.audio && `Music and ambience: ${sheet.audio}`,
+      mem.soundNotes && `Sound design: ${mem.soundNotes.slice(0, 800)}`,
+      "Include clearly audible dialogue, ambient room tone, footsteps, breathing, and appropriate background music.",
+    ].filter(Boolean).join(" ");
 
     const basePrompt = willUseI2V
       ? [
-          // Compact, action-focused for image-to-video
-          `Continue from the starting image as a real-life, live-action, photorealistic film. Real human actors, real skin texture, real eyes, no animation or CGI look.`,
-          inScene.length > 0 && `Characters on screen: ${inScene.map((c) => c.name).join(", ")} — keep their faces, hair, wardrobe EXACTLY as in the image, no drift.`,
-          scene.summary && `What happens: ${scene.summary}`,
-          dialogueLines && `DIALOGUE (spoken aloud, sync the lips, match emotion):\n${dialogueLines}`,
-          scene.scriptText && `Full script for context:\n${scene.scriptText.slice(0, 1000)}`,
+          // 1. Audio comes first so VEO 3 doesn't skip it.
+          `AUDIO: ${audioBlock}`,
+          // 2. Photorealism + identity lock
+          `Continue from the starting image as a live-action photorealistic film. Real human actors, real skin pores, real eyes, no animation or CGI look.`,
+          inScene.length > 0 && `On screen: ${inScene.map((c) => c.name).join(", ")} — keep their faces, hair, wardrobe EXACTLY as in the image, no drift.`,
+          // 3. Action
+          scene.summary && `Action: ${scene.summary}`,
           sheet?.camera && `Camera: ${sheet.camera}`,
-          `AUDIO: ${[sheet?.audio, mem.soundNotes].filter(Boolean).join(" · ") || "natural ambient room tone, breathing, footsteps. Music sub-audible."} Include the spoken dialogue above with clear, intelligible voices.`,
+          // 4. Script for full context
+          scene.scriptText && `Full script:\n${scene.scriptText.slice(0, 800)}`,
           mem.directorNotes && `Director notes (highest priority): ${mem.directorNotes.slice(0, 400)}`,
           sheet?.effects && sheet.effects.toLowerCase() !== "none" && `Effects: ${sheet.effects}`,
-          "Photorealistic cinematic film, 24fps, real physical lighting and shadows, shallow depth of field, film grain. Identity locked to the starting image. NO cartoon, NO illustration, NO 3D render look.",
         ].filter(Boolean).join("\n\n")
       : sheet
       ? [
+          // AUDIO first here too
+          `AUDIO: ${audioBlock}`,
           `[Style] ${sheet.style} — Photorealistic live-action film. Real human actors with real skin, real eyes. NO cartoon, NO 3D render, NO illustration.`,
           `[Scene] ${sheet.scene}`,
           `[Character] ${sheet.character}`,
@@ -116,20 +148,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           `[Camera] ${sheet.camera}`,
           `[Shots] ${sheet.shots}`,
           `[Effects] ${sheet.effects}`,
-          `[Audio] ${sheet.audio}${dialogueLines ? `\nDIALOGUE (spoken aloud, lip-sync):\n${dialogueLines}` : ""}`,
           `[Technical] ${sheet.technical} · 24fps · real physical lighting, film grain.`,
-          scene.scriptText && `[Script]\n${scene.scriptText.slice(0, 1500)}`,
+          scene.scriptText && `[Script]\n${scene.scriptText.slice(0, 1200)}`,
           mem.directorNotes && `[Director notes]\n${mem.directorNotes.slice(0, 600)}`,
-          mem.soundNotes && `[Sound notes]\n${mem.soundNotes.slice(0, 400)}`,
         ].filter(Boolean).join("\n\n")
       : [
+          `AUDIO: ${audioBlock}`,
           scene.title && `Title: ${scene.title}`,
           scene.summary && `Summary: ${scene.summary}`,
           characterBlock,
           scene.scriptText && `Script:\n${scene.scriptText}`,
-          dialogueLines && `DIALOGUE (spoken aloud):\n${dialogueLines}`,
           mem.directorNotes && `Director notes:\n${mem.directorNotes}`,
-          mem.soundNotes && `Sound notes:\n${mem.soundNotes}`,
           "Photorealistic live-action film, real actors, 24fps, real physical lighting. NO cartoon, NO illustration.",
         ].filter(Boolean).join("\n\n");
 

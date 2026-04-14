@@ -62,6 +62,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       };
     });
 
+    // Scene-level videos (from fal webhooks) — Asset rows
+    const videos = await prisma.asset.findMany({
+      where: { entityType: "SCENE", entityId: params.id, assetType: "VIDEO", status: "READY" },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { id: true, fileUrl: true, createdAt: true, metadata: true },
+    });
+
     let sceneCharacters: unknown[] = [];
     if (scene.episodeId) {
       const ep = await prisma.episode.findUnique({
@@ -81,7 +89,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         }
       }
     }
-    return ok({ ...scene, frames: framesWithCost, sceneCharacters });
+    return ok({ ...scene, frames: framesWithCost, sceneCharacters, videos });
   } catch (e) { return handleError(e); }
 }
 

@@ -52,6 +52,9 @@ export async function api<T = unknown>(path: string, opts: RequestInit & { body?
   if (res.status === 401 && typeof window !== "undefined" && !path.includes("/auth/")) {
     setAccessToken(null);
     window.location.href = "/login";
+    // Stop here — don't parse the body or throw, since navigation is imminent.
+    // Throw a benign sentinel the caller's catch will swallow without an alert.
+    throw Object.assign(new Error(""), { statusCode: 401, silent: true });
   }
 
   const text = await res.text();

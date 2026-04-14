@@ -10,7 +10,8 @@ type Frame = { id: string; orderIndex: number; beatSummary: string | null; image
 type Comment = { id: string; body: string; resolved: boolean; createdAt: string; user: { id: string; fullName: string; email: string } };
 type Critic = { id: string; contentType: string; score: number; feedback: string | null; createdAt: string };
 type SceneChar = { id: string; name: string; roleType: string | null; media: { fileUrl: string }[] };
-type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[] } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[] };
+type SceneVideo = { id: string; fileUrl: string; createdAt: string; metadata?: { model?: string; durationSeconds?: number; costUsd?: number } };
+type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[] } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[] };
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
@@ -72,7 +73,12 @@ export default function ScenePage() {
       const r = await api<{ jobId: string; model?: string; framework?: string }>(`/api/v1/scenes/${id}/generate-video`, {
         method: "POST", body: { videoModel, aspectRatio: aspect },
       });
-      alert(`Video job queued via ${r.model ?? videoModel} (${r.framework ?? "queue"}). Job ID: ${r.jobId}\nResult will arrive via webhook in 30-90s.`);
+      const modelLabel = (r.model ?? videoModel).includes("kling") ? "Kling 2.1"
+        : (r.model ?? videoModel).includes("seedance") ? "SeeDance Pro"
+        : (r.model ?? videoModel);
+      alert(he
+        ? `🎬 הוידאו נשלח ליצירה עם ${modelLabel}.\nהתוצאה תופיע כאן תוך 30-90 שניות.`
+        : `🎬 Video queued with ${modelLabel}. Result in 30-90 seconds.`);
       setTimeout(load, 1500);
     } catch (e: unknown) { alert((e as Error).message); }
     finally { setBusy(false); }

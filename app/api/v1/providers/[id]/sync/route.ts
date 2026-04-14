@@ -18,6 +18,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!provider) throw Object.assign(new Error("provider not found"), { statusCode: 404 });
 
     const name = provider.name.toLowerCase();
+
+    if (name.includes("gemini") || name.includes("google")) {
+      const { fetchGeminiUsage } = await import("@/lib/providers/google-gemini");
+      const u = await fetchGeminiUsage(ctx.organizationId);
+      const wallet = await prisma.creditWallet.upsert({
+        where: { providerId: provider.id },
+        update: { isTrackingEnabled: true },
+        create: { providerId: provider.id, availableCredits: 0, totalCreditsAdded: 0, isTrackingEnabled: true },
+      });
+      await prisma.creditTransaction.create({
+        data: {
+          walletId: wallet.id, transactionType: "ADD", amount: 0, unitType: "USD", sourceType: "MANUAL",
+          description: `Google Gemini sync · usage MTD: $${u.usageThisMonth.toFixed(4)} across ${u.callsThisMonth} calls · API ${u.reachable ? "reachable" : "unreachable"}`,
+          createdByUserId: ctx.user.id,
+        },
+      });
+      return ok({ balance: wallet.availableCredits, usageThisMonth: u.usageThisMonth, callsThisMonth: u.callsThisMonth, reachable: u.reachable, source: "google-direct" });
+    }
+
     if (name.includes("fal")) {
       const b = await fetchBalance();
       const current = b.currentBalance ?? 0;

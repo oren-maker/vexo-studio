@@ -55,7 +55,34 @@ export async function GET(req: NextRequest) {
     }
   } catch { /* fal lib not configured */ }
 
-  // 4. Refresh stale series context caches (older than 5 min). Up to 5 per tick.
+  // 4. Sync Google Gemini month-to-date usage for every org that has the provider
+  let geminiSynced = 0;
+  try {
+    const { fetchGeminiUsage } = await import("@/lib/providers/google-gemini");
+    const geminiProviders = await prisma.provider.findMany({ where: { isActive: true, name: "Google Gemini" } });
+    for (const p of geminiProviders) {
+      try {
+        const u = await fetchGeminiUsage(p.organizationId);
+        await prisma.creditWallet.upsert({
+          where: { providerId: p.id },
+          update: { } as never,
+          create: { providerId: p.id, availableCredits: 0, totalCreditsAdded: 0, isTrackingEnabled: true },
+        });
+        // Persist a transaction note so the history shows monthly usage
+        await prisma.creditTransaction.create({
+          data: {
+            walletId: (await prisma.creditWallet.findUnique({ where: { providerId: p.id } }))!.id,
+            transactionType: "SYNC", amount: u.usageThisMonth, unitType: "USD",
+            sourceType: "SYSTEM",
+            description: `Google Gemini usage MTD: ${u.callsThisMonth} calls = $${u.usageThisMonth.toFixed(4)} (reachable: ${u.reachable})`,
+          },
+        }).catch(() => {});
+        geminiSynced++;
+      } catch { /* per-org failure */ }
+    }
+  } catch { /* lib not configured */ }
+
+  // 5. Refresh stale series context caches (older than 5 min). Up to 5 per tick.
   let contextsRefreshed = 0;
   try {
     const { buildContext, CACHE_TTL_MS } = await import("@/lib/project-context");
@@ -71,5 +98,5 @@ export async function GET(req: NextRequest) {
     }
   } catch { /* ignore */ }
 
-  return NextResponse.json({ ok: true, tick: now.toISOString(), scheduledPublished, calendarPublished, walletsSynced, contextsRefreshed });
+  return NextResponse.json({ ok: true, tick: now.toISOString(), scheduledPublished, calendarPublished, walletsSynced, geminiSynced, contextsRefreshed });
 }

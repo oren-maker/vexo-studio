@@ -163,18 +163,11 @@ async function callGeminiViaFal(messages: ChatMessage[], opts: AiOptions): Promi
 }
 
 export async function groqChat(messages: ChatMessage[], opts: AiOptions = {}): Promise<string> {
-  // Order chosen for reliability + budget control:
-  //   1. Free Gemini direct (fast, free, primary path while fal any-llm proxy
-  //      sometimes returns 5xx / hangs)
-  //   2. Paid Gemini via fal (charged automatically — used when free Gemini is
-  //      rate-limited / quota-exceeded)
-  //   3. Groq Llama 3.3 70B (free fallback when both Gemini paths fail)
-  // Set USE_PAID_GEMINI_FIRST=1 to swap fal-Gemini to position 1.
-  const order = process.env.USE_PAID_GEMINI_FIRST === "1"
-    ? [callGeminiViaFal, callGemini, callGroq]
-    : [callGemini, callGeminiViaFal, callGroq];
+  // Google Gemini is now standalone (paid via Google Cloud Billing) — primary path.
+  // Groq Llama is a free emergency fallback if Google is rate-limited or unreachable.
+  // (callGeminiViaFal kept reachable but no longer in the default chain.)
   let lastErr: unknown;
-  for (const fn of order) {
+  for (const fn of [callGemini, callGroq]) {
     try {
       return await fn(messages, opts);
     } catch (e) { lastErr = e; }

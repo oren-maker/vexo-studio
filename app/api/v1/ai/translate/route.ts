@@ -87,11 +87,15 @@ export async function POST(req: NextRequest) {
     const body = Body.parse(await req.json());
     if (body.target === "en") return ok({ translations: body.texts });
     let lastErr: unknown;
-    for (const fn of [translateGroq, translateGemini]) {
+    // Order: Gemini (high quality, fast) → Groq fallback. Retry once on rate limit.
+    for (const fn of [translateGemini, translateGroq, translateGemini, translateGroq]) {
       try {
         const out = await fn(body.texts);
         return ok({ translations: out });
-      } catch (e) { lastErr = e; }
+      } catch (e) {
+        lastErr = e;
+        if (String(e).includes("429")) await new Promise((r) => setTimeout(r, 2000));
+      }
     }
     return NextResponse.json({ statusCode: 502, error: "BadGateway", message: String(lastErr).slice(0, 300) }, { status: 502 });
   } catch (e) { return handleError(e); }

@@ -70,39 +70,40 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
     ? episodeChars.filter((c) => sceneNames.includes(c.name.toLowerCase().trim()))
     : episodeChars;
 
+  // URLs are useless to a text model — just waste tokens. Keep the description only.
   const charactersBlock = inScene.length === 0
-    ? "(no recurring cast in this scene)"
+    ? "(no recurring cast)"
     : inScene.map((c) => {
-        const front = c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0];
-        return [
-          `• ${c.name}${c.roleType ? ` (${c.roleType})` : ""}`,
-          c.appearance && `   appearance: ${c.appearance.slice(0, 300)}`,
-          c.wardrobeRules && `   wardrobe: ${c.wardrobeRules.slice(0, 200)}`,
-          c.personality && `   personality: ${c.personality.slice(0, 200)}`,
-          front?.fileUrl && `   ref_image_url: ${front.fileUrl}`,
-        ].filter(Boolean).join("\n");
-      }).join("\n\n");
+        const hasGallery = c.media.length > 0;
+        return `• ${c.name}${c.roleType ? ` (${c.roleType})` : ""} — ${(c.appearance ?? "").slice(0, 180)}${c.wardrobeRules ? ` | wardrobe: ${c.wardrobeRules.slice(0, 120)}` : ""}${hasGallery ? " [has reference images]" : ""}`;
+      }).join("\n");
 
   const framesBlock = scene.frames.length === 0
-    ? "(no storyboard frames yet)"
-    : scene.frames.map((f, i) => {
-        const img = f.approvedImageUrl || f.generatedImageUrl;
-        return [
-          `#${i + 1}: ${f.beatSummary ?? "—"}`,
-          f.imagePrompt && `   prompt: ${f.imagePrompt.slice(0, 200)}`,
-          img && `   frame_image_url: ${img}`,
-        ].filter(Boolean).join("\n");
-      }).join("\n");
+    ? "(no frames yet)"
+    : scene.frames.slice(0, 6).map((f, i) => `#${i + 1}: ${(f.beatSummary ?? "").slice(0, 150)}`).join("\n");
+
+  // Pull in the director's manual notes + latest critic scores (last 2) so
+  // the sheet integrates everything the user has told us.
+  const mc = (scene.memoryContext as { directorNotes?: string; soundNotes?: string } | null) ?? {};
+  const critics = await prisma.aICriticReview.findMany({
+    where: { sceneId },
+    orderBy: { createdAt: "desc" },
+    take: 2,
+    select: { contentType: true, score: true, feedback: true },
+  }).catch(() => []);
 
   const user = [
     project && `SERIES: ${project.name} · language ${project.language}${project.genreTag ? ` · genre ${project.genreTag}` : ""}`,
-    bible && `BIBLE:\n${bible.slice(0, 1500)}`,
+    bible && `BIBLE:\n${bible.slice(0, 1200)}`,
     `EPISODE: #${scene.episode?.episodeNumber ?? "?"} ${scene.episode?.title ?? ""}`,
     `SCENE ${scene.sceneNumber}: ${scene.title ?? ""}`,
     scene.summary && `SUMMARY: ${scene.summary}`,
     scene.scriptText && `SCRIPT:\n${scene.scriptText.slice(0, 1200)}`,
-    `CHARACTERS IN THIS SCENE (use their exact appearance in [Character] section; lock identity to their ref_image_urls — DO NOT invent new faces):\n${charactersBlock}`,
-    `STORYBOARD FRAMES (build the [Shots] timeline around these exact beats, reference them in order):\n${framesBlock}`,
+    `CHARACTERS (use exact names; repeat appearance so identity locks to the reference images we will pass at render time):\n${charactersBlock}`,
+    `STORYBOARD FRAMES (build [Shots] timeline from these beats in order):\n${framesBlock}`,
+    mc.directorNotes && `DIRECTOR NOTES (honor these above all):\n${mc.directorNotes.slice(0, 500)}`,
+    mc.soundNotes && `SOUND NOTES (fold into [Audio]):\n${mc.soundNotes.slice(0, 400)}`,
+    critics.length > 0 && `LATEST CRITIC FEEDBACK (address these in the sheet):\n${critics.map((c) => `- ${c.contentType} ${(c.score * 100).toFixed(0)}%: ${(c.feedback ?? "").slice(0, 200)}`).join("\n")}`,
   ].filter(Boolean).join("\n\n");
 
   let sheet: Omit<DirectorSheet, "generatedAt">;
@@ -110,7 +111,7 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
     sheet = await groqJson<Omit<DirectorSheet, "generatedAt">>(
       SYSTEM,
       user,
-      { temperature: 0.4, maxTokens: 1200, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
+      { temperature: 0.4, maxTokens: 2000, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
     );
   } catch (e) {
     throw new Error(`AI failed: ${(e as Error).message.slice(0, 200)}`);

@@ -591,32 +591,14 @@ export default function ScenePage() {
             key={scene.memoryContext?.soundNotes ?? "empty"}
             defaultValue={scene.memoryContext?.soundNotes ?? ""}
             onBlur={(e) => saveSoundNotes(e.target.value)}
-            rows={6}
+            rows={Math.max(6, Math.min(40, (scene.memoryContext?.soundNotes ?? "").split("\n").length + 2))}
             placeholder={he ? "למשל: מוזיקה מתמתחת ברקע · תקתוקי שעון · נשימות כבדות של הדמות · קול טלפון מצלצל לעצירה חדה" : "e.g. tense music builds under · clock ticking · heavy breathing · phone ring, sharp cut"}
-            className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm"
+            className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm whitespace-pre-wrap"
+            style={{ resize: "vertical", minHeight: 120 }}
           />
           <div className="text-[11px] text-text-muted mt-2">{he ? "יציאה שומרת · שינויים נשמרים לצמיתות ללמידה עתידית" : "Blur saves · history preserved for future learning"}</div>
         </Card>
 
-        <Card title={he ? "תגובות" : "Comments"} subtitle={`${comments.length} ${he ? "תגובות" : "comments"}`}>
-          <form onSubmit={postComment} className="mb-4">
-            <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} rows={2} placeholder={he ? "השאר תגובה..." : "Leave a comment…"} className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm mb-2" />
-            <button className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">{he ? "פרסם" : "Post"}</button>
-          </form>
-          {comments.length === 0 ? (
-            <div className="text-text-muted text-sm">{he ? "אין תגובות עדיין." : "No comments yet."}</div>
-          ) : (
-            <ul className="space-y-3">
-              {comments.map((c) => (
-                <li key={c.id} className={`text-sm ${c.resolved ? "opacity-60" : ""}`}>
-                  <div className="font-semibold text-xs">{c.user.fullName}</div>
-                  <div className="text-text-secondary">{c.body}</div>
-                  <div className="text-[10px] text-text-muted">{new Date(c.createdAt).toLocaleString()}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
       </div>
       </div>
 

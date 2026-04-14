@@ -4,9 +4,9 @@
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
-// 2.5-flash often returns 503 'high demand'. We try a chain: 2.5-flash → 1.5-flash → 2.0-flash
-// before giving up to Groq. All are billed similarly via the same key.
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
+// 2.5-flash is currently throwing 503 globally. 1.5-flash has more capacity.
+// Order tries the more reliable one first today; revisit when 2.5 stabilizes.
+const GEMINI_MODELS = ["gemini-1.5-flash", "gemini-2.5-flash"];
 const GEMINI_URL = (m: string) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };

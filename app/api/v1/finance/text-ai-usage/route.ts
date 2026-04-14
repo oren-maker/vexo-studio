@@ -12,10 +12,15 @@ export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
+    const orgProjects = await prisma.project.findMany({ where: { organizationId: ctx.organizationId }, select: { id: true } });
+    const projectIds = orgProjects.map((p) => p.id);
     const entries = await prisma.costEntry.findMany({
       where: {
         entityType: "AI_TEXT",
-        project: { organizationId: ctx.organizationId },
+        OR: [
+          { projectId: { in: projectIds } },
+          { projectId: null },
+        ],
       },
       orderBy: { createdAt: "desc" },
       take: 200,

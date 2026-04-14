@@ -39,11 +39,19 @@ export async function fetchGeminiUsage(organizationId: string): Promise<GeminiBa
   startOfMonth.setUTCDate(1);
   startOfMonth.setUTCHours(0, 0, 0, 0);
 
+  // Two-step query — Prisma's relation filter on a nullable `project` relation
+  // is fussy across versions. Get the org's projectIds first, then filter by
+  // projectId IN [...] OR null (calls without project context still count).
+  const orgProjects = await prisma.project.findMany({ where: { organizationId }, select: { id: true } });
+  const projectIds = orgProjects.map((p) => p.id);
   const entries = await prisma.costEntry.findMany({
     where: {
       entityType: "AI_TEXT",
-      project: { organizationId },
       createdAt: { gte: startOfMonth },
+      OR: [
+        { projectId: { in: projectIds } },
+        { projectId: null },
+      ],
     },
     select: { totalCost: true, meta: true },
   });

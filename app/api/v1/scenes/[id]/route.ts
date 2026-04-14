@@ -82,12 +82,44 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     let sceneCharacters: unknown[] = [];
     const projectId = epRow?.season.series.projectId;
-    if (projectId && names.length > 0) {
+    if (projectId) {
+      // Union of three signals:
+      //   1. memoryContext.characters (what the generator/director explicitly marked)
+      //   2. EpisodeCharacter links (who appears in this episode per the cast)
+      //   3. Names mentioned in scriptText (SPEAKER: lines, ALL CAPS tokens)
+      const fromScript = new Set<string>();
+      if (scene.scriptText) {
+        for (const line of scene.scriptText.split(/\n+/)) {
+          const m = line.match(/^([A-Z][A-Z \-.']{1,40})\s*(?:\(|:)/);
+          if (m) fromScript.add(m[1].trim().toLowerCase());
+          // Also catch any ALL-CAPS tokens 3+ chars (names like MIRA, MAYA)
+          for (const tok of line.match(/\b[A-Z][A-Z]{2,}\b/g) ?? []) {
+            if (tok.length <= 30) fromScript.add(tok.toLowerCase());
+          }
+        }
+      }
+
+      const epChars = await prisma.episodeCharacter.findMany({
+        where: { episodeId: scene.episodeId ?? "__none__" },
+        include: { character: { include: { media: { take: 1, orderBy: { createdAt: "asc" } } } } },
+      });
+
+      const candidateNames = new Set<string>([
+        ...names,
+        ...epChars.map((ec) => ec.character.name.toLowerCase().trim()),
+        ...fromScript,
+      ]);
+
       const all = await prisma.character.findMany({
-        where: { projectId, name: { in: names, mode: "insensitive" } },
+        where: { projectId },
         include: { media: { take: 1, orderBy: { createdAt: "asc" } } },
       });
-      sceneCharacters = all;
+      sceneCharacters = all.filter((c) => {
+        const n = c.name.toLowerCase().trim();
+        return candidateNames.has(n)
+          // Also allow first-name match against script ALL-CAPS tokens
+          || [...candidateNames].some((cand) => n.startsWith(cand) || cand.startsWith(n.split(" ")[0]));
+      });
     }
 
     return ok({ ...scene, frames: framesWithCost, sceneCharacters, videos });

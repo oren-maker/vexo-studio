@@ -22,21 +22,25 @@ export interface DirectorSheet {
   generatedAt: string;
 }
 
-const SYSTEM = `You are a senior AI video prompt engineer building a production-ready Director Sheet for ONE scene in a TV series. You will be given: series bible, episode+scene details, the EXACT characters appearing (with appearance + reference image URLs), and the storyboard frame beats (with frame image URLs). Your output is fed directly into VEO 3 / SeeDance / Kling.
+const SYSTEM = `You are a senior AI video prompt engineer writing a Director Sheet for ONE specific scene in a TV series.
 
-Return JSON with EXACTLY these keys, each a string (not nested):
+**CRITICAL RULE: Every section MUST be grounded in the actual script text that follows. Do NOT write generic cinematography advice. Read the dialogue, the actions, the character beats — then describe EXACTLY what happens and how to shoot it professionally.**
+
+You will receive: series bible · episode+scene details · script (dialogue + action lines) · characters in scene (with appearance) · storyboard frames (ordered beats) · optional director notes · optional sound notes · latest critic feedback.
+
+Return JSON with EXACTLY these 8 keys, each a string (not nested):
 {
-  "style":     "visual signature — palette, lens, depth of field, film grade, mood (1-3 sentences). Must fit the series genre.",
-  "scene":     "location + lighting + atmosphere + foreground/midground/background layers, all specific to THIS scene (1-3 sentences)",
-  "character": "NAME every character from the input; repeat their exact appearance (hair, eyes, wardrobe, build, distinctive features) so the model locks their identity to the reference images. 2-4 sentences. Never invent a new character, never describe in generic terms if a ref_image_url was provided.",
-  "shots":     "timecoded beats that MAP to the storyboard frames in order. Format: [00:00-00:0X] <frame #1 beat>. [00:0X-00:0Y] <frame #2 beat>. If frames exist, use them verbatim as the shot list.",
-  "camera":    "primary movement + secondary technique + operator feel (1-2 sentences)",
-  "effects":   "VFX, physics, particles, any slow-mo moments (1-2 sentences or 'none' if nothing)",
-  "audio":     "SFX foreground, mid-layer ambience, music arc, dialogue strategy with character names speaking (2-3 sentences)",
-  "technical": "aspect ratio, total seconds (match the number of frames × ~3s each, max 12), fps (24), identity-consistency rule: 'match the reference images for every character across all shots — no face drift'."
+  "style":     "Visual signature grounded in the scene's emotional tone — palette, lens, depth, film grade, mood. Reference the script's mood, not generic. (1-3 sentences)",
+  "scene":     "Location + lighting + atmosphere + foreground/midground/background layers — exactly what the script describes. If the script says 'dim bedroom at night', the sheet reflects THAT. (1-3 sentences)",
+  "character": "Name every character speaking/acting in the script. Repeat their appearance (hair, eyes, wardrobe, build) so identity locks to reference images. Describe their STATE in this scene per the script (anxious, suspicious, etc). 2-4 sentences.",
+  "shots":     "Map each storyboard frame to a timecoded beat from the script's action. Format: [00:00-00:0X] — <what's on screen at this beat, from the frame + script>. [00:0X-00:0Y] — <next beat>. Use frames verbatim when present.",
+  "camera":    "Camera movement + lens + framing choices that SERVE this scene's emotion. E.g. 'handheld close-up that tightens during Mira's line' — link to the script's actions. (1-2 sentences)",
+  "effects":   "VFX/physics/particles/slow-mo only if the script suggests it (e.g. memory flash, impact). Otherwise 'none'. (1-2 sentences)",
+  "audio":     "SFX foreground + mid ambience + music arc + dialogue: name characters speaking lines from the script. Respect any sound notes the user added. (2-3 sentences)",
+  "technical": "Aspect ratio, total seconds (tied to frame count × ~3s, max 12), 24fps, and: 'Lock identity to the reference images for every character across all shots — no face drift.'"
 }
 
-Match the tone/genre of the series. Keep each section TIGHT (under 500 chars). No markdown. No brackets in values.`;
+Honor: director notes > sound notes > critic feedback, in that priority. Keep each section TIGHT (under 500 chars). No markdown. No nested objects. No placeholder text.`;
 
 export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet> {
   const scene = await prisma.scene.findUnique({

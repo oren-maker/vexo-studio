@@ -23,9 +23,21 @@ export default function AIDirectorPage() {
     load();
   }
 
+  const [busy, setBusy] = useState(false);
+  const [lastResult, setLastResult] = useState<{ action: string; reason: string } | null>(null);
+
   async function run() {
-    await api(`/api/v1/projects/${id}/ai-director/run`, { method: "POST" });
-    load();
+    setBusy(true);
+    setLastResult(null);
+    try {
+      const r = await api<{ action: string; reason: string }>(`/api/v1/projects/${id}/ai-director/run`, { method: "POST" });
+      setLastResult(r);
+      await load();
+    } catch (e: unknown) {
+      setLastResult({ action: "ERROR", reason: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (!director) return <div className="text-text-muted">Loading…</div>;
@@ -57,8 +69,14 @@ export default function AIDirectorPage() {
           </label>
           <div className="flex justify-between items-center">
             <div className="text-xs text-text-muted">Experience score: <span className="num font-bold">{director.experienceScore.toFixed(2)}</span></div>
-            <button onClick={run} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">Run next step</button>
+            <button disabled={busy} onClick={run} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">{busy ? "Thinking…" : "Run next step"}</button>
           </div>
+          {lastResult && (
+            <div className={`rounded-lg p-3 text-sm ${lastResult.action === "ERROR" ? "bg-status-errBg text-status-errText" : "bg-status-okBg text-status-okText"}`}>
+              <div className="font-semibold">{lastResult.action}</div>
+              <div className="text-xs">{lastResult.reason}</div>
+            </div>
+          )}
         </div>
       </Card>
       <Card title="Action log" subtitle={`${logs.length} entries`}>

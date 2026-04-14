@@ -4,7 +4,7 @@ import { assertProjectInOrg } from "@/lib/plan-limits";
 import { AIDirector } from "@/lib/services";
 import { handleError, ok } from "@/lib/route-utils";
 
-export const runtime = "nodejs"; export const dynamic = "force-dynamic";
+export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {

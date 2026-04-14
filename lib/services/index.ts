@@ -122,21 +122,35 @@ export const StyleEngine = {
 export const AIDirector = {
   async runNextStep(projectId: string) {
     let action = "noop";
-    let reason = "stub";
-    if (hasGroq()) {
-      try {
-        const project = await prisma.project.findUnique({
-          where: { id: projectId },
-          include: { series: { include: { seasons: { include: { episodes: { take: 5, orderBy: { episodeNumber: "asc" } } } } } } },
-        });
-        const j = await groqJson<{ action: string; reason: string; nextEntity?: string }>(
-          "You are an AI production director. Given a project state, decide the single next action to take. Allowed actions: 'create_episode', 'write_scene', 'generate_storyboard', 'review_pending', 'publish', 'noop'. Respond with JSON: { action, reason, nextEntity? }",
-          `Project: ${project?.name}\nStatus: ${project?.status}\nSeries: ${project?.series?.length ?? 0}\nState: ${JSON.stringify(project?.series?.[0]?.seasons?.[0] ?? {})}`,
-          { temperature: 0.5, maxTokens: 200 },
-        );
-        action = j.action; reason = j.reason;
-      } catch (e) { reason = `groq error: ${(e as Error).message}`; }
-    }
+    let reason = "no AI provider configured";
+    try {
+      // Lightweight project snapshot
+      const [project, scenesPending, episodesReview, episodesReady] = await Promise.all([
+        prisma.project.findUnique({ where: { id: projectId }, select: { name: true, status: true, contentType: true, genreTag: true } }),
+        prisma.scene.count({ where: { episode: { season: { series: { projectId } } }, status: { in: ["STORYBOARD_REVIEW", "VIDEO_REVIEW"] } } }),
+        prisma.episode.count({ where: { season: { series: { projectId } }, status: "REVIEW" } }),
+        prisma.episode.count({ where: { season: { series: { projectId } }, status: "READY_FOR_PUBLISH" } }),
+      ]);
+      if (hasGroq()) {
+        try {
+          const j = await groqJson<{ action: string; reason: string }>(
+            "You are an AI production director. Pick exactly one next action. Allowed: create_episode, write_scene, generate_storyboard, review_pending, publish, noop. Respond JSON: {action, reason}",
+            `Project: ${project?.name}\nType: ${project?.contentType}\nStatus: ${project?.status}\nScenes pending review: ${scenesPending}\nEpisodes in review: ${episodesReview}\nEpisodes ready to publish: ${episodesReady}`,
+            { temperature: 0.4, maxTokens: 150 },
+          );
+          action = j.action ?? "noop";
+          reason = j.reason ?? "—";
+        } catch (e) {
+          // Heuristic fallback
+          if (episodesReady > 0) { action = "publish"; reason = `${episodesReady} episode(s) ready (AI fallback)`; }
+          else if (scenesPending > 0) { action = "review_pending"; reason = `${scenesPending} scene(s) await review (AI fallback)`; }
+          else { action = "noop"; reason = `AI error: ${(e as Error).message.slice(0, 100)}`; }
+        }
+      } else {
+        if (episodesReady > 0) { action = "publish"; reason = `${episodesReady} episode(s) ready`; }
+        else if (scenesPending > 0) { action = "review_pending"; reason = `${scenesPending} scene(s) await review`; }
+      }
+    } catch (e) { reason = `error: ${(e as Error).message.slice(0, 100)}`; }
     await prisma.aILog.create({ data: { projectId, actorType: "DIRECTOR", actionType: action, decisionReason: reason, input: {}, output: { action, reason } } });
     return { action, reason };
   },

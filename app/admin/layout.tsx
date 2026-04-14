@@ -31,8 +31,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/logs", label: t("nav.audit.logs") },
   ];
 
+  // Collapsible "General Settings" group (per-user settings)
+  const GENERAL: Array<{ href: string; label: string }> = [
+    { href: "/account/2fa",      label: lang === "he" ? "אימות דו-שלבי" : "Two-factor auth" },
+    { href: "/account/sessions", label: lang === "he" ? "לוג כניסה" : "Login log" },
+  ];
+
   const inSettings = SETTINGS.some((n) => pathname.startsWith(n.href));
+  const inGeneral = GENERAL.some((n) => pathname.startsWith(n.href));
   const [settingsOpen, setSettingsOpen] = useState<boolean>(inSettings);
+  const [generalOpen, setGeneralOpen] = useState<boolean>(inGeneral);
 
   return (
     <AuthGuard>
@@ -84,10 +92,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
             )}
 
-            {/* Account stays separate at the bottom */}
-            <div className="px-6 pt-4 pb-1 text-[10px] uppercase tracking-widest text-sidebar-muted">{t("section.account")}</div>
-            <Link href="/account/sessions" className={`block px-6 py-2 text-sm font-medium transition border-s-[3px] ${pathname.startsWith("/account/sessions") ? "bg-white/5 text-white border-accent-cyan" : "border-transparent hover:bg-white/5 hover:text-white hover:border-accent-cyan"}`}>{t("nav.sessions")}</Link>
-            <Link href="/account/2fa" className={`block px-6 py-2 text-sm font-medium transition border-s-[3px] ${pathname.startsWith("/account/2fa") ? "bg-white/5 text-white border-accent-cyan" : "border-transparent hover:bg-white/5 hover:text-white hover:border-accent-cyan"}`}>{t("nav.2fa")}</Link>
+            {/* Collapsible General Settings group (per-user) */}
+            <button
+              type="button"
+              onClick={() => setGeneralOpen((v) => !v)}
+              className={`w-full flex items-center justify-between px-6 py-2 mt-2 text-sm font-medium border-s-[3px] border-transparent transition ${inGeneral ? "bg-white/5 text-white border-accent-cyan" : "hover:bg-white/5 hover:text-white"}`}
+            >
+              <span>{lang === "he" ? "הגדרות כלליות" : "General Settings"}</span>
+              <span className="text-xs">{generalOpen ? "▾" : "▸"}</span>
+            </button>
+            {generalOpen && (
+              <div className="bg-white/[0.02] py-1">
+                {GENERAL.map((n) => {
+                  const active = pathname.startsWith(n.href);
+                  return (
+                    <Link
+                      key={n.href}
+                      href={n.href}
+                      className={`block ps-10 pe-6 py-1.5 text-sm transition border-s-[3px] ${active ? "text-white border-accent-cyan" : "text-sidebar-text/80 border-transparent hover:text-white hover:bg-white/5 hover:border-accent-cyan"}`}
+                    >
+                      {n.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </nav>
         </aside>
 

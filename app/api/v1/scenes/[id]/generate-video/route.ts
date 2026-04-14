@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { CostStrategy } from "@/lib/services";
 import { submitVideo, type VideoModel } from "@/lib/providers/fal";
+import { fetchReferencePrompts, buildReferenceContext } from "@/lib/providers/vexo-learn";
 import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
@@ -37,12 +38,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return ok({ jobId: `stub-${Date.now()}`, estimate, note: "FAL_API_KEY not set; status flipped without generation." });
     }
 
-    const prompt = [
+    const basePrompt = [
       scene.title && `Title: ${scene.title}`,
       scene.summary && `Summary: ${scene.summary}`,
       scene.scriptText && `Script:\n${scene.scriptText}`,
       "Cinematic, high quality, 24fps.",
     ].filter(Boolean).join("\n\n");
+
+    // Pull Seedance reference prompts to guide tone/level of detail
+    const refQuery = [scene.title, scene.summary].filter(Boolean).join(" ");
+    const refs = await fetchReferencePrompts(refQuery, 3);
+    const referenceCtx = buildReferenceContext(refs);
+    const prompt = referenceCtx ? `${basePrompt}${referenceCtx}` : basePrompt;
 
     // Build webhook URL pointing back at us
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? `https://${req.headers.get("host")}`;

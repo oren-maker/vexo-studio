@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { useLang } from "@/lib/i18n";
 
-type Media = { id: string; fileUrl: string; cost?: number; metadata?: { angle?: string } };
+type Media = { id: string; fileUrl: string; cost?: number; createdAt?: string; mediaType?: string; metadata?: { angle?: string; provider?: string; prompt?: string } };
 type Character = {
   id: string; name: string; roleType: string | null; gender: string | null; ageRange: string | null;
   appearance: string | null; personality: string | null; wardrobeRules: string | null;
@@ -82,7 +82,23 @@ export default function CharactersPage() {
     finally { setGenBusy(null); }
   }
 
-  const [lightbox, setLightbox] = useState<Media | null>(null);
+  const [lightbox, setLightbox] = useState<{ character: Character; index: number } | null>(null);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const gallery = lightbox.character.media;
+        if (gallery.length < 2) return;
+        const delta = e.key === "ArrowRight" ? (lang === "he" ? -1 : 1) : (lang === "he" ? 1 : -1);
+        const next = (lightbox.index + delta + gallery.length) % gallery.length;
+        setLightbox({ character: lightbox.character, index: next });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, lang]);
 
   async function autoPopulate() {
     if (!confirm(lang === "he" ? "לזהות דמויות ראשיות אוטומטית מכל הפרקים? קיימות לא יימחקו." : "Auto-detect main characters from all episodes? Existing ones are preserved.")) return;
@@ -193,8 +209,8 @@ export default function CharactersPage() {
                     <div className="text-xs text-text-muted text-center py-4 bg-bg-card rounded-lg">{lang === "he" ? "אין תמונות עדיין" : "No images yet"}</div>
                   ) : (
                     <div className="grid grid-cols-5 gap-1">
-                      {c.media.slice(0, 5).map((m) => (
-                        <button key={m.id} onClick={() => setLightbox(m)} className="relative aspect-square rounded overflow-hidden bg-bg-card group">
+                      {c.media.slice(0, 5).map((m, i) => (
+                        <button key={m.id} onClick={() => setLightbox({ character: c, index: i })} className="relative aspect-square rounded overflow-hidden bg-bg-card group">
                           <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                           <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5 num opacity-0 group-hover:opacity-100 transition-opacity">${(m.cost ?? 0).toFixed(3)}</span>
                         </button>
@@ -208,17 +224,38 @@ export default function CharactersPage() {
         )}
       </Card>
 
-      {lightbox && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setLightbox(null)}>
-          <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <img src={lightbox.fileUrl} alt={lightbox.metadata?.angle ?? ""} className="max-w-full max-h-[90vh] rounded-lg" />
-            <div className="absolute top-2 end-2 flex gap-2">
-              <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full">{lightbox.metadata?.angle ?? ""} · <span className="num">${(lightbox.cost ?? 0).toFixed(4)}</span></span>
-              <button onClick={() => setLightbox(null)} className="bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+      {lightbox && (() => {
+        const gallery = lightbox.character.media;
+        const m = gallery[lightbox.index];
+        if (!m) return null;
+        const go = (delta: number) => setLightbox({ character: lightbox.character, index: (lightbox.index + delta + gallery.length) % gallery.length });
+        const created = m.createdAt ? new Date(m.createdAt).toLocaleString() : "—";
+        const provider = m.metadata?.provider ?? "fal.ai/nano-banana";
+        return (
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50" onClick={() => setLightbox(null)}>
+            <div className="relative max-w-5xl w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-center gap-2">
+                {gallery.length > 1 && (
+                  <button onClick={() => go(lang === "he" ? 1 : -1)} className="bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full shrink-0 text-xl" aria-label="prev">‹</button>
+                )}
+                <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="max-w-full max-h-[80vh] rounded-lg" />
+                {gallery.length > 1 && (
+                  <button onClick={() => go(lang === "he" ? -1 : 1)} className="bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full shrink-0 text-xl" aria-label="next">›</button>
+                )}
+              </div>
+              <button onClick={() => setLightbox(null)} className="absolute top-2 end-2 bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+              <div className="mt-3 bg-black/70 text-white rounded-lg p-3 text-xs flex flex-wrap gap-x-6 gap-y-1 items-center">
+                <div><span className="text-white/60">{lang === "he" ? "דמות" : "Character"}: </span><span className="font-semibold">{lightbox.character.name}</span></div>
+                <div><span className="text-white/60">{lang === "he" ? "זווית" : "Angle"}: </span><span className="font-semibold">{m.metadata?.angle ?? "—"}</span></div>
+                <div><span className="text-white/60">{lang === "he" ? "מודל" : "Model"}: </span><span className="font-semibold">{provider}</span></div>
+                <div><span className="text-white/60">{lang === "he" ? "נוצר" : "Created"}: </span><span className="num">{created}</span></div>
+                <div><span className="text-white/60">{lang === "he" ? "עלות" : "Cost"}: </span><span className="num font-semibold">${(m.cost ?? 0).toFixed(4)}</span></div>
+                <div className="ms-auto text-white/60 num">{lightbox.index + 1} / {gallery.length}</div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {editing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setEditing(null)}>

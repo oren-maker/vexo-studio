@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { CostStrategy, StyleEngine } from "@/lib/services";
 import { generateImage, priceImage } from "@/lib/providers/fal";
+import { fetchReferencePrompts, buildReferenceContext } from "@/lib/providers/vexo-learn";
 import { chargeUsd } from "@/lib/billing";
 import { handleError, ok } from "@/lib/route-utils";
 
@@ -48,12 +49,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       // Limit parallelism to avoid rate limits + serverless timeout
       for (const frame of frames) {
         try {
-          const prompt = [frame.imagePrompt, stylePrompt && `Style: ${stylePrompt}`].filter(Boolean).join("\n\n");
-          if (!prompt) { generated.push({ frameId: frame.id, imageUrl: null, error: "no prompt" }); continue; }
+          const basePrompt = frame.imagePrompt;
+          if (!basePrompt) { generated.push({ frameId: frame.id, imageUrl: null, error: "no prompt" }); continue; }
+          const refs = await fetchReferencePrompts(basePrompt, 3);
+          const referenceCtx = buildReferenceContext(refs);
+          const prompt = [
+            basePrompt,
+            stylePrompt && `Style: ${stylePrompt}`,
+            referenceCtx,
+          ].filter(Boolean).join("\n\n");
           const r = await generateImage({ prompt, negativePrompt: frame.negativePrompt ?? undefined, aspectRatio: body.aspectRatio, model: body.imageModel });
           await prisma.sceneFrame.update({ where: { id: frame.id }, data: { generatedImageUrl: r.imageUrl, status: "READY" } });
           await prisma.asset.create({
-            data: { projectId, entityType: "FRAME", entityId: frame.id, assetType: "IMAGE", fileUrl: r.imageUrl, mimeType: "image/jpeg", status: "READY", metadata: { provider: "fal", model: body.imageModel ?? "nano-banana" } },
+            data: { projectId, entityType: "FRAME", entityId: frame.id, assetType: "IMAGE", fileUrl: r.imageUrl, mimeType: "image/jpeg", status: "READY", metadata: { provider: "fal", model: body.imageModel ?? "nano-banana", referencePromptIds: refs.map((r) => r.externalId).filter(Boolean) } },
           });
           await chargeUsd({
             organizationId: ctx.organizationId, projectId,

@@ -12,7 +12,7 @@ type Scene = { id: string; sceneNumber: number; status: string; scriptText: stri
 type EpisodeChar = { character: { id: string; name: string; media: { fileUrl: string }[] } };
 type Episode = { id: string; episodeNumber: number; title: string; synopsis: string | null; status: string; scenes: Scene[]; characters?: EpisodeChar[] };
 type Season = { id: string; seasonNumber: number; title: string | null; description: string | null; series: { projectId: string; project: { id: string; name: string } } };
-type CharMedia = { id: string; fileUrl: string; cost?: number; metadata?: { angle?: string } };
+type CharMedia = { id: string; fileUrl: string; cost?: number; createdAt?: string; metadata?: { angle?: string; provider?: string } };
 type ProjectCharacter = { id: string; name: string; roleType: string | null; gender: string | null; ageRange: string | null; appearance: string | null; media: CharMedia[] };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -131,7 +131,22 @@ export default function SeasonPage() {
     finally { setCharBusy(null); }
   }
 
-  const [lightbox, setLightbox] = useState<CharMedia | null>(null);
+  const [lightbox, setLightbox] = useState<{ character: ProjectCharacter; index: number } | null>(null);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const g = lightbox.character.media;
+        if (g.length < 2) return;
+        const delta = e.key === "ArrowRight" ? (lang === "he" ? -1 : 1) : (lang === "he" ? 1 : -1);
+        setLightbox({ character: lightbox.character, index: (lightbox.index + delta + g.length) % g.length });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, lang]);
 
   async function newEpisode(e: React.FormEvent) {
     e.preventDefault();
@@ -416,8 +431,8 @@ export default function SeasonPage() {
                   </div>
                   {c.appearance && <div className="text-[11px] text-text-secondary line-clamp-2">{c.appearance}</div>}
                   <div className="grid grid-cols-5 gap-1">
-                    {c.media.slice(0, 5).map((m) => (
-                      <button key={m.id} onClick={() => setLightbox(m)} className="relative aspect-square rounded overflow-hidden bg-bg-card group">
+                    {c.media.slice(0, 5).map((m, i) => (
+                      <button key={m.id} onClick={() => setLightbox({ character: c, index: i })} className="relative aspect-square rounded overflow-hidden bg-bg-card group">
                         <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                         <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5 num opacity-0 group-hover:opacity-100">${(m.cost ?? 0).toFixed(3)}</span>
                       </button>
@@ -501,17 +516,34 @@ export default function SeasonPage() {
       </Card>
       )}
 
-      {lightbox && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setLightbox(null)}>
-          <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <img src={lightbox.fileUrl} alt={lightbox.metadata?.angle ?? ""} className="max-w-full max-h-[90vh] rounded-lg" />
-            <div className="absolute top-2 end-2 flex gap-2">
-              <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full">{lightbox.metadata?.angle ?? ""} · <span className="num">${(lightbox.cost ?? 0).toFixed(4)}</span></span>
-              <button onClick={() => setLightbox(null)} className="bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+      {lightbox && (() => {
+        const g = lightbox.character.media;
+        const m = g[lightbox.index];
+        if (!m) return null;
+        const go = (delta: number) => setLightbox({ character: lightbox.character, index: (lightbox.index + delta + g.length) % g.length });
+        const created = m.createdAt ? new Date(m.createdAt).toLocaleString() : "—";
+        const provider = m.metadata?.provider ?? "fal.ai/nano-banana";
+        return (
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50" onClick={() => setLightbox(null)}>
+            <div className="relative max-w-5xl w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-center gap-2">
+                {g.length > 1 && <button onClick={() => go(lang === "he" ? 1 : -1)} className="bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full shrink-0 text-xl">‹</button>}
+                <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="max-w-full max-h-[80vh] rounded-lg" />
+                {g.length > 1 && <button onClick={() => go(lang === "he" ? -1 : 1)} className="bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full shrink-0 text-xl">›</button>}
+              </div>
+              <button onClick={() => setLightbox(null)} className="absolute top-2 end-2 bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+              <div className="mt-3 bg-black/70 text-white rounded-lg p-3 text-xs flex flex-wrap gap-x-6 gap-y-1 items-center">
+                <div><span className="text-white/60">{lang === "he" ? "דמות" : "Character"}: </span><span className="font-semibold">{lightbox.character.name}</span></div>
+                <div><span className="text-white/60">{lang === "he" ? "זווית" : "Angle"}: </span><span className="font-semibold">{m.metadata?.angle ?? "—"}</span></div>
+                <div><span className="text-white/60">{lang === "he" ? "מודל" : "Model"}: </span><span className="font-semibold">{provider}</span></div>
+                <div><span className="text-white/60">{lang === "he" ? "נוצר" : "Created"}: </span><span className="num">{created}</span></div>
+                <div><span className="text-white/60">{lang === "he" ? "עלות" : "Cost"}: </span><span className="num font-semibold">${(m.cost ?? 0).toFixed(4)}</span></div>
+                <div className="ms-auto text-white/60 num">{lightbox.index + 1} / {g.length}</div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

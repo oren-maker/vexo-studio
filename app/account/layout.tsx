@@ -14,8 +14,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   const he = lang === "he";
 
   const items = [
-    { href: "/account/2fa",      label: he ? "אימות דו-שלבי" : "2FA" },
-    { href: "/account/sessions", label: he ? "סשנים פעילים" : "Active sessions" },
+    { href: "/account/2fa",      label: he ? "אימות דו-שלבי" : "Two-factor auth" },
+    { href: "/account/sessions", label: he ? "לוג כניסה" : "Login log" },
   ];
 
   return (

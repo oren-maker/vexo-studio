@@ -75,16 +75,14 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
     : episodeChars;
 
   // URLs are useless to a text model — just waste tokens. Keep the description only.
+  // Aggressive trimming — Gemini hangs on >3KB inputs in our workload.
   const charactersBlock = inScene.length === 0
-    ? "(no recurring cast)"
-    : inScene.map((c) => {
-        const hasGallery = c.media.length > 0;
-        return `• ${c.name}${c.roleType ? ` (${c.roleType})` : ""} — ${(c.appearance ?? "").slice(0, 180)}${c.wardrobeRules ? ` | wardrobe: ${c.wardrobeRules.slice(0, 120)}` : ""}${hasGallery ? " [has reference images]" : ""}`;
-      }).join("\n");
+    ? "(none)"
+    : inScene.slice(0, 4).map((c) => `• ${c.name} — ${(c.appearance ?? "").slice(0, 90)}`).join("\n");
 
   const framesBlock = scene.frames.length === 0
-    ? "(no frames yet)"
-    : scene.frames.slice(0, 6).map((f, i) => `#${i + 1}: ${(f.beatSummary ?? "").slice(0, 150)}`).join("\n");
+    ? "(none)"
+    : scene.frames.slice(0, 4).map((f, i) => `${i + 1}. ${(f.beatSummary ?? "").slice(0, 80)}`).join("\n");
 
   // Pull in the director's manual notes + latest critic scores (last 2) so
   // the sheet integrates everything the user has told us.
@@ -97,17 +95,16 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
   }).catch(() => []);
 
   const user = [
-    project && `SERIES: ${project.name} · language ${project.language}${project.genreTag ? ` · genre ${project.genreTag}` : ""}`,
-    bible && `BIBLE:\n${bible.slice(0, 1200)}`,
-    `EPISODE: #${scene.episode?.episodeNumber ?? "?"} ${scene.episode?.title ?? ""}`,
-    `SCENE ${scene.sceneNumber}: ${scene.title ?? ""}`,
-    scene.summary && `SUMMARY: ${scene.summary}`,
-    scene.scriptText && `SCRIPT:\n${scene.scriptText.slice(0, 1200)}`,
-    `CHARACTERS (use exact names; repeat appearance so identity locks to the reference images we will pass at render time):\n${charactersBlock}`,
-    `STORYBOARD FRAMES (build [Shots] timeline from these beats in order):\n${framesBlock}`,
-    mc.directorNotes && `DIRECTOR NOTES (honor these above all):\n${mc.directorNotes.slice(0, 500)}`,
-    mc.soundNotes && `SOUND NOTES (fold into [Audio]):\n${mc.soundNotes.slice(0, 400)}`,
-    critics.length > 0 && `LATEST CRITIC FEEDBACK (address these in the sheet):\n${critics.map((c) => `- ${c.contentType} ${(c.score * 100).toFixed(0)}%: ${(c.feedback ?? "").slice(0, 200)}`).join("\n")}`,
+    project && `SERIES: ${project.name} · ${project.language}${project.genreTag ? ` · ${project.genreTag}` : ""}`,
+    bible && `BIBLE:\n${bible.slice(0, 500)}`,
+    `EP${scene.episode?.episodeNumber ?? "?"} · SC${scene.sceneNumber} ${scene.title ?? ""}`,
+    scene.summary && `SUMMARY: ${scene.summary.slice(0, 300)}`,
+    scene.scriptText && `SCRIPT:\n${scene.scriptText.slice(0, 700)}`,
+    `CAST:\n${charactersBlock}`,
+    `FRAMES:\n${framesBlock}`,
+    mc.directorNotes && `DIRECTOR NOTES: ${mc.directorNotes.slice(0, 250)}`,
+    mc.soundNotes && `SOUND NOTES: ${mc.soundNotes.slice(0, 200)}`,
+    critics[0] && `LATEST CRITIC: ${(critics[0].feedback ?? "").slice(0, 150)}`,
   ].filter(Boolean).join("\n\n");
 
   // Single AI call only. Two-pass was hitting 60s vercel timeout because each
@@ -119,7 +116,7 @@ export async function buildDirectorSheet(sceneId: string): Promise<DirectorSheet
   try {
     const json = await groqJson<Partial<Omit<DirectorSheet, "generatedAt">>>(
       SYSTEM, user,
-      { temperature: 0.4, maxTokens: 1800, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
+      { temperature: 0.4, maxTokens: 1500, projectId: projectId ?? undefined, description: `Director sheet · scene ${scene.sceneNumber}` },
     );
     sheet = {
       style:     String(json.style ?? "").trim(),

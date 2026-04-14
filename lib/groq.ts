@@ -48,7 +48,9 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
     },
   };
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 12_000);
+  // 25s gives gemini-2.5-flash room for larger JSON responses; we still fit
+  // inside the 60s function budget even with the chargeUsd race afterwards.
+  const timer = setTimeout(() => ctl.abort(), 25_000);
   try {
     const res = await fetch(`${GEMINI_URL}?key=${key}`, {
       method: "POST",

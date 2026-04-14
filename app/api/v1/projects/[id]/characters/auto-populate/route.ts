@@ -10,11 +10,28 @@
  * character, or /generate-all-galleries for bulk).
  */
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { assertProjectInOrg } from "@/lib/plan-limits";
 import { groqJson } from "@/lib/groq";
 import { handleError, ok } from "@/lib/route-utils";
+
+const Body = z.object({
+  preview: z.boolean().optional(),
+  // Apply-mode: client sends back the list it received in preview (possibly trimmed/edited)
+  characters: z.array(z.object({
+    name: z.string(),
+    roleType: z.string().optional(),
+    gender: z.string().optional(),
+    ageRange: z.string().optional(),
+    appearance: z.string(),
+    personality: z.string().optional(),
+    wardrobeRules: z.string().optional(),
+    speechStyle: z.string().optional(),
+    appearsInEpisodes: z.array(z.number()),
+  })).optional(),
+}).partial();
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
@@ -35,6 +52,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     const f = requirePermission(ctx, "edit_project"); if (f) return f;
     await assertProjectInOrg(params.id, ctx.organizationId);
+
+    const body = req.headers.get("content-length") && Number(req.headers.get("content-length")) > 0
+      ? Body.parse(await req.json()) : Body.parse({});
 
     const project = await prisma.project.findUnique({
       where: { id: params.id },
@@ -58,6 +78,54 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const allEpisodes = project.series.flatMap((s) => s.seasons.flatMap((se) => se.episodes));
     if (allEpisodes.length === 0) throw Object.assign(new Error("no episodes to analyze"), { statusCode: 400 });
 
+    const existing = await prisma.character.findMany({ where: { projectId: project.id } });
+    const existingByName = new Map(existing.map((c) => [c.name.toLowerCase().trim(), c]));
+    const epByNumber = new Map(allEpisodes.map((e) => [e.episodeNumber, e]));
+
+    // ----- APPLY MODE: client sent a list back, just persist it -----
+    if (body.characters && body.characters.length > 0) {
+      const created: { id: string; name: string; episodes: number }[] = [];
+      const skipped: string[] = [];
+      for (const c of body.characters) {
+        const key = c.name.toLowerCase().trim();
+        let character = existingByName.get(key);
+        if (!character) {
+          character = await prisma.character.create({
+            data: {
+              projectId: project.id,
+              name: c.name.trim(),
+              roleType: c.roleType, characterType: "HUMAN",
+              gender: c.gender, ageRange: c.ageRange,
+              appearance: c.appearance, personality: c.personality,
+              wardrobeRules: c.wardrobeRules, speechStyle: c.speechStyle,
+            },
+          });
+          existingByName.set(key, character);
+        } else {
+          skipped.push(character.name);
+        }
+        const epIds = (c.appearsInEpisodes ?? [])
+          .map((n) => epByNumber.get(n)?.id)
+          .filter((x): x is string => !!x);
+        if (epIds.length > 0) {
+          await prisma.episodeCharacter.createMany({
+            data: epIds.map((epId) => ({ episodeId: epId, characterId: character!.id })),
+            skipDuplicates: true,
+          });
+        }
+        created.push({ id: character.id, name: character.name, episodes: epIds.length });
+      }
+      return ok({
+        projectId: project.id,
+        projectName: project.name,
+        totalCharacters: created.length,
+        newlyCreated: created.length - skipped.length,
+        skipped,
+        applied: true,
+      });
+    }
+
+    // ----- PREVIEW MODE (default): extract via AI, return without saving -----
     // Build compact episode digest for AI
     const digest = allEpisodes.map((ep) => ({
       n: ep.episodeNumber,
@@ -88,64 +156,17 @@ Stick to MAIN characters. Don't invent characters that aren't in the source. Use
       { temperature: 0.3, maxTokens: 3500 },
     );
 
-    // Map existing characters by lowercased name to avoid duplicates
-    const existing = await prisma.character.findMany({ where: { projectId: project.id } });
-    const existingByName = new Map(existing.map((c) => [c.name.toLowerCase().trim(), c]));
-
-    const created: { id: string; name: string; episodes: number }[] = [];
-    const skipped: string[] = [];
-    const linked: { character: string; episodes: number[] }[] = [];
-
-    const epByNumber = new Map(allEpisodes.map((e) => [e.episodeNumber, e]));
-
-    for (const c of extracted.characters ?? []) {
-      if (!c.name) continue;
-      const key = c.name.toLowerCase().trim();
-      let character = existingByName.get(key);
-
-      if (!character) {
-        character = await prisma.character.create({
-          data: {
-            projectId: project.id,
-            name: c.name.trim(),
-            roleType: c.roleType,
-            characterType: "HUMAN",
-            gender: c.gender,
-            ageRange: c.ageRange,
-            appearance: c.appearance,
-            personality: c.personality,
-            wardrobeRules: c.wardrobeRules,
-            speechStyle: c.speechStyle,
-          },
-        });
-        existingByName.set(key, character);
-      } else {
-        skipped.push(character.name);
-      }
-
-      // Link to episodes (idempotent — skipDuplicates on the unique constraint)
-      const epIds = (c.appearsInEpisodes ?? [])
-        .map((n) => epByNumber.get(n)?.id)
-        .filter((x): x is string => !!x);
-
-      if (epIds.length > 0) {
-        await prisma.episodeCharacter.createMany({
-          data: epIds.map((epId) => ({ episodeId: epId, characterId: character!.id })),
-          skipDuplicates: true,
-        });
-      }
-
-      created.push({ id: character.id, name: character.name, episodes: epIds.length });
-      linked.push({ character: character.name, episodes: c.appearsInEpisodes ?? [] });
-    }
+    // Annotate each proposed character with whether it already exists (won't overwrite)
+    const proposed = (extracted.characters ?? []).map((c) => ({
+      ...c,
+      alreadyExists: existingByName.has(c.name.toLowerCase().trim()),
+    }));
 
     return ok({
       projectId: project.id,
       projectName: project.name,
-      totalCharacters: created.length,
-      newlyCreated: created.length - skipped.length,
-      skipped,
-      linked,
+      preview: true,
+      characters: proposed,
     });
   } catch (e) { return handleError(e); }
 }

@@ -87,13 +87,29 @@ export default function SeasonPage() {
     finally { setCtxBusy(false); }
   }
 
+  type ProposedChar = { name: string; roleType?: string; gender?: string; ageRange?: string; appearance: string; personality?: string; wardrobeRules?: string; speechStyle?: string; appearsInEpisodes: number[]; alreadyExists?: boolean };
+  const [preview, setPreview] = useState<ProposedChar[] | null>(null);
+
   async function autoPopulateChars() {
     if (!season) return;
-    if (!confirm(lang === "he" ? "לזהות דמויות ראשיות אוטומטית מכל הפרקים? קיימות לא יימחקו." : "Auto-detect main characters from all episodes? Existing ones are preserved.")) return;
     setCharBusy("populate");
     try {
-      const r = await api<{ totalCharacters: number; newlyCreated: number; skipped: string[] }>(`/api/v1/projects/${season.series.project.id}/characters/auto-populate`, { method: "POST" });
-      alert((lang === "he" ? `זוהו ${r.totalCharacters} דמויות. חדשות: ${r.newlyCreated}. קיימות: ${r.skipped.length}` : `Found ${r.totalCharacters}. New: ${r.newlyCreated}. Preserved: ${r.skipped.length}`));
+      const r = await api<{ characters: ProposedChar[] }>(`/api/v1/projects/${season.series.project.id}/characters/auto-populate`, { method: "POST", body: {} });
+      setPreview(r.characters);
+    } catch (e) { alert((e as Error).message); }
+    finally { setCharBusy(null); }
+  }
+
+  async function applyPreview() {
+    if (!season || !preview) return;
+    setCharBusy("populate");
+    try {
+      const r = await api<{ totalCharacters: number; newlyCreated: number; skipped: string[] }>(`/api/v1/projects/${season.series.project.id}/characters/auto-populate`, {
+        method: "POST",
+        body: { characters: preview },
+      });
+      alert((lang === "he" ? `נשמרו ${r.newlyCreated} דמויות חדשות. ${r.skipped.length} קיימות נשמרו.` : `Saved ${r.newlyCreated} new characters. ${r.skipped.length} existing preserved.`));
+      setPreview(null);
       const updated = await api<ProjectCharacter[]>(`/api/v1/projects/${season.series.project.id}/characters`);
       setCharacters(updated);
       load();
@@ -549,6 +565,51 @@ export default function SeasonPage() {
           </div>
         )}
       </Card>
+      )}
+
+      {preview && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setPreview(null)}>
+          <div className="bg-bg-card rounded-card max-w-3xl w-full max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-bg-main sticky top-0 bg-bg-card z-10">
+              <div className="flex justify-between items-start gap-4">
+                <div>
+                  <h3 className="font-bold text-lg">{lang === "he" ? "דמויות שזוהו" : "Proposed characters"}</h3>
+                  <p className="text-xs text-text-muted mt-1">{lang === "he" ? "זה מה שה-AI זיהה מהפרקים. עבור על הרשימה ולחץ 'יישם' כדי לשמור. הסר שורה בלחיצה על ✕." : "This is what the AI found. Review and click 'Apply' to save. Click ✕ to drop a row."}</p>
+                </div>
+                <button onClick={() => setPreview(null)} className="text-text-muted">✕</button>
+              </div>
+            </div>
+            <ul className="p-5 space-y-3">
+              {preview.length === 0 && <li className="text-center text-text-muted">{lang === "he" ? "לא זוהו דמויות" : "No characters found"}</li>}
+              {preview.map((c, i) => (
+                <li key={i} className="bg-bg-main rounded-lg p-3 text-sm">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1">
+                      <div className="font-semibold">
+                        {c.name}
+                        {c.alreadyExists && <span className="ms-2 text-[10px] text-status-warnText bg-status-warningBg rounded-full px-2 py-0.5">{lang === "he" ? "כבר קיימת" : "already exists"}</span>}
+                      </div>
+                      <div className="text-[11px] text-text-muted">{[c.roleType, c.gender, c.ageRange].filter(Boolean).join(" · ")}</div>
+                    </div>
+                    <button onClick={() => setPreview(preview.filter((_, j) => j !== i))} className="text-xs text-status-errText">✕</button>
+                  </div>
+                  {c.appearance && <div className="mt-1 text-xs"><span className="text-text-muted">{lang === "he" ? "מראה: " : "Appearance: "}</span>{c.appearance}</div>}
+                  {c.personality && <div className="text-xs"><span className="text-text-muted">{lang === "he" ? "אופי: " : "Personality: "}</span>{c.personality}</div>}
+                  {c.wardrobeRules && <div className="text-xs"><span className="text-text-muted">{lang === "he" ? "תלבושת: " : "Wardrobe: "}</span>{c.wardrobeRules}</div>}
+                  {c.appearsInEpisodes.length > 0 && (
+                    <div className="text-[11px] text-text-muted mt-1">{lang === "he" ? "מופיעה ב-" : "Appears in "}{c.appearsInEpisodes.map((n) => `EP${String(n).padStart(2, "0")}`).join(", ")}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="p-5 border-t border-bg-main sticky bottom-0 bg-bg-card flex justify-end gap-2">
+              <button onClick={() => setPreview(null)} className="px-4 py-2 rounded-lg border border-bg-main text-sm">{lang === "he" ? "בטל" : "Cancel"}</button>
+              <button disabled={charBusy === "populate" || preview.length === 0} onClick={applyPreview} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">
+                {charBusy === "populate" ? (lang === "he" ? "שומר…" : "Saving…") : (lang === "he" ? `✓ יישם ${preview.length} דמויות` : `✓ Apply ${preview.length} characters`)}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {lightbox && (() => {

@@ -12,7 +12,7 @@ declare global {
 const AUDITED_MODELS = new Set([
   "Project", "Series", "Season", "Episode", "Scene", "SceneFrame",
   "Character", "CharacterMedia", "EpisodeCharacter",
-  "MusicTrack", "ThumbnailVariant", "ContentCalendarEntry",
+  "MusicTrack", "ContentCalendarEntry",
   "Webhook", "ApiKey", "Role", "OrganizationUser",
 ]);
 

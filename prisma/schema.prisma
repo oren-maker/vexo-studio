@@ -599,7 +599,6 @@ model Episode {
   analyticsSnapshots AnalyticsSnapshot[]
   criticReviews      AICriticReview[]
   recapCandidates    RecapCandidate[]
-  thumbnailVariants  ThumbnailVariant[]
   calendarEntries    ContentCalendarEntry[]
   characters         EpisodeCharacter[]
 
@@ -658,29 +657,7 @@ model ContentCalendarEntry {
 }
 
 // =====================================================================
-// 12. A/B Thumbnail Testing
-// =====================================================================
-
-model ThumbnailVariant {
-  id          String    @id @default(cuid())
-  episodeId   String
-  assetId     String
-  label       String
-  isActive    Boolean   @default(false)
-  isWinner    Boolean   @default(false)
-  impressions Int       @default(0)
-  clickRate   Float?
-  youtubeId   String?
-  activatedAt DateTime?
-  createdAt   DateTime  @default(now())
-
-  episode Episode @relation(fields: [episodeId], references: [id])
-
-  @@index([episodeId])
-}
-
-// =====================================================================
-// 13. Course
+// 12. Course
 // =====================================================================
 
 model Course {

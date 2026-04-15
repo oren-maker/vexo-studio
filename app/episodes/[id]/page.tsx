@@ -146,7 +146,6 @@ export default function EpisodePage() {
 
       <div className="flex gap-2 flex-wrap">
         <Link href={`/episodes/${id}/seo`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">SEO</Link>
-        <Link href={`/episodes/${id}/thumbnails`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">Thumbnails</Link>
         <button onClick={generateSEO} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">Auto-generate SEO</button>
         <button onClick={publish} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold ml-auto">Publish to YouTube</button>
       </div>

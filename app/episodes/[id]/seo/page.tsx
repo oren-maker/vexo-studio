@@ -1,13 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
+import { useLang } from "@/lib/i18n";
 
 type SEO = { seoTitle: string | null; seoDescription: string | null; seoTags: string[] | null };
 
 export default function SeoPage() {
   const { id } = useParams<{ id: string }>();
+  const lang = useLang();
+  const he = lang === "he";
   const [seo, setSeo] = useState<SEO>({ seoTitle: null, seoDescription: null, seoTags: null });
   const [busy, setBusy] = useState(false);
 
@@ -26,7 +30,9 @@ export default function SeoPage() {
   }
 
   return (
-    <Card title="SEO Optimizer" subtitle="Title, description and tags for video platforms">
+    <div className="space-y-4">
+    <Link href={`/episodes/${id}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">{he ? "→ חזרה לפרק" : "← Back to episode"}</Link>
+    <Card title={he ? "🔍 אופטימיזציית SEO" : "SEO Optimizer"} subtitle={he ? "כותרת, תיאור ותגיות לפלטפורמות וידאו" : "Title, description and tags for video platforms"}>
       <button disabled={busy} onClick={regenerate} className="mb-4 px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">{busy ? "Generating…" : "Auto-generate with AI"}</button>
       <div className="space-y-3">
         <div>
@@ -44,5 +50,6 @@ export default function SeoPage() {
         <button onClick={save} className="px-4 py-2 rounded-lg bg-accent text-white font-semibold">Save</button>
       </div>
     </Card>
+    </div>
   );
 }

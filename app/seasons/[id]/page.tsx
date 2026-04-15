@@ -642,7 +642,10 @@ export default function SeasonPage() {
                   const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
                   setOpening(r.opening); setOpeningCosts(r.costBreakdown);
                   alert(lang === "he" ? "יצירה החלה — fal מייצר ~60-90 שניות" : "Generation started");
-                }} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">🎬 {lang === "he" ? "צור מחדש" : "Regenerate"}</button>
+                }} className={opening.videoUrl
+                  ? "px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold"
+                  : "px-5 py-2 rounded-lg bg-accent text-white text-sm font-bold"
+                }>🎬 {opening.videoUrl ? (lang === "he" ? "צור מחדש" : "Regenerate") : (lang === "he" ? "צור וידאו" : "Generate video")}</button>
                 <button onClick={async () => {
                   const next = !opening.isSeriesDefault;
                   await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { isSeriesDefault: next } });

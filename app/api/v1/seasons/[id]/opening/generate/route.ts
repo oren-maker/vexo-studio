@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { submitVideo, type VideoModel, priceVideo } from "@/lib/providers/fal";
 import { submitVeoVideo, type GoogleVeoModel, priceVeoVideo } from "@/lib/providers/google-veo";
+import { submitSoraVideo, type SoraModel, type SoraSeconds, priceSora } from "@/lib/providers/openai-sora";
 import { chargeUsd } from "@/lib/billing";
 import { handleError, ok } from "@/lib/route-utils";
 
@@ -51,11 +52,47 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "GENERATING" } });
 
     const isGoogleVeo = opening.model.startsWith("google-veo-");
+    const isSora = opening.model === "sora-2" || opening.model === "sora-2-pro";
     let submittedId: string;
     let submittedDisplay: string;
     let estUsd: number;
 
-    if (isGoogleVeo) {
+    if (isSora) {
+      // Sora 2 — seconds must be "4" | "8" | "12" (strings). Clamp the user's
+      // duration onto that enum.
+      const sec: SoraSeconds = opening.duration <= 5 ? "4" : opening.duration <= 9 ? "8" : "12";
+      const size = opening.aspectRatio === "9:16" ? "720x1280" : "1280x720";
+      try {
+        const submitted = await submitSoraVideo({
+          prompt: opening.currentPrompt,
+          model: opening.model as SoraModel,
+          seconds: sec,
+          size,
+        });
+        submittedId = submitted.id;
+        submittedDisplay = opening.model;
+      } catch (e) {
+        await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "DRAFT" } }).catch(() => {});
+        throw Object.assign(new Error(`Sora submit failed: ${(e as Error).message}`), { statusCode: 502 });
+      }
+      estUsd = priceSora(opening.model as SoraModel, parseInt(sec, 10));
+      await prisma.seasonOpening.update({
+        where: { id: opening.id },
+        data: { falRequestId: submittedId, provider: "openai" },
+      });
+      await chargeUsd({
+        organizationId: ctx.organizationId,
+        projectId: season.series.projectId,
+        entityType: "SEASON_OPENING",
+        entityId: season.id,
+        providerName: "OpenAI",
+        category: "GENERATION",
+        description: `Opening · ${opening.model} · ${sec}s (OpenAI direct)`,
+        unitCost: estUsd, quantity: 1,
+        userId: ctx.user.id,
+        meta: { seasonId: season.id, openingId: opening.id, model: opening.model, durationSeconds: parseInt(sec, 10), provider: "openai" },
+      }).catch(() => {});
+    } else if (isGoogleVeo) {
       // Google VEO direct — supports referenceImages on 3.1 for up to 3 subjects
       const veoModel = opening.model.replace(/^google-/, "") as GoogleVeoModel;
       try {
@@ -135,7 +172,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       openingId: opening.id,
       jobId: submittedId,
       model: submittedDisplay,
-      provider: isGoogleVeo ? "google" : "fal",
+      provider: isSora ? "openai" : isGoogleVeo ? "google" : "fal",
       estimateUsd: estUsd,
     });
   } catch (e) { return handleError(e); }

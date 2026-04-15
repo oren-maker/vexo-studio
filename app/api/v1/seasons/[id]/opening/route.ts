@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { handleError, ok } from "@/lib/route-utils";
 import { pollVeoOperation, priceVeoVideo, type GoogleVeoModel } from "@/lib/providers/google-veo";
+import { pollSoraVideo, priceSora, type SoraModel } from "@/lib/providers/openai-sora";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 
@@ -73,6 +74,47 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         console.warn("[veo-poll]", (e as Error).message);
       }
     }
+
+    // Same polling pattern for OpenAI Sora (also no webhook support).
+    if (opening && opening.provider === "openai" && opening.status === "GENERATING" && opening.falRequestId) {
+      try {
+        const res = await pollSoraVideo(opening.falRequestId);
+        if (res.status === "completed") {
+          const proxyUrl = `/api/v1/videos/sora-proxy?id=${encodeURIComponent(opening.falRequestId)}`;
+          await prisma.seasonOpening.update({
+            where: { id: opening.id },
+            data: { status: "READY", videoUrl: proxyUrl, videoUri: opening.falRequestId },
+          });
+          const { season: s } = await prisma.seasonOpening.findUniqueOrThrow({
+            where: { id: opening.id },
+            include: { season: { include: { series: { select: { projectId: true } } } } },
+          });
+          const projectId = s.series.projectId;
+          await prisma.asset.create({
+            data: {
+              projectId, entityType: "SEASON_OPENING", entityId: opening.id, assetType: "VIDEO",
+              fileUrl: proxyUrl, mimeType: "video/mp4", status: "READY",
+              metadata: { provider: "openai-sora", model: opening.model, durationSeconds: opening.duration, costUsd: priceSora(opening.model as SoraModel, opening.duration), soraVideoId: opening.falRequestId } as object,
+            },
+          }).catch(() => {});
+          opening = await prisma.seasonOpening.findUnique({
+            where: { seasonId: params.id },
+            include: { versions: { orderBy: { createdAt: "desc" }, take: 30 } },
+          });
+        } else if (res.status === "failed") {
+          await prisma.seasonOpening.update({
+            where: { id: opening.id },
+            data: { status: "FAILED" },
+          });
+          opening = await prisma.seasonOpening.findUnique({
+            where: { seasonId: params.id },
+            include: { versions: { orderBy: { createdAt: "desc" }, take: 30 } },
+          });
+        }
+      } catch (e) {
+        console.warn("[sora-poll]", (e as Error).message);
+      }
+    }
     // Every successful fal generation creates an Asset row tagged to this opening.
     // Surface the full list so the UI can show "generation #N · model · cost · when".
     const videoHistory = opening
@@ -125,6 +167,7 @@ const Patch = z.object({
   model: z.enum([
     "seedance", "kling", "veo3-fast", "veo3-pro",
     "google-veo-3.1-fast-generate-preview", "google-veo-3.1-generate-preview", "google-veo-3.1-lite-generate-preview",
+    "sora-2", "sora-2-pro",
   ]).optional(),
   isSeriesDefault: z.boolean().optional(),
   includeCharacters: z.boolean().optional(),

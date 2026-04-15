@@ -68,13 +68,13 @@ export default function ScenePage() {
   const [veoModalOpen, setVeoModalOpen] = useState(false);
   const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean } | null>(null);
   const [veoModel, setVeoModel] = useState<AllVideoModel>("sora-2");
-  const [veoDuration, setVeoDuration] = useState(12);
+  const [veoDuration, setVeoDuration] = useState(20);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
   const RATES: Record<AllVideoModel, number> = {
     "sora-2": 0.10, "sora-2-pro": 0.30, "veo3-pro": 0.75, seedance: 0.124, "vidu-q1": 0.08,
   };
   const MAX_DURATION: Record<AllVideoModel, number> = {
-    "sora-2": 12, "sora-2-pro": 12, "veo3-pro": 8, seedance: 12, "vidu-q1": 5,
+    "sora-2": 20, "sora-2-pro": 20, "veo3-pro": 8, seedance: 12, "vidu-q1": 5,
   };
   const MODEL_LABEL: Record<AllVideoModel, { emoji: string; name: string; price: string; audio: boolean; note?: string }> = {
     "sora-2":     { emoji: "🟢", name: "Sora 2",      price: "$0.10/sec", audio: true,  note: "ברירת מחדל" },

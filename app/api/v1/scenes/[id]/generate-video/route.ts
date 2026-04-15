@@ -235,7 +235,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     try {
       if (isSora) {
-        const sec: SoraSeconds = duration <= 5 ? "4" : duration <= 9 ? "8" : "12";
+        // Bucket onto the Sora API enum (4/8/12/16/20). Anything over 20s
+        // would need Storyboard chaining, which is Web-only — we cap here.
+        const sec: SoraSeconds = duration <= 5 ? "4" : duration <= 9 ? "8" : duration <= 13 ? "12" : duration <= 17 ? "16" : "20";
         const size = body.aspectRatio === "9:16" ? "720x1280" : "1280x720";
         // Sora only accepts ONE input_reference, and it locks the look of
         // whoever appears in that image. Storyboard frames drift between

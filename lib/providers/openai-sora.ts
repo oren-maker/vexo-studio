@@ -19,6 +19,11 @@
 const OPENAI = "https://api.openai.com/v1";
 
 export type SoraModel = "sora-2" | "sora-2-pro";
+// Empirically verified against OpenAI API on 2026-04-15 — the standard
+// /v1/videos endpoint accepts 4/8/12/16/20 seconds. 25s is Sora Web only
+// (ChatGPT Pro UI), and 60s is achieved by chaining multiple clips via the
+// Web Storyboard feature, not exposed as a single API call.
+export type SoraSeconds = "4" | "8" | "12" | "16" | "20";
 export type SoraSize = "1280x720" | "720x1280" | "1792x1024" | "1024x1792";
 export type SoraSeconds = "4" | "8" | "12";
 

@@ -95,12 +95,19 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       frameIds.length > 0
         ? prisma.costEntry.findMany({ where: { entityType: "FRAME", entityId: { in: frameIds } }, orderBy: { createdAt: "desc" } })
         : Promise.resolve([] as Awaited<ReturnType<typeof prisma.costEntry.findMany>>),
+      // Pull all videos; sort primary first (metadata.isPrimary), then newest.
+      // Done in JS because Prisma can't sort by a JSON field portably.
       prisma.asset.findMany({
         where: { entityType: "SCENE", entityId: params.id, assetType: "VIDEO", status: "READY" },
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 20,
         select: { id: true, fileUrl: true, createdAt: true, metadata: true },
-      }),
+      }).then((rows) => rows.sort((a, b) => {
+        const aP = (a.metadata as { isPrimary?: boolean } | null)?.isPrimary ? 1 : 0;
+        const bP = (b.metadata as { isPrimary?: boolean } | null)?.isPrimary ? 1 : 0;
+        if (aP !== bP) return bP - aP;
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      })),
       scene.episodeId
         ? prisma.episode.findUnique({
             where: { id: scene.episodeId },

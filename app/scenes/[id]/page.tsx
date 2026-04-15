@@ -531,19 +531,31 @@ export default function ScenePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {scene.videos.map((v) => {
                 const m = v.metadata ?? {};
+                const isPrimary = !!m.isPrimary;
                 const modelPretty = m.model ? (VIDEO_MODEL_PRETTY[m.model] ?? m.model) : "—";
                 return (
-                  <div key={v.id} className="bg-bg-main rounded-lg overflow-hidden">
+                  <div key={v.id} className={`rounded-lg overflow-hidden ${isPrimary ? "bg-status-okBg border-2 border-status-okText" : "bg-bg-main"}`}>
                     <video src={v.fileUrl} controls className="w-full aspect-video bg-black" />
                     <div className="p-3 text-xs space-y-1">
                       <div className="flex justify-between items-center">
-                        <span className="font-semibold">{modelPretty}</span>
+                        <span className="font-semibold flex items-center gap-2">
+                          {modelPretty}
+                          {isPrimary && <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-okText text-white font-semibold">⭐ {he ? "ראשי" : "Main"}</span>}
+                        </span>
                         {m.costUsd !== undefined && <span className="font-bold num text-accent">${m.costUsd.toFixed(4)}</span>}
                       </div>
                       <div className="flex justify-between text-[11px] text-text-muted">
                         <span>{m.durationSeconds ? `${m.durationSeconds}s` : ""}</span>
                         <span>{new Date(v.createdAt).toLocaleString()}</span>
                       </div>
+                      {!isPrimary && (
+                        <button onClick={async () => {
+                          try {
+                            await api(`/api/v1/scenes/${scene.id}/set-active-video`, { method: "POST", body: { assetId: v.id } });
+                            location.reload();
+                          } catch (e) { alert((e as Error).message); }
+                        }} className="mt-2 w-full text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">⭐ {he ? "קבע כראשי" : "Set as main"}</button>
+                      )}
                     </div>
                   </div>
                 );

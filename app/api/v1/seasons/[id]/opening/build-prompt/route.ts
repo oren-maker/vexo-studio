@@ -101,7 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const prompt = await step("build-prompt", () => groqJson<{ prompt?: string }>(
       `You write cinema-grade video prompts for a TV title sequence. Return JSON { prompt: "..." } with ONE cohesive prompt ready to send to a video model. Follow the 6-layer formula: Subject → Action → Environment → Art Style → Lighting → Technical.
-${body.model.startsWith("sora") ? "IMPORTANT — target is OpenAI Sora: keep language neutral and descriptive. AVOID words that trigger moderation filters (paranoid, drugs, tattoos, blood, violence, sexual, surveillance, suspicious, threatening, dark psychological, thriller, noir-dark, crime, espionage). Use positive descriptive language instead (a thoughtful protagonist, a quiet scientist, a focused investigator)." : ""}
+${body.model.startsWith("sora") ? "IMPORTANT — target is OpenAI Sora: (1) keep language neutral and descriptive. AVOID words that trigger moderation filters (paranoid, drugs, tattoos, blood, violence, sexual, surveillance, suspicious, threatening, dark psychological, thriller, noir-dark, crime, espionage). Use positive descriptive language instead (a thoughtful protagonist, a quiet scientist, a focused investigator). (2) Sora can lock ONE face via the starting image but cannot multi-reference. For every OTHER character include a rich physical description in the prompt itself (hair color and length, skin tone, build, signature wardrobe) so Sora can render them consistently from text alone." : ""}
 
 ${audioDirective}
 

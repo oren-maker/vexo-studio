@@ -33,12 +33,49 @@ export async function submitSoraVideo(opts: {
   model: SoraModel;
   seconds: SoraSeconds;
   size?: SoraSize;
+  /** Optional starting image (i2v). Must be resized to match `size` exactly
+   * — Sora rejects mismatched dimensions. We resize automatically with sharp
+   * + pad/contain to never crop the face. */
+  imageUrl?: string;
 }): Promise<{ id: string; status: string }> {
+  const size = opts.size ?? "1280x720";
+
+  if (opts.imageUrl) {
+    // i2v path — multipart/form-data with resized reference image.
+    const [w, h] = size.split("x").map(Number);
+    const imgRes = await fetch(opts.imageUrl);
+    if (!imgRes.ok) throw new Error(`reference image fetch ${imgRes.status}`);
+    const inputBuf = Buffer.from(await imgRes.arrayBuffer());
+    const sharp = (await import("sharp")).default;
+    const resized = await sharp(inputBuf)
+      .resize(w, h, { fit: "cover", position: "centre" })
+      .jpeg({ quality: 92 })
+      .toBuffer();
+
+    const form = new FormData();
+    form.append("model", opts.model);
+    form.append("prompt", opts.prompt.slice(0, 2000));
+    form.append("seconds", opts.seconds);
+    form.append("size", size);
+    // Blob is valid in Node 18+ runtime
+    form.append("input_reference", new Blob([resized as unknown as ArrayBuffer], { type: "image/jpeg" }), "seed.jpg");
+
+    const res = await fetch(`${OPENAI}/videos`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key()}` },
+      body: form,
+    });
+    if (!res.ok) throw new Error(`Sora submit (i2v) ${res.status}: ${(await res.text()).slice(0, 400)}`);
+    const data = await res.json();
+    return { id: data.id, status: data.status };
+  }
+
+  // t2v path — plain JSON
   const body = {
     model: opts.model,
     prompt: opts.prompt.slice(0, 2000),
     seconds: opts.seconds,
-    size: opts.size ?? "1280x720",
+    size,
   };
   const res = await fetch(`${OPENAI}/videos`, {
     method: "POST",

@@ -68,6 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           model: opening.model as SoraModel,
           seconds: sec,
           size,
+          imageUrl: seedImageUrl,  // Sora i2v seed — first character portrait (auto-resized)
         });
         submittedId = submitted.id;
         submittedDisplay = opening.model;

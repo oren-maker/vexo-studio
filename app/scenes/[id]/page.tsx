@@ -139,8 +139,9 @@ export default function ScenePage() {
         if (gotNewVideo || serverSideSettled || elapsed > MAX_WAIT_MS) {
           setVeoJob((j) => j ? { ...j, done: true, elapsed: Math.round(elapsed / 1000) } : null);
           clearInterval(tick); clearInterval(poll);
-          // Full refresh — reload scene + costs so every card reflects the final state.
-          await load();
+          // Give the success banner ~1.2s to register, then hard-reload so
+          // every card (video, AI cost, status chip) is guaranteed fresh.
+          setTimeout(() => { window.location.reload(); }, 1200);
         } else {
           // Mid-flight: still update the videos list if anything appeared incrementally.
           setScene((prev) => prev ? { ...prev, videos: fresh.videos ?? prev.videos } : prev);

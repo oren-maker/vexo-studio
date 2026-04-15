@@ -17,7 +17,7 @@ const FAL_RUN = "https://fal.run";
 const FAL_QUEUE = "https://queue.fal.run";
 
 export type ImageModel = "nano-banana";
-export type VideoModel = "seedance" | "kling" | "veo3-pro" | "veo3-fast";
+export type VideoModel = "seedance" | "kling" | "veo3-pro" | "veo3-fast" | "vidu-q1";
 
 const IMAGE_MODELS: Record<ImageModel, string> = {
   "nano-banana": "fal-ai/nano-banana",
@@ -28,14 +28,14 @@ const VIDEO_MODELS: Record<VideoModel, string> = {
   kling:       "fal-ai/kling-video/v2.1/master/text-to-video",
   "veo3-pro":  "fal-ai/veo3",
   "veo3-fast": "fal-ai/veo3/fast",
+  "vidu-q1":   "fal-ai/vidu/q1/reference-to-video",
 };
 
 // Image-to-video variants. Used when we have a reference image (storyboard
 // frame or character) and want the video to start from it — keeps identity
 // locked to the frame instead of rolling the dice on a fresh text-only render.
-// fal image-to-video endpoints. If any of these 404 on submit, we auto-fallback
-// to the t2v variant in submitVideo (so a bad id never blocks a generation).
-const VIDEO_MODELS_I2V: Record<VideoModel, string> = {
+// Vidu Q1 doesn't have a separate i2v — it already takes multiple references.
+const VIDEO_MODELS_I2V: Partial<Record<VideoModel, string>> = {
   seedance:    "fal-ai/bytedance/seedance/v1/pro/image-to-video",
   kling:       "fal-ai/kling-video/v2.1/master/image-to-video",
   "veo3-pro":  "fal-ai/veo3/image-to-video",
@@ -128,8 +128,11 @@ export async function submitVideo(opts: {
   referenceImageUrls?: string[];
 }): Promise<VideoSubmitResult> {
   const modelKey = opts.model ?? "seedance";
-  const useI2V = !!opts.imageUrl;
-  const model = (useI2V ? VIDEO_MODELS_I2V[modelKey] : VIDEO_MODELS[modelKey]);
+  const isVidu = modelKey === "vidu-q1";
+  // Vidu takes reference_image_urls (up to 7) — not image_url — so i2v routing
+  // doesn't apply. Always route to the t2v endpoint.
+  const useI2V = !isVidu && !!opts.imageUrl;
+  const model = (useI2V ? VIDEO_MODELS_I2V[modelKey] : VIDEO_MODELS[modelKey]) ?? VIDEO_MODELS[modelKey];
   // Photorealism must be at the FRONT of the prompt for highest weight.
   // VEO 3 and SeeDance ignore negative_prompt; only Kling honors it.
   // VEO 3 quirks (from live testing Apr 2026):
@@ -148,6 +151,10 @@ export async function submitVideo(opts: {
     // trigger `no_media_generated`. Cap at 800 chars for Pro/Fast and drop the
     // realism preamble entirely — i2v already anchors realism via the seed frame.
     ? (useI2V ? opts.prompt.slice(0, 800) : ("Live-action footage. " + opts.prompt).slice(0, 800))
+    : isVidu
+    // Vidu Q1 anchors identity from the reference_image_urls already — keep the
+    // prompt tight and descriptive, no heavy realism wrappers.
+    ? opts.prompt.slice(0, 1200)
     : ("Live-action photorealistic film footage, REAL human actors filmed on a cinema camera, NOT animation, NOT CGI. " + identityLock + "Subject: " + opts.prompt
         + " [Art Style] photorealistic prestige-drama cinematography, Netflix/A24 feature-film look. [Lighting] natural physical lighting with soft shadows, Rembrandt lighting on faces. [Technical] 8k, 24fps, 35mm cinema lens at f/2, shallow depth of field, subtle film grain. [Anti-plastic] real skin with visible pores, real eye catch-light, natural micro-expressions, realistic fabric weave. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D animation, NOT illustration, NOT a video game cutscene, NOT plastic skin.");
   const body: Record<string, unknown> = {

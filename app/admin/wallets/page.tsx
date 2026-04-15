@@ -139,47 +139,65 @@ export default function BudgetsTokensPage() {
           <T>No providers yet. Add one to start tracking spend.</T>
         </div>
       ) : (
-        <table className="w-full text-sm">
-          <thead className="text-start text-[11px] uppercase tracking-widest text-text-muted">
-            <tr className="border-b border-bg-main">
-              <th className="py-2 text-start"><T>Provider</T></th>
-              <th className="py-2 text-start"><T>Category</T></th>
-              <th className="py-2 text-end"><T>Available</T></th>
-              <th className="py-2 text-end">{lang === "he" ? "סה\"כ הוצאה" : "Spent"}</th>
-              <th className="py-2 text-end"><T>Total added</T></th>
-              <th className="py-2"><T>Status</T></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {providers.map((p) => {
-              const w = p.wallet;
-              const avail = w?.availableCredits ?? 0;
-              const isCrit = w?.criticalBalanceThreshold != null && avail <= w.criticalBalanceThreshold;
-              const isLow = !isCrit && w?.lowBalanceThreshold != null && avail <= w.lowBalanceThreshold;
-              const status = !w ? "NO WALLET" : isCrit ? "CRITICAL" : isLow ? "LOW" : p.isActive ? "OK" : "INACTIVE";
-              const cls = !w ? "bg-bg-main text-text-muted" : isCrit ? "bg-status-errBg text-status-errText" : isLow ? "bg-status-warningBg text-status-warnText" : p.isActive ? "bg-status-okBg text-status-okText" : "bg-bg-main text-text-muted";
-              return (
-                <tr key={p.id} className={`border-b border-bg-main ${!p.isActive ? "opacity-60" : ""}`}>
-                  <td className="py-3 font-medium">{p.name}</td>
-                  <td className="py-3 text-xs"><T>{p.category}</T></td>
-                  <td className="py-3 text-end num">${avail.toFixed(2)}</td>
-                  <td className="py-3 text-end num text-status-errText" title={`${p.totalCalls ?? 0} ${lang === "he" ? "פעולות" : "operations"}`}>−${(p.totalSpent ?? 0).toFixed(4)}</td>
-                  <td className="py-3 text-end num text-text-muted">${(w?.totalCreditsAdded ?? 0).toFixed(2)}</td>
-                  <td className="py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}`}>{status}</span></td>
-                  <td className="py-3 text-end space-x-2 rtl:space-x-reverse whitespace-nowrap">
-                    <button disabled={busySync === p.id} onClick={() => syncProvider(p)} className="text-xs text-accent hover:underline disabled:opacity-50">⟳ <T>Sync</T></button>
-                    <button onClick={() => setTopup({ provider: p, mode: "add" })} className="text-xs text-status-okText hover:underline">+ <T>Top up</T></button>
-                    <button onClick={() => setTopup({ provider: p, mode: "reduce" })} className="text-xs text-status-errText hover:underline">- <T>Deduct</T></button>
-                    <button onClick={async () => { try { const r = await api<{ totalSpent: number; newAvailable: number }>(`/api/v1/providers/${p.id}/reconcile`, { method: "POST" }); alert((lang === "he" ? `יושר: סה"כ הוצאה $${r.totalSpent.toFixed(4)}, יתרה חדשה $${r.newAvailable.toFixed(2)}` : `Reconciled: spent $${r.totalSpent.toFixed(4)}, new balance $${r.newAvailable.toFixed(2)}`)); load(); } catch (e) { alert((e as Error).message); } }} className="text-xs text-accent hover:underline">⚖ {lang === "he" ? "השוואה" : "Reconcile"}</button>
-                    <button onClick={() => showTx(p)} className="text-xs text-accent hover:underline"><T>History</T></button>
-                    {p.isActive && <button onClick={() => disableProvider(p)} className="text-xs text-status-errText hover:underline"><T>Disable</T></button>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="space-y-2">
+          {CATS.filter((cat) => providers.some((p) => p.category === cat)).map((cat) => {
+            const catProviders = providers.filter((p) => p.category === cat);
+            const catSpent = catProviders.reduce((s, p) => s + (p.totalSpent ?? 0), 0);
+            const catAvail = catProviders.reduce((s, p) => s + (p.wallet?.availableCredits ?? 0), 0);
+            return (
+              <details key={cat} className="bg-bg-main rounded-lg border border-bg-main overflow-hidden">
+                <summary className="px-4 py-3 cursor-pointer flex items-center justify-between hover:bg-bg-card/50">
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold"><T>{cat}</T></span>
+                    <span className="text-xs text-text-muted">{catProviders.length} <T>providers</T></span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-text-muted">{lang === "he" ? "זמין" : "Available"}: <span className="num font-semibold">${catAvail.toFixed(2)}</span></span>
+                    <span className="text-status-errText num">−${catSpent.toFixed(4)}</span>
+                  </div>
+                </summary>
+                <table className="w-full text-sm bg-bg-card">
+                  <thead className="text-start text-[10px] uppercase tracking-widest text-text-muted">
+                    <tr className="border-b border-bg-main">
+                      <th className="py-2 px-4 text-start"><T>Provider</T></th>
+                      <th className="py-2 text-end"><T>Available</T></th>
+                      <th className="py-2 text-end">{lang === "he" ? "סה\"כ הוצאה" : "Spent"}</th>
+                      <th className="py-2 text-end"><T>Total added</T></th>
+                      <th className="py-2"><T>Status</T></th>
+                      <th className="pe-4"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {catProviders.map((p) => {
+                      const w = p.wallet;
+                      const avail = w?.availableCredits ?? 0;
+                      const isCrit = w?.criticalBalanceThreshold != null && avail <= w.criticalBalanceThreshold;
+                      const isLow = !isCrit && w?.lowBalanceThreshold != null && avail <= w.lowBalanceThreshold;
+                      const status = !w ? "NO WALLET" : isCrit ? "CRITICAL" : isLow ? "LOW" : p.isActive ? "OK" : "INACTIVE";
+                      const cls = !w ? "bg-bg-main text-text-muted" : isCrit ? "bg-status-errBg text-status-errText" : isLow ? "bg-status-warningBg text-status-warnText" : p.isActive ? "bg-status-okBg text-status-okText" : "bg-bg-main text-text-muted";
+                      return (
+                        <tr key={p.id} className={`border-b border-bg-main ${!p.isActive ? "opacity-60" : ""}`}>
+                          <td className="py-3 px-4 font-medium">{p.name}</td>
+                          <td className="py-3 text-end num">${avail.toFixed(2)}</td>
+                          <td className="py-3 text-end num text-status-errText" title={`${p.totalCalls ?? 0} ${lang === "he" ? "פעולות" : "operations"}`}>−${(p.totalSpent ?? 0).toFixed(4)}</td>
+                          <td className="py-3 text-end num text-text-muted">${(w?.totalCreditsAdded ?? 0).toFixed(2)}</td>
+                          <td className="py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}`}>{status}</span></td>
+                          <td className="py-3 pe-4 text-end space-x-2 rtl:space-x-reverse whitespace-nowrap">
+                            <button onClick={() => setTopup({ provider: p, mode: "add" })} className="text-xs text-status-okText hover:underline">+ <T>Top up</T></button>
+                            <button disabled={busySync === p.id} onClick={() => syncProvider(p)} className="text-xs text-accent hover:underline disabled:opacity-50">⟳ <T>Sync</T></button>
+                            <button onClick={async () => { try { const r = await api<{ totalSpent: number; newAvailable: number }>(`/api/v1/providers/${p.id}/reconcile`, { method: "POST" }); alert((lang === "he" ? `יושר: סה"כ הוצאה $${r.totalSpent.toFixed(4)}, יתרה חדשה $${r.newAvailable.toFixed(2)}` : `Reconciled: spent $${r.totalSpent.toFixed(4)}, new balance $${r.newAvailable.toFixed(2)}`)); load(); } catch (e) { alert((e as Error).message); } }} className="text-xs text-accent hover:underline">⚖ {lang === "he" ? "השוואה" : "Reconcile"}</button>
+                            <button onClick={() => showTx(p)} className="text-xs text-accent hover:underline"><T>History</T></button>
+                            {p.isActive && <button onClick={() => disableProvider(p)} className="text-xs text-status-errText hover:underline"><T>Disable</T></button>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </details>
+            );
+          })}
+        </div>
       )}
 
       {txOpen && (

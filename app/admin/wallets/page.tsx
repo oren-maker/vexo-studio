@@ -139,7 +139,9 @@ export default function BudgetsTokensPage() {
           <div className="grid grid-cols-3 gap-3">
             <input name="amount" type="number" step="0.01" min="0.01" required placeholder={placeholderAmount} className="px-3 py-2 rounded-lg border border-bg-main bg-white" autoFocus />
             <select name="unit" defaultValue="USD" className="px-3 py-2 rounded-lg border border-bg-main bg-white">
-              <option>USD</option><option>CREDITS</option><option>TOKENS</option>
+              <option value="USD">USD</option>
+              <option value="CREDITS">CREDITS</option>
+              <option value="TOKENS">TOKENS</option>
             </select>
             <input name="description" placeholder={placeholderNote} className="px-3 py-2 rounded-lg border border-bg-main bg-white" />
           </div>

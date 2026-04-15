@@ -50,6 +50,7 @@ export default function SeasonPage() {
   const [openingEditing, setOpeningEditing] = useState(false);
   const [openingPromptDraft, setOpeningPromptDraft] = useState("");
   const [openingJob, setOpeningJob] = useState<{ startedAt: number; elapsed: number; done: boolean } | null>(null);
+  const [playingVideo, setPlayingVideo] = useState<{ url: string; label: string } | null>(null);
   const [contextData, setContextData] = useState<{ cache: { summary: string; data: any; updatedAt: string; tokenCount: number } | null; logs: { id: string; createdAt: string; decisionReason: string | null; output: any }[] } | null>(null);
   const [activity, setActivity] = useState<{ id: string; at: string; kind: string; actor: string | null; title: string; detail?: string; entityType: string; entityId: string }[] | null>(null);
   const [ctxBusy, setCtxBusy] = useState(false);
@@ -786,8 +787,15 @@ export default function SeasonPage() {
                   {openingVideos.map((v, i) => {
                     const isActive = opening.videoUrl === v.fileUrl;
                     return (
-                      <li key={v.id} className={`rounded-lg p-3 flex items-center gap-3 ${isActive ? "bg-status-okBg border-2 border-status-okText" : "bg-bg-main"}`}>
-                        <video src={v.fileUrl} className="w-32 h-20 rounded bg-black object-cover" muted />
+                      <li key={v.id} className={`rounded-lg p-3 flex items-center gap-3 cursor-pointer transition hover:ring-2 hover:ring-accent ${isActive ? "bg-status-okBg border-2 border-status-okText" : "bg-bg-main"}`}
+                          onClick={() => setPlayingVideo({ url: v.fileUrl, label: `${lang === "he" ? "גרסה" : "Generation"} #${openingVideos.length - i}${v.model ? ` · ${v.model}` : ""}` })}
+                          title={lang === "he" ? "לחץ לנגן" : "Click to play"}>
+                        <div className="relative shrink-0">
+                          <video src={v.fileUrl} className="w-32 h-20 rounded bg-black object-cover" muted />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded opacity-0 hover:opacity-100 transition">
+                            <span className="text-white text-2xl">▶</span>
+                          </div>
+                        </div>
                         <div className="flex-1 min-w-0 text-xs">
                           <div className="font-semibold flex items-center gap-2">
                             {lang === "he" ? `גרסה #${openingVideos.length - i}` : `Generation #${openingVideos.length - i}`}
@@ -800,15 +808,16 @@ export default function SeasonPage() {
                             <span className="bg-bg-card rounded-full px-2 py-0.5">{new Date(v.at).toLocaleString(lang === "he" ? "he-IL" : undefined)}</span>
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1 shrink-0">
+                        <div className="flex flex-col gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                           {!isActive && (
-                            <button onClick={async () => {
+                            <button onClick={async (e) => {
+                              e.stopPropagation();
                               await api(`/api/v1/seasons/${season.id}/opening/set-active-video`, { method: "POST", body: { assetId: v.id } });
                               const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
                               setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
                             }} className="text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">⭐ {lang === "he" ? "קבע כראשי" : "Set as active"}</button>
                           )}
-                          <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] px-2 py-1 rounded border border-bg-card text-center">↗ {lang === "he" ? "פתח" : "Open"}</a>
+                          <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[11px] px-2 py-1 rounded border border-bg-card text-center">↗ {lang === "he" ? "פתח" : "Open"}</a>
                         </div>
                       </li>
                     );
@@ -1021,6 +1030,16 @@ export default function SeasonPage() {
           </div>
         );
       })()}
+
+      {playingVideo && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setPlayingVideo(null)}>
+          <div className="relative w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setPlayingVideo(null)} className="absolute -top-10 end-0 text-white text-2xl leading-none px-2">✕</button>
+            <div className="text-white text-sm font-semibold mb-2">{playingVideo.label}</div>
+            <video src={playingVideo.url} controls autoPlay className="w-full rounded-lg bg-black" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

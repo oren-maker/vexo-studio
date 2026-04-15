@@ -134,8 +134,8 @@ model User {
 }
 
 model Role {
-  id          String   @id @default(cuid())
-  name        String   @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
   description String?
 
   permissions RolePermission[]
@@ -150,7 +150,7 @@ model Permission {
 }
 
 model RolePermission {
-  id           String     @id @default(cuid())
+  id           String @id @default(cuid())
   roleId       String
   permissionId String
 
@@ -520,7 +520,7 @@ model Season {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  series   Series    @relation(fields: [seriesId], references: [id])
+  series   Series         @relation(fields: [seriesId], references: [id])
   episodes Episode[]
   opening  SeasonOpening?
 
@@ -537,11 +537,11 @@ model SeasonOpening {
   duration          Int      @default(8)
   aspectRatio       String   @default("16:9")
   model             String   @default("seedance")
-  provider          String   @default("fal")   // "fal" | "google"
+  provider          String   @default("fal") // "fal" | "google"
   currentPrompt     String
   videoUrl          String?
-  videoUri          String?                     // google-hosted URI (auth-gated)
-  falRequestId      String?                     // fal request id OR google operation name
+  videoUri          String? // google-hosted URI (auth-gated)
+  falRequestId      String? // fal request id OR google operation name
   status            String   @default("DRAFT")
   isSeriesDefault   Boolean  @default(false)
   cost              Float?
@@ -555,10 +555,10 @@ model SeasonOpening {
 }
 
 model SeasonOpeningPromptVersion {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   openingId String
   prompt    String
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
   opening   SeasonOpening @relation(fields: [openingId], references: [id], onDelete: Cascade)
 
   @@index([openingId, createdAt])
@@ -1286,4 +1286,485 @@ model RevenueSplit {
   createdAt    DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id])
+}
+
+// =====================================================================
+// VEXO-LEARN MIGRATION — 26 models ported from vexo-learn (2026-04-15)
+// Brain chat, Guides, LearnSource, MergeJob (vexo-learn flavour),
+// KnowledgeNode, SubscriberPrompt, etc. Auth swapped to vexo-studio JWT.
+// =====================================================================
+
+model LearnSource {
+  id                String             @id @default(cuid())
+  type              String // "instructor_url" | "cedance" | "free_api" | "upload"
+  url               String?
+  prompt            String
+  title             String?
+  thumbnail         String?
+  duration          Int?
+  blobUrl           String? // Vercel Blob URL or external MP4 URL
+  externalId        String?            @unique
+  status            String             @default("pending") // pending | processing | complete | failed
+  error             String?
+  addedBy           String?
+  pdfBlobUrl        String?
+  pdfGeneratedAt    DateTime?
+  parentSourceId    String?
+  parentSource      LearnSource?       @relation("Lineage", fields: [parentSourceId], references: [id], onDelete: SetNull)
+  children          LearnSource[]      @relation("Lineage")
+  lineageNotes      String? // what was borrowed/adapted from parent (short paragraph)
+  userRating        Int? // 1-5 stars, manual quality rating
+  viewCount         Int                @default(0)
+  embedding         Float[] // gemini-embedding-001 vector for semantic search (default: empty)
+  embeddingModel    String? // model used for the current embedding
+  embeddedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  analysis          VideoAnalysis?
+  subscriberPrompts SubscriberPrompt[]
+
+  @@index([status])
+  @@index([type])
+  @@index([userRating])
+  @@index([createdAt])
+  @@index([parentSourceId])
+  @@index([status, createdAt])
+}
+
+model VideoAnalysis {
+  id              String          @id @default(cuid())
+  sourceId        String          @unique
+  source          LearnSource     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  description     String
+  techniques      String[]        @default([])
+  howTo           String[]        @default([])
+  tags            String[]        @default([])
+  style           String?
+  mood            String?
+  difficulty      String?
+  insights        String[]        @default([])
+  promptAlignment Int?
+  rawGemini       String
+  createdAt       DateTime        @default(now())
+  knowledgeNodes  KnowledgeNode[]
+}
+
+model KnowledgeNode {
+  id             String        @id @default(cuid())
+  type           String // "technique" | "style" | "how_to" | "insight"
+  title          String
+  body           String
+  tags           String[]      @default([])
+  confidence     Float         @default(0.8)
+  analysisId     String
+  analysis       VideoAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  sentToDirector Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+
+  @@index([sentToDirector])
+  @@index([type])
+}
+
+model SubscriberPrompt {
+  id        String      @id @default(cuid())
+  userId    String
+  sourceId  String
+  source    LearnSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  viewed    Boolean     @default(false)
+  saved     Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  @@index([userId])
+  @@index([userId, viewed, createdAt])
+}
+
+model ApiUsage {
+  id           String   @id @default(cuid())
+  engine       String // "gemini" | "claude" | "gemini-image"
+  model        String
+  operation    String // "compose" | "improve" | "video-analysis" | "image-gen" | "knowledge-extract"
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  imagesOut    Int      @default(0)
+  videoSeconds Int      @default(0)
+  usdCost      Float    @default(0)
+  sourceId     String?
+  meta         Json?
+  errored      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([engine])
+  @@index([operation])
+  @@index([sourceId])
+}
+
+model GeneratedImage {
+  id              String   @id @default(cuid())
+  sourceId        String
+  blobUrl         String
+  model           String
+  usdCost         Float    @default(0)
+  promptHead      String   @db.Text
+  promptVersionId String? // null = generated from CURRENT prompt; non-null = generated from this older PromptVersion
+  createdAt       DateTime @default(now())
+
+  @@index([sourceId])
+  @@index([promptVersionId])
+  @@index([createdAt])
+}
+
+model InsightsSnapshot {
+  id            String   @id @default(cuid())
+  takenAt       DateTime @default(now())
+  sourcesCount  Int
+  analysesCount Int
+  nodesCount    Int
+  avgTechniques Float
+  avgWords      Int
+  timecodePct   Int // percent with timecodes
+  data          Json // full CorpusInsights object
+  delta         Json? // diff vs previous snapshot (null for first)
+  summary       String?  @db.Text // human-readable Hebrew change summary
+  kind          String   @default("hourly") // hourly | daily-report | daily-consciousness
+
+  @@index([takenAt])
+  @@index([kind])
+}
+
+model PromptVersion {
+  id               String   @id @default(cuid())
+  sourceId         String
+  version          Int
+  prompt           String   @db.Text
+  title            String?
+  analysisSnapshot Json?
+  reason           String?  @db.Text
+  triggeredBy      String?
+  snapshotId       String?
+  diff             Json?
+  createdAt        DateTime @default(now())
+
+  @@index([sourceId])
+  @@index([createdAt])
+  @@index([snapshotId, triggeredBy])
+}
+
+model SyncJob {
+  id             String    @id @default(cuid())
+  operation      String // "pattern-extract" | "seedance-sync" | "multi-sync" | "gemini-knowledge" | etc.
+  status         String    @default("running") // running | complete | failed
+  totalItems     Int       @default(0)
+  completedItems Int       @default(0)
+  currentStep    String?
+  currentMessage String?
+  result         Json?
+  error          String?   @db.Text
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  @@index([startedAt])
+  @@index([operation])
+}
+
+model ImprovementRun {
+  id              String    @id @default(cuid())
+  snapshotId      String
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  sourcesExamined Int       @default(0)
+  sourcesImproved Int       @default(0)
+  totalCostUsd    Float     @default(0)
+  summary         String?   @db.Text
+  status          String    @default("running")
+
+  @@index([startedAt])
+}
+
+model GeneratedVideo {
+  id              String    @id @default(cuid())
+  sourceId        String
+  blobUrl         String
+  model           String
+  usdCost         Float     @default(0)
+  durationSec     Int       @default(8)
+  aspectRatio     String    @default("16:9")
+  promptHead      String    @db.Text
+  status          String    @default("pending") // submitting | rendering | downloading | uploading | complete | failed
+  progressPct     Int       @default(0)
+  progressMessage String?
+  operationId     String?
+  error           String?
+  promptVersionId String? // null = generated from CURRENT prompt; non-null = older PromptVersion this video belongs to
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([sourceId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([promptVersionId])
+}
+
+// ----- Video Merger (standalone module) -----
+
+model MergeJob {
+  id             String            @id @default(cuid())
+  status         String            @default("draft") // draft | uploading | processing | complete | failed
+  engine         String            @default("wasm") // wasm | shotstack | ai
+  clips          MergeClip[]
+  transitions    MergeTransition[]
+  outputUrl      String?
+  outputDuration Float?
+  audioMode      String            @default("keep") // keep | mute | track
+  audioTrackUrl  String?
+  errorMsg       String?           @db.Text
+  costUsd        Float             @default(0)
+  shotstackId    String? // external render id when engine=shotstack
+  createdAt      DateTime          @default(now())
+  completedAt    DateTime?
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+model MergeClip {
+  id            String   @id @default(cuid())
+  jobId         String
+  job           MergeJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  blobUrl       String
+  filename      String
+  order         Int
+  trimStart     Float?
+  trimEnd       Float?
+  transition    String? // null|fade|dissolve|cut � applied to the gap with the NEXT clip
+  transitionDur Float?
+  durationSec   Float?
+  sizeBytes     Int?
+  createdAt     DateTime @default(now())
+
+  @@index([jobId, order])
+}
+
+model MergeTransition {
+  id            String    @id @default(cuid())
+  jobId         String
+  job           MergeJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  beforeClipId  String // MergeClip.id of the clip BEFORE this transition (last frame source)
+  afterClipId   String // MergeClip.id of the clip AFTER (first frame source)
+  type          String // luma-ray2 | runway-gen3 | etc.
+  startFrameUrl String
+  endFrameUrl   String
+  outputUrl     String?
+  status        String    @default("pending") // pending | rendering | complete | failed
+  externalId    String? // fal.ai request id
+  durationSec   Float     @default(5)
+  costUsd       Float     @default(0)
+  errorMsg      String?   @db.Text
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  @@index([jobId])
+  @@index([status])
+}
+
+model TrimSession {
+  id           String      @id @default(cuid())
+  inputBlobUrl String
+  filename     String
+  durationSec  Float?
+  status       String      @default("pending") // pending | detecting | rating | ready | failed
+  scenes       TrimScene[]
+  createdAt    DateTime    @default(now())
+
+  @@index([createdAt])
+}
+
+model TrimScene {
+  id           String      @id @default(cuid())
+  sessionId    String
+  session      TrimSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  startSec     Float
+  endSec       Float
+  thumbnailUrl String?
+  aiRating     Int?
+  aiReason     String?     @db.Text
+  selected     Boolean     @default(true)
+  order        Int
+
+  @@index([sessionId, order])
+}
+
+model MergeEdit {
+  id        String   @id @default(cuid())
+  jobId     String
+  action    String // "clip-added" | "clip-removed" | "clip-reordered" | "clip-trimmed" | "transition-changed" | "audio-changed" | "engine-changed" | "merge-started" | "merge-completed" | "merge-failed" | "ai-transition-generated"
+  details   Json? // arbitrary payload describing the change
+  createdAt DateTime @default(now())
+
+  @@index([jobId, createdAt])
+}
+
+// ----- Guides module -----
+
+model Guide {
+  id               String             @id @default(cuid())
+  slug             String             @unique
+  status           String             @default("draft") // draft | published | archived
+  defaultLang      String             @default("he")
+  isPublic         Boolean            @default(true)
+  source           String?
+  sourceUrl        String?
+  coverImageUrl    String?
+  category         String?
+  estimatedMinutes Int?
+  authorName       String?
+  pdfBlobUrl       String?
+  pdfGeneratedAt   DateTime?
+  userRating       Int?
+  viewCount        Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  translations     GuideTranslation[]
+  stages           GuideStage[]
+
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@index([userRating])
+}
+
+model GuideTranslation {
+  id          String   @id @default(cuid())
+  guideId     String
+  guide       Guide    @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  lang        String
+  title       String
+  description String?  @db.Text
+  summary     String?  @db.Text
+  isAuto      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([guideId, lang])
+  @@index([lang])
+}
+
+model GuideStage {
+  id               String                  @id @default(cuid())
+  guideId          String
+  guide            Guide                   @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  order            Int
+  type             String                  @default("middle")
+  transitionToNext String                  @default("fade")
+  durationSec      Int?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  translations     GuideStageTranslation[]
+  images           GuideStageImage[]
+
+  @@unique([guideId, order])
+  @@index([guideId])
+}
+
+model GuideStageTranslation {
+  id      String     @id @default(cuid())
+  stageId String
+  stage   GuideStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  lang    String
+  title   String
+  content String     @db.Text
+  isAuto  Boolean    @default(false)
+
+  @@unique([stageId, lang])
+}
+
+model GuideStageImage {
+  id        String     @id @default(cuid())
+  stageId   String
+  stage     GuideStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  blobUrl   String
+  caption   String?
+  order     Int
+  source    String?
+  createdAt DateTime   @default(now())
+
+  @@index([stageId, order])
+}
+
+// ----- Daily Brain Cache (self-improving meta-learning) -----
+// Each day, a cron writes a snapshot: who am I, what did I learn today, what should I focus on tomorrow.
+// Built by reading the previous N days of caches + current corpus state (prompts + guides) and sending
+// to Gemini 2.5 Pro for synthesis. The identity grows over time.
+
+model DailyBrainCache {
+  id   String   @id @default(cuid())
+  date DateTime @unique // truncated to day (YYYY-MM-DD 00:00:00 UTC)
+
+  // Stat snapshot at boot-up
+  totalPrompts    Int
+  totalGuides     Int
+  totalNodes      Int
+  totalEmbeddings Int @default(0)
+
+  // Daily deltas
+  promptsAddedToday Int @default(0)
+  guidesAddedToday  Int @default(0)
+  upgradesToday     Int @default(0)
+  imagesGenToday    Int @default(0)
+  videosGenToday    Int @default(0)
+
+  // Synthesis from Gemini Pro
+  identity       String  @db.Text // "Today I am ___" (1 paragraph in Hebrew)
+  todayLearnings Json // [{topic, insight, evidence}]
+  tomorrowFocus  Json // [{priority, action, why}]
+  weeklyArc      String? @db.Text // narrative of the past 7 days
+
+  // Self-rated metrics
+  maturityScore Float? // 1-10 from Gemini's eval
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+model BrainChat {
+  id           String         @id @default(cuid())
+  title        String? // auto-generated from first message, first 60 chars
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  messages     BrainMessage[]
+  summarizedAt DateTime? // set when the daily brain has read this chat
+  summary      String?        @db.Text // constructive notes the brain extracted
+
+  @@index([createdAt])
+  @@index([summarizedAt])
+}
+
+model BrainUpgradeRequest {
+  id            String    @id @default(cuid())
+  chatId        String?
+  messageId     String? // the original user message id
+  instruction   String    @db.Text // what the user said to improve
+  context       String?   @db.Text // brain's interpretation of WHY
+  status        String    @default("pending") // pending | in-progress | done | rejected
+  priority      Int       @default(3) // 1 (high) - 5 (low)
+  claudeNotes   String?   @db.Text // Claude's notes after implementing
+  implementedAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model BrainMessage {
+  id        String    @id @default(cuid())
+  chatId    String
+  chat      BrainChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  role      String // "user" | "brain"
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+
+  @@index([chatId, createdAt])
 }

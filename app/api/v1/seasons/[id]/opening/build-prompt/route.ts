@@ -21,11 +21,20 @@ const Body = z.object({
   characterIds: z.array(z.string()).default([]),
   duration: z.number().int().min(4).max(12).default(8),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).default("16:9"),
-  model: z.enum(["seedance", "kling", "veo3-fast", "veo3-pro"]).default("seedance"),
+  model: z.enum([
+    "seedance", "kling", "veo3-fast", "veo3-pro",
+    "google-veo-3.1-fast-generate-preview", "google-veo-3.1-generate-preview", "google-veo-3.1-lite-generate-preview",
+  ]).default("seedance"),
   customPromptSeed: z.string().optional(),
 });
 
-const MODEL_HAS_AUDIO = { seedance: false, kling: false, "veo3-fast": true, "veo3-pro": true } as const;
+const MODEL_HAS_AUDIO: Record<string, boolean> = {
+  seedance: false, kling: false,
+  "veo3-fast": true, "veo3-pro": true,
+  "google-veo-3.1-fast-generate-preview": true,
+  "google-veo-3.1-generate-preview": true,
+  "google-veo-3.1-lite-generate-preview": true,
+};
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   let stage = "init";

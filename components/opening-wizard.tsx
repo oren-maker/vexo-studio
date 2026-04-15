@@ -3,10 +3,13 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
 const MODEL_INFO = {
-  seedance:    { emoji: "⚡", name: "SeeDance 2",   maxDuration: 12, pricePerSec: 0.124, audio: false },
-  kling:       { emoji: "🎬", name: "Kling 2.1",   maxDuration: 10, pricePerSec: 0.056, audio: false },
-  "veo3-fast": { emoji: "🟪", name: "VEO 3 Fast",  maxDuration: 8,  pricePerSec: 0.40,  audio: true  },
-  "veo3-pro":  { emoji: "💎", name: "VEO 3 Pro",   maxDuration: 8,  pricePerSec: 0.75,  audio: true  },
+  seedance:    { emoji: "⚡", name: "SeeDance 2",          maxDuration: 12, pricePerSec: 0.124, audio: false, multiRef: false },
+  kling:       { emoji: "🎬", name: "Kling 2.1",          maxDuration: 10, pricePerSec: 0.056, audio: false, multiRef: false },
+  "veo3-fast": { emoji: "🟪", name: "VEO 3 Fast (fal)",   maxDuration: 8,  pricePerSec: 0.40,  audio: true,  multiRef: false },
+  "veo3-pro":  { emoji: "💎", name: "VEO 3 Pro (fal)",    maxDuration: 8,  pricePerSec: 0.75,  audio: true,  multiRef: false },
+  "google-veo-3.1-fast-generate-preview": { emoji: "✨", name: "VEO 3.1 Fast (Google ישיר)",  maxDuration: 8, pricePerSec: 0.35, audio: true, multiRef: true },
+  "google-veo-3.1-generate-preview":      { emoji: "💫", name: "VEO 3.1 Pro (Google ישיר)",   maxDuration: 8, pricePerSec: 0.50, audio: true, multiRef: true },
+  "google-veo-3.1-lite-generate-preview": { emoji: "🌟", name: "VEO 3.1 Lite (Google ישיר)",  maxDuration: 8, pricePerSec: 0.20, audio: true, multiRef: true },
 } as const;
 type ModelKey = keyof typeof MODEL_INFO;
 
@@ -187,10 +190,11 @@ export function OpeningWizard({
                   const m = MODEL_INFO[k];
                   return (
                     <button key={k} onClick={() => setModel(k)} className={`text-start rounded-lg border-2 p-3 ${model === k ? "border-accent bg-accent/5" : "border-bg-main hover:border-accent/50"}`}>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xl">{m.emoji}</span>
                         <span className="font-semibold">{m.name}</span>
-                        <span className={`text-[10px] rounded-full px-2 py-0.5 ${m.audio ? "bg-status-okBg text-status-okText" : "bg-bg-main text-text-muted"}`}>{m.audio ? "🔊 " + (he ? "עם סאונד" : "audio") : "🔇 " + (he ? "ללא סאונד" : "silent")}</span>
+                        <span className={`text-[10px] rounded-full px-2 py-0.5 ${m.audio ? "bg-status-okBg text-status-okText" : "bg-bg-main text-text-muted"}`}>{m.audio ? "🔊 " + (he ? "סאונד" : "audio") : "🔇 " + (he ? "שקט" : "silent")}</span>
+                        {m.multiRef && <span className="text-[10px] rounded-full px-2 py-0.5 bg-accent/15 text-accent font-semibold">👥 {he ? "עד 3 דמויות" : "3 subjects"}</span>}
                       </div>
                       <div className="text-xs text-text-muted mt-1">{he ? `עד ${m.maxDuration}s · $${m.pricePerSec}/sec` : `up to ${m.maxDuration}s · $${m.pricePerSec}/sec`}</div>
                     </button>

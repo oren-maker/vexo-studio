@@ -537,9 +537,11 @@ model SeasonOpening {
   duration          Int      @default(8)
   aspectRatio       String   @default("16:9")
   model             String   @default("seedance")
+  provider          String   @default("fal")   // "fal" | "google"
   currentPrompt     String
   videoUrl          String?
-  falRequestId      String?
+  videoUri          String?                     // google-hosted URI (auth-gated)
+  falRequestId      String?                     // fal request id OR google operation name
   status            String   @default("DRAFT")
   isSeriesDefault   Boolean  @default(false)
   cost              Float?

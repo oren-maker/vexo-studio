@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { submitVideo, type VideoModel, priceVideo } from "@/lib/providers/fal";
+import { submitVeoVideo, type GoogleVeoModel, priceVeoVideo } from "@/lib/providers/google-veo";
 import { chargeUsd } from "@/lib/billing";
 import { handleError, ok } from "@/lib/route-utils";
 
@@ -49,51 +50,92 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "GENERATING" } });
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? `https://${req.headers.get("host")}`;
-    const webhookUrl = `${baseUrl}/api/v1/webhooks/incoming/fal?openingId=${opening.id}&duration=${opening.duration}&model=${opening.model}`;
+    const isGoogleVeo = opening.model.startsWith("google-veo-");
+    let submittedId: string;
+    let submittedDisplay: string;
+    let estUsd: number;
 
-    let submitted;
-    try {
-      submitted = await submitVideo({
-        prompt: opening.currentPrompt,
-        model: opening.model as VideoModel,
-        durationSeconds: opening.duration,
-        aspectRatio: opening.aspectRatio as "16:9" | "9:16" | "1:1",
-        webhookUrl,
-        imageUrl: seedImageUrl,                    // ← ensemble frame as i2v seed
-        referenceImageUrls: referenceImageUrls.slice(0, 3),
+    if (isGoogleVeo) {
+      // Google VEO direct — supports referenceImages on 3.1 for up to 3 subjects
+      const veoModel = opening.model.replace(/^google-/, "") as GoogleVeoModel;
+      try {
+        const submitted = await submitVeoVideo({
+          prompt: opening.currentPrompt.slice(0, 1000),
+          model: veoModel,
+          durationSeconds: opening.duration,
+          aspectRatio: opening.aspectRatio as "16:9" | "9:16" | "1:1",
+          imageUrl: seedImageUrl,
+          referenceImageUrls: referenceImageUrls.slice(0, 3),
+        });
+        submittedId = submitted.operationName;
+        submittedDisplay = veoModel;
+      } catch (e) {
+        await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "DRAFT" } }).catch(() => {});
+        throw Object.assign(new Error(`Google VEO submit failed: ${(e as Error).message}`), { statusCode: 502 });
+      }
+      estUsd = priceVeoVideo(veoModel, opening.duration);
+      await prisma.seasonOpening.update({
+        where: { id: opening.id },
+        data: { falRequestId: submittedId, provider: "google" },
       });
-    } catch (e) {
-      await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "DRAFT" } }).catch(() => {});
-      throw Object.assign(new Error(`fal submit failed: ${(e as Error).message}`), { statusCode: 502 });
+      await chargeUsd({
+        organizationId: ctx.organizationId,
+        projectId: season.series.projectId,
+        entityType: "SEASON_OPENING",
+        entityId: season.id,
+        providerName: "Google Gemini",
+        category: "GENERATION",
+        description: `Opening · ${veoModel} · ${opening.duration}s (Google direct)`,
+        unitCost: estUsd, quantity: 1,
+        userId: ctx.user.id,
+        meta: { seasonId: season.id, openingId: opening.id, model: veoModel, durationSeconds: opening.duration, provider: "google" },
+      }).catch(() => {});
+    } else {
+      // fal path (existing behaviour)
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? `https://${req.headers.get("host")}`;
+      const webhookUrl = `${baseUrl}/api/v1/webhooks/incoming/fal?openingId=${opening.id}&duration=${opening.duration}&model=${opening.model}`;
+
+      let submitted;
+      try {
+        submitted = await submitVideo({
+          prompt: opening.currentPrompt,
+          model: opening.model as VideoModel,
+          durationSeconds: opening.duration,
+          aspectRatio: opening.aspectRatio as "16:9" | "9:16" | "1:1",
+          webhookUrl,
+          imageUrl: seedImageUrl,
+          referenceImageUrls: referenceImageUrls.slice(0, 3),
+        });
+      } catch (e) {
+        await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "DRAFT" } }).catch(() => {});
+        throw Object.assign(new Error(`fal submit failed: ${(e as Error).message}`), { statusCode: 502 });
+      }
+      submittedId = submitted.requestId;
+      submittedDisplay = submitted.model;
+      estUsd = priceVideo(opening.model as VideoModel, opening.duration);
+      await prisma.seasonOpening.update({
+        where: { id: opening.id },
+        data: { falRequestId: submittedId, provider: "fal" },
+      });
+      await chargeUsd({
+        organizationId: ctx.organizationId,
+        projectId: season.series.projectId,
+        entityType: "SEASON_OPENING",
+        entityId: season.id,
+        providerName: "fal.ai",
+        category: "GENERATION",
+        description: `Opening · ${opening.model} · ${opening.duration}s`,
+        unitCost: estUsd, quantity: 1,
+        userId: ctx.user.id,
+        meta: { seasonId: season.id, openingId: opening.id, model: opening.model, durationSeconds: opening.duration },
+      }).catch(() => {});
     }
-
-    await prisma.seasonOpening.update({
-      where: { id: opening.id },
-      data: { falRequestId: submitted.requestId },
-    });
-
-    // Charge the estimated cost upfront; webhook will reconcile on completion.
-    const estUsd = priceVideo(opening.model as VideoModel, opening.duration);
-    await chargeUsd({
-      organizationId: ctx.organizationId,
-      projectId: season.series.projectId,
-      entityType: "SEASON_OPENING",
-      entityId: season.id,
-      providerName: "fal.ai",
-      category: "GENERATION",
-      description: `Opening · ${opening.model} · ${opening.duration}s`,
-      unitCost: estUsd,
-      quantity: 1,
-      userId: ctx.user.id,
-      meta: { seasonId: season.id, openingId: opening.id, model: opening.model, durationSeconds: opening.duration },
-    }).catch(() => {});
 
     return ok({
       openingId: opening.id,
-      jobId: submitted.requestId,
-      statusUrl: submitted.statusUrl,
-      model: submitted.model,
+      jobId: submittedId,
+      model: submittedDisplay,
+      provider: isGoogleVeo ? "google" : "fal",
       estimateUsd: estUsd,
     });
   } catch (e) { return handleError(e); }

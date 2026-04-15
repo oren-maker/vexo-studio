@@ -40,6 +40,7 @@ export default function SeasonPage() {
   const [costs, setCosts] = useState<Record<string, number>>({});
   const [tab, setTab] = useState<"episodes" | "characters" | "logs">("episodes");
   const [contextData, setContextData] = useState<{ cache: { summary: string; data: any; updatedAt: string; tokenCount: number } | null; logs: { id: string; createdAt: string; decisionReason: string | null; output: any }[] } | null>(null);
+  const [activity, setActivity] = useState<{ id: string; at: string; kind: string; actor: string | null; title: string; detail?: string; entityType: string; entityId: string }[] | null>(null);
   const [ctxBusy, setCtxBusy] = useState(false);
   const [characters, setCharacters] = useState<ProjectCharacter[]>([]);
   const [charBusy, setCharBusy] = useState<"populate" | "gallery" | string | null>(null);
@@ -74,6 +75,9 @@ export default function SeasonPage() {
   useEffect(() => {
     if (!season || tab !== "logs") return;
     api<typeof contextData>(`/api/v1/projects/${season.series.project.id}/context`).then(setContextData).catch(() => {});
+    api<{ rows: NonNullable<typeof activity> }>(`/api/v1/projects/${season.series.project.id}/activity?limit=200`)
+      .then((r) => setActivity(r.rows))
+      .catch(() => setActivity([]));
   }, [season?.series.project.id, tab]);
 
   async function refreshContext() {
@@ -592,7 +596,7 @@ export default function SeasonPage() {
             </details>
 
             <div>
-              <div className="text-sm font-semibold mb-2">{lang === "he" ? `היסטוריית רענון (${contextData.logs.length})` : `Refresh log (${contextData.logs.length})`}</div>
+              <div className="text-sm font-semibold mb-2">{lang === "he" ? `היסטוריית רענון קאש (${contextData.logs.length})` : `Cache refresh log (${contextData.logs.length})`}</div>
               {contextData.logs.length === 0 ? (
                 <div className="text-xs text-text-muted">{lang === "he" ? "אין לוגים עדיין" : "No logs yet"}</div>
               ) : (
@@ -610,6 +614,50 @@ export default function SeasonPage() {
         )}
       </Card>
       )}
+
+      {tab === "logs" && (() => {
+        const KIND_LABEL: Record<string, string> = lang === "he" ? {
+          "frame-created": "🖼 מסגרת נוצרה", "frame-updated": "🖼 מסגרת עודכנה",
+          "scene-created": "🎬 סצנה נוצרה", "scene-edited": "🎬 סצנה נערכה",
+          "episode-created": "📺 פרק נוצר", "episode-edited": "📺 פרק נערך",
+          "character-edited": "🎭 דמות נערכה", "character-image-created": "🎭 תמונת דמות נוצרה",
+          "video-created": "🎞 סרטון נוצר", "asset-created": "📦 נכס נוצר",
+          "ai-context_refresh": "🧠 רענון זיכרון AI", "ai-episode_generation": "🤖 יצירת פרק AI",
+          "ai-scene_generation": "🤖 יצירת סצנות AI", "ai-director_feedback": "🤖 משוב במאי AI",
+          "ai-character_generation": "🤖 יצירת דמויות AI", "ai-storyboard_generation": "🤖 יצירת תשריט AI",
+        } : {};
+        const colorFor = (kind: string) => {
+          if (kind.startsWith("frame") || kind === "video-created" || kind === "asset-created") return "bg-accent/15 text-accent";
+          if (kind.startsWith("scene")) return "bg-status-warningBg text-status-warnText";
+          if (kind.startsWith("episode")) return "bg-status-okBg text-status-okText";
+          if (kind.startsWith("character")) return "bg-purple-100 text-purple-700";
+          if (kind.startsWith("ai-")) return "bg-bg-main text-text-secondary";
+          return "bg-bg-main text-text-muted";
+        };
+        const filtered = (activity ?? []).filter((r) => r.kind !== "ai-context_refresh"); // cache refreshes already above
+        return (
+          <Card title={lang === "he" ? "כל הפעולות בפרויקט · Activity" : "All project activity"} subtitle={lang === "he" ? "תמונות, סרטונים, עריכות, ויצירות AI — מסונן בסדר זמן יורד" : "Images, videos, edits, and AI generations — newest first"}>
+            {activity === null ? (
+              <div className="text-center py-8 text-text-muted text-sm">{lang === "he" ? "טוען…" : "Loading…"}</div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-8 text-text-muted text-sm">{lang === "he" ? "אין פעולות עדיין" : "No activity yet"}</div>
+            ) : (
+              <ul className="space-y-1 max-h-[600px] overflow-auto">
+                {filtered.map((r) => (
+                  <li key={r.id} className="text-xs bg-bg-main rounded px-2 py-1.5 flex items-center gap-3">
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${colorFor(r.kind)}`}>
+                      {KIND_LABEL[r.kind] ?? r.kind}
+                    </span>
+                    <span className="flex-1 truncate text-text-secondary">{r.title}</span>
+                    {r.actor && <span className="text-[10px] text-text-muted shrink-0">{r.actor}</span>}
+                    <span className="text-[10px] text-text-muted shrink-0">{new Date(r.at).toLocaleString(lang === "he" ? "he-IL" : undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        );
+      })()}
 
       {preview && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setPreview(null)}>

@@ -23,22 +23,38 @@ type Merged = { id: string; fileUrl: string; createdAt: string; metadata: { clip
 export function EpisodeMergedVideo({ episodeId }: { episodeId: string }) {
   const lang = useLang(); const he = lang === "he";
   const [merged, setMerged] = useState<Merged | null>(null);
+  const [history, setHistory] = useState<Merged[]>([]);
   const [clipsInfo, setClipsInfo] = useState<MergeClipsResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ pct: number; msg: string } | null>(null);
+  const [showArchive, setShowArchive] = useState(false);
 
   async function loadAll() {
     try {
       const [m, c] = await Promise.all([
-        api<{ merged: Merged | null }>(`/api/v1/episodes/${episodeId}/merged-video`).catch(() => ({ merged: null })),
+        api<{ merged: Merged | null; history: Merged[] }>(`/api/v1/episodes/${episodeId}/merged-video`).catch(() => ({ merged: null, history: [] })),
         api<MergeClipsResponse>(`/api/v1/episodes/${episodeId}/merge-clips`).catch(() => null),
       ]);
       setMerged(m.merged);
+      setHistory((m.history ?? []).filter((h) => (h.metadata as { kind?: string })?.kind === "merged-episode"));
       setClipsInfo(c);
     } catch (e) { setErr((e as Error).message); }
   }
   useEffect(() => { loadAll(); }, [episodeId]);
+
+  async function downloadVideo(url: string, label: string) {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${label.replace(/[^\w.-]+/g, "_")}.mp4`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+    } catch (e) { alert((e as Error).message); }
+  }
 
   async function runMerge() {
     setErr(null); setBusy(true); setProgress({ pct: 0, msg: he ? "מתחיל…" : "Starting…" });
@@ -126,12 +142,42 @@ export function EpisodeMergedVideo({ episodeId }: { episodeId: string }) {
       {merged && (
         <div className="space-y-2">
           <video src={merged.fileUrl} controls className="w-full rounded-lg bg-black" />
-          <div className="flex flex-wrap gap-2 text-[11px] text-text-muted">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
             <span>{merged.metadata.clipCount} {he ? "קליפים" : "clips"}</span>
             <span>·</span>
             <span>{he ? "נבנה" : "built"}: {merged.metadata.builtAt ? new Date(merged.metadata.builtAt).toLocaleString(he ? "he-IL" : undefined) : "—"}</span>
-            <a href={merged.fileUrl} download className="ms-auto text-accent hover:underline">⬇ {he ? "הורד" : "Download"}</a>
+            <button onClick={() => downloadVideo(merged.fileUrl, `episode-merged-${merged.id}`)} className="ms-auto px-2 py-1 rounded bg-accent text-white text-xs font-semibold">⬇ {he ? "הורד מקסימלי" : "Download (max)"}</button>
+            {history.length > 1 && (
+              <button onClick={() => setShowArchive((v) => !v)} className="px-2 py-1 rounded border border-bg-main text-xs">
+                📁 {he ? `ארכיון (${history.length})` : `Archive (${history.length})`}
+              </button>
+            )}
           </div>
+
+          {showArchive && history.length > 0 && (
+            <div className="border-t border-bg-main pt-2 mt-2 space-y-2">
+              <div className="text-[11px] font-semibold text-text-muted">{he ? "כל החיבורים שמורים — לחץ לנגן או הורד" : "All merges saved — play or download"}</div>
+              <ul className="space-y-1.5">
+                {history.map((h, i) => {
+                  const isCurrent = h.id === merged.id;
+                  return (
+                    <li key={h.id} className={`flex items-center gap-2 rounded-lg p-2 text-xs ${isCurrent ? "bg-status-okBg border border-status-okText" : "bg-bg-main"}`}>
+                      <video src={h.fileUrl} className="w-20 h-12 rounded bg-black object-cover" muted />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold flex items-center gap-2">
+                          {he ? `גרסה #${history.length - i}` : `Version #${history.length - i}`}
+                          {isCurrent && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-status-okText text-white">{he ? "נוכחית" : "current"}</span>}
+                        </div>
+                        <div className="text-text-muted text-[10px]">{new Date(h.createdAt).toLocaleString(he ? "he-IL" : undefined)} · {h.metadata.clipCount} {he ? "קליפים" : "clips"}</div>
+                      </div>
+                      <a href={h.fileUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 rounded border border-bg-card text-[11px]">↗</a>
+                      <button onClick={() => downloadVideo(h.fileUrl, `episode-merged-v${history.length - i}`)} className="px-2 py-1 rounded bg-accent/10 text-accent text-[11px] font-semibold">⬇</button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

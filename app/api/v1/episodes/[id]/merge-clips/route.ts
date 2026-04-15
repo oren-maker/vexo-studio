@@ -26,11 +26,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
     if (!ep) throw Object.assign(new Error("episode not found"), { statusCode: 404 });
 
-    // 1. Series-default opening
-    const opening = await prisma.seasonOpening.findFirst({
+    // 1. Opening — prefer series-default; fall back to any READY opening on
+    // the same season so the user doesn't have to remember the toggle.
+    let opening = await prisma.seasonOpening.findFirst({
       where: { isSeriesDefault: true, season: { seriesId: ep.season.seriesId }, status: "READY" },
       select: { videoUrl: true, season: { select: { seasonNumber: true } } },
     });
+    if (!opening) {
+      opening = await prisma.seasonOpening.findFirst({
+        where: { seasonId: ep.season.id, status: "READY" },
+        select: { videoUrl: true, season: { select: { seasonNumber: true } } },
+      });
+    }
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? `https://${req.headers.get("host")}`;
     const absolutize = (u: string | null | undefined): string | null => {
       if (!u) return null;

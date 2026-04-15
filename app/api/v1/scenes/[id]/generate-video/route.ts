@@ -4,13 +4,21 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { CostStrategy } from "@/lib/services";
 import { submitVideo, type VideoModel } from "@/lib/providers/fal";
+import { submitSoraVideo, type SoraModel, type SoraSeconds } from "@/lib/providers/openai-sora";
+import { submitVeoVideo, type GoogleVeoModel } from "@/lib/providers/google-veo";
 import { fetchReferencePrompts, buildReferenceContext } from "@/lib/providers/vexo-learn";
 import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
 const Body = z.object({
-  videoModel: z.enum(["seedance", "kling", "veo3-pro", "veo3-fast"]).default("veo3-fast"),
+  videoModel: z.enum([
+    "seedance", "kling", "veo3-pro", "veo3-fast", "vidu-q1",
+    "sora-2", "sora-2-pro",
+    "google-veo-3.1-fast-generate-preview",
+    "google-veo-3.1-generate-preview",
+    "google-veo-3.1-lite-generate-preview",
+  ]).default("veo3-fast"),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).default("16:9"),
   durationSeconds: z.number().int().min(1).max(20).optional(),
 }).partial();
@@ -190,33 +198,75 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? `https://${req.headers.get("host")}`;
     const webhookUrl = `${baseUrl}/api/v1/webhooks/incoming/fal?sceneId=${scene.id}&duration=${duration}&model=${body.videoModel ?? "veo3-fast"}`;
 
-    let submitted: Awaited<ReturnType<typeof submitVideo>>;
+    const modelKey = body.videoModel ?? "veo3-fast";
+    const isSora = modelKey === "sora-2" || modelKey === "sora-2-pro";
+    const isGoogleVeo = modelKey.startsWith("google-veo-");
+    const isFal = !isSora && !isGoogleVeo;
+
+    let jobId: string;
+    let provider: "fal" | "openai" | "google";
+    let displayModel: string;
+
     try {
-      submitted = await submitVideo({
-        prompt,
-        model: body.videoModel as VideoModel,
-        durationSeconds: duration,
-        aspectRatio: body.aspectRatio,
-        webhookUrl,
-        imageUrl: firstFrameImg ?? undefined,
-        referenceImageUrls: characterRefImgs,
-      });
+      if (isSora) {
+        const sec: SoraSeconds = duration <= 5 ? "4" : duration <= 9 ? "8" : "12";
+        const size = body.aspectRatio === "9:16" ? "720x1280" : "1280x720";
+        const s = await submitSoraVideo({
+          prompt, model: modelKey as SoraModel, seconds: sec, size,
+          imageUrl: firstFrameImg ?? undefined,
+        });
+        jobId = s.id; provider = "openai"; displayModel = modelKey;
+      } else if (isGoogleVeo) {
+        const veoModel = modelKey.replace(/^google-/, "") as GoogleVeoModel;
+        const s = await submitVeoVideo({
+          prompt: prompt.slice(0, 1000),
+          model: veoModel,
+          durationSeconds: duration,
+          aspectRatio: (body.aspectRatio ?? "16:9") as "16:9" | "9:16" | "1:1",
+          imageUrl: firstFrameImg ?? undefined,
+          referenceImageUrls: characterRefImgs.slice(0, 3),
+        });
+        jobId = s.operationName; provider = "google"; displayModel = veoModel;
+      } else {
+        const s = await submitVideo({
+          prompt,
+          model: modelKey as VideoModel,
+          durationSeconds: duration,
+          aspectRatio: body.aspectRatio,
+          webhookUrl,
+          imageUrl: firstFrameImg ?? undefined,
+          referenceImageUrls: modelKey === "vidu-q1" ? characterRefImgs.slice(0, 7) : characterRefImgs.slice(0, 3),
+        });
+        jobId = s.requestId; provider = "fal"; displayModel = s.model;
+      }
     } catch (submitErr) {
-      // fal rejected the submission (bad prompt, rate limit, transient) —
-      // revert status so the user isn't locked out on the next attempt.
       await prisma.scene.update({ where: { id: scene.id }, data: { status: "STORYBOARD_REVIEW" } }).catch(() => {});
-      throw Object.assign(new Error(`fal submit failed: ${(submitErr as Error).message}`), { statusCode: 502 });
+      throw Object.assign(new Error(`${provider! ?? "provider"} submit failed: ${(submitErr as Error).message}`), { statusCode: 502 });
     }
 
-    // Track in scene memoryContext for status polling
-    const projectId = (await prisma.episode.findUniqueOrThrow({ where: { id: scene.episodeId! }, include: { season: { include: { series: true } } } })).season.series.projectId;
-    await prisma.lipSyncJob.create({
-      data: {
-        entityType: "SCENE", entityId: scene.id, sceneId: scene.id,
-        status: "PENDING",
-      },
-    }).catch(() => {});
+    // Track pending provider-side jobs (Sora/Google) in scene.memoryContext —
+    // the fal path writes through a webhook and doesn't need this; for Sora
+    // and Google VEO we poll on every scene GET until the video is ready.
+    if (!isFal) {
+      const existing = (scene.memoryContext as Record<string, unknown> | null) ?? {};
+      await prisma.scene.update({
+        where: { id: scene.id },
+        data: {
+          memoryContext: {
+            ...existing,
+            pendingVideoJob: { provider, jobId, model: displayModel, durationSeconds: duration, submittedAt: new Date().toISOString() },
+          },
+        },
+      });
+    }
 
-    return ok({ jobId: submitted.requestId, estimate, model: submitted.model, statusUrl: submitted.statusUrl, framework: "fal-queue", projectId });
+    const projectId = (await prisma.episode.findUniqueOrThrow({ where: { id: scene.episodeId! }, include: { season: { include: { series: true } } } })).season.series.projectId;
+    if (isFal) {
+      await prisma.lipSyncJob.create({
+        data: { entityType: "SCENE", entityId: scene.id, sceneId: scene.id, status: "PENDING" },
+      }).catch(() => {});
+    }
+
+    return ok({ jobId, estimate, model: displayModel, provider, framework: isFal ? "fal-queue" : `${provider}-poll`, projectId });
   } catch (e) { return handleError(e); }
 }

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { handleError, ok } from "@/lib/route-utils";
+import { pollVeoOperation } from "@/lib/providers/google-veo";
+import { pollSoraVideo } from "@/lib/providers/openai-sora";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 
@@ -30,11 +32,59 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     await assertSceneInOrg(params.id, ctx.organizationId);
-    const scene = await prisma.scene.findUnique({
+    let scene = await prisma.scene.findUnique({
       where: { id: params.id },
       include: { frames: { orderBy: { orderIndex: "asc" } }, criticReviews: true, comments: true },
     });
     if (!scene) return ok(null);
+
+    // Sora + Google VEO don't have webhooks, so we poll on every GET while a
+    // pendingVideoJob is recorded in memoryContext. When the video is ready,
+    // register it as an Asset (same table the fal webhook writes to) so the
+    // UI renders it identically to fal-generated videos.
+    const memRaw = (scene.memoryContext as Record<string, unknown> | null) ?? {};
+    const pending = memRaw.pendingVideoJob as undefined | { provider: "openai" | "google"; jobId: string; model: string; durationSeconds: number };
+    if (pending?.jobId) {
+      try {
+        let proxyUrl: string | null = null;
+        let failedReason: string | null = null;
+        if (pending.provider === "google") {
+          const r = await pollVeoOperation(pending.jobId);
+          if (r.done && r.videoUri) proxyUrl = `/api/v1/videos/veo-proxy?uri=${encodeURIComponent(r.videoUri)}`;
+          else if (r.done && r.error) failedReason = r.error;
+        } else if (pending.provider === "openai") {
+          const r = await pollSoraVideo(pending.jobId);
+          if (r.status === "completed") proxyUrl = `/api/v1/videos/sora-proxy?id=${encodeURIComponent(pending.jobId)}`;
+          else if (r.status === "failed") failedReason = "sora job failed";
+        }
+        if (proxyUrl) {
+          const projectIdForAsset = (await prisma.episode.findUniqueOrThrow({
+            where: { id: scene.episodeId! },
+            select: { season: { select: { series: { select: { projectId: true } } } } },
+          })).season.series.projectId;
+          await prisma.asset.create({
+            data: {
+              projectId: projectIdForAsset, entityType: "SCENE", entityId: scene.id, assetType: "VIDEO",
+              fileUrl: proxyUrl, mimeType: "video/mp4", status: "READY",
+              metadata: { provider: pending.provider, model: pending.model, durationSeconds: pending.durationSeconds } as object,
+            },
+          });
+          const { pendingVideoJob: _p, ...rest } = memRaw;
+          await prisma.scene.update({ where: { id: scene.id }, data: { status: "VIDEO_REVIEW", memoryContext: rest as object } });
+          scene = await prisma.scene.findUnique({
+            where: { id: params.id },
+            include: { frames: { orderBy: { orderIndex: "asc" } }, criticReviews: true, comments: true },
+          });
+          if (!scene) return ok(null);
+        } else if (failedReason) {
+          const { pendingVideoJob: _p, ...rest } = memRaw;
+          await prisma.scene.update({
+            where: { id: scene.id },
+            data: { status: "STORYBOARD_REVIEW", memoryContext: { ...rest, lastVideoError: failedReason } as object },
+          });
+        }
+      } catch (e) { console.warn("[scene-poll]", (e as Error).message); }
+    }
 
     const frameIds = scene.frames.map((f) => f.id);
     const mem = (scene.memoryContext as { characters?: string[] } | null) ?? {};

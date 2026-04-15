@@ -5,7 +5,7 @@ import { Card } from "@/components/page-shell";
 import { T, useTr } from "@/components/translator";
 import { useLang } from "@/lib/i18n";
 
-const CATS = ["VIDEO", "IMAGE", "AUDIO", "DUBBING", "MUSIC", "SUBTITLE", "DISTRIBUTION"] as const;
+const CATS = ["VIDEO", "IMAGE", "TEXT", "AUDIO", "DUBBING", "MUSIC", "SUBTITLE", "DISTRIBUTION"] as const;
 
 type Provider = { id: string; name: string; category: string; isActive: boolean; apiUrl?: string | null; wallet?: Wallet | null; totalSpent?: number; totalCalls?: number };
 type Wallet = {
@@ -140,7 +140,13 @@ export default function BudgetsTokensPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {CATS.filter((cat) => providers.some((p) => p.category === cat)).map((cat) => {
+          {(() => {
+            // Include any category we know about + any unexpected category
+            // present on a provider, so nothing is silently filtered out.
+            const known = new Set<string>(CATS);
+            const extras = Array.from(new Set(providers.map((p) => p.category).filter((c) => !known.has(c))));
+            return [...CATS, ...extras];
+          })().filter((cat) => providers.some((p) => p.category === cat)).map((cat) => {
             const catProviders = providers.filter((p) => p.category === cat);
             const catSpent = catProviders.reduce((s, p) => s + (p.totalSpent ?? 0), 0);
             const catAvail = catProviders.reduce((s, p) => s + (p.wallet?.availableCredits ?? 0), 0);

@@ -622,7 +622,24 @@ export default function SeasonPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {opening.videoUrl ? (
+              {(openingJob && !openingJob.done) || opening.status === "GENERATING" ? (
+                <div className="bg-bg-main rounded-lg p-5 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="text-sm font-semibold">🎬 {lang === "he" ? `${opening.model} מייצר גרסה חדשה…` : `${opening.model} is rendering a new version…`}</div>
+                      <div className="text-[11px] text-text-muted mt-1">{lang === "he" ? "fal מעבד — ברוב המקרים 60-90 שניות, עד 4 דקות" : "fal is rendering — typically 60-90s, up to 4min"}</div>
+                    </div>
+                    <div className="text-end">
+                      <div className="text-[10px] text-text-muted uppercase tracking-widest">{lang === "he" ? "זמן שעבר" : "Elapsed"}</div>
+                      <div className="text-3xl font-bold num">{openingJob?.elapsed ?? 0}s</div>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full bg-bg-card overflow-hidden">
+                    <div className="h-full bg-accent transition-all" style={{ width: `${Math.min(100, ((openingJob?.elapsed ?? 0) / 90) * 100)}%` }} />
+                  </div>
+                  <div className="text-[11px] text-text-muted">{lang === "he" ? "הדף יתרענן אוטומטית כשהסרטון מוכן. הכפתורים חסומים כדי למנוע חיוב כפול." : "Page auto-refreshes when ready. Buttons are disabled to prevent double charges."}</div>
+                </div>
+              ) : opening.videoUrl ? (
                 <video src={opening.videoUrl} controls className="w-full max-w-2xl rounded-lg bg-black mx-auto" />
               ) : opening.status === "GENERATING" ? (
                 <div className="bg-bg-main rounded-lg p-5 space-y-3">
@@ -647,13 +664,14 @@ export default function SeasonPage() {
                   <div className="text-sm font-semibold mb-1">{lang === "he" ? "הפרומט נשמר — מוכן לייצור" : "Prompt saved — ready to render"}</div>
                   <div className="text-xs text-text-muted mb-4">{lang === "he" ? `${opening.model} · ${opening.duration}s · ${opening.aspectRatio} · ~$${({seedance:0.124,kling:0.056,"veo3-fast":0.40,"veo3-pro":0.75}[opening.model as "seedance"|"kling"|"veo3-fast"|"veo3-pro"] ?? 0.124) * opening.duration}` : `${opening.model} · ${opening.duration}s · ${opening.aspectRatio}`}</div>
                   <div className="flex gap-2 justify-center flex-wrap">
-                    <button onClick={async () => {
+                    <button disabled={!!openingJob && !openingJob.done} onClick={async () => {
+                      if (openingJob && !openingJob.done) return;
                       setOpeningJob({ startedAt: Date.now(), elapsed: 0, done: false });
                       await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
                       const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
                       setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
-                    }} className="px-6 py-2.5 rounded-lg bg-accent text-white font-bold">🎬 {lang === "he" ? "צור וידאו עכשיו" : "Generate video now"}</button>
-                    <button onClick={() => setOpeningWizardOpen(true)} className="px-6 py-2.5 rounded-lg border-2 border-accent text-accent font-bold bg-white">✨ {lang === "he" ? "ערוך באשף" : "Edit in wizard"}</button>
+                    }} className="px-6 py-2.5 rounded-lg bg-accent text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed">🎬 {lang === "he" ? "צור וידאו עכשיו" : "Generate video now"}</button>
+                    <button disabled={!!openingJob && !openingJob.done} onClick={() => setOpeningWizardOpen(true)} className="px-6 py-2.5 rounded-lg border-2 border-accent text-accent font-bold bg-white disabled:opacity-50">✨ {lang === "he" ? "ערוך באשף" : "Edit in wizard"}</button>
                   </div>
                   <div className="text-[11px] text-text-muted mt-3">{lang === "he" ? "האשף יפתח עם כל ההגדרות הקיימות — סגנון, דמויות, מודל, פרומט — אפשר לשנות ולשמור שוב" : "Wizard re-opens with all current settings loaded — tweak and save again"}</div>
                 </div>
@@ -687,15 +705,16 @@ export default function SeasonPage() {
               )}
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => { setOpeningEditing(true); setOpeningPromptDraft(opening.currentPrompt); }} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">✏ {lang === "he" ? "ערוך פרומט" : "Edit prompt"}</button>
-                <button onClick={async () => {
+                <button disabled={!!openingJob && !openingJob.done} onClick={async () => {
+                  if (openingJob && !openingJob.done) return;
                   setOpeningJob({ startedAt: Date.now(), elapsed: 0, done: false });
                   await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
                   const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
                   setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
-                }} className={opening.videoUrl
+                }} className={`${opening.videoUrl
                   ? "px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold"
-                  : "px-5 py-2 rounded-lg bg-accent text-white text-sm font-bold"
-                }>🎬 {opening.videoUrl ? (lang === "he" ? "צור גרסה חדשה" : "Generate new version") : (lang === "he" ? "צור וידאו" : "Generate video")}</button>
+                  : "px-5 py-2 rounded-lg bg-accent text-white text-sm font-bold"} disabled:opacity-50 disabled:cursor-not-allowed`
+                }>🎬 {(openingJob && !openingJob.done) ? (lang === "he" ? "מייצר…" : "Rendering…") : opening.videoUrl ? (lang === "he" ? "צור גרסה חדשה" : "Generate new version") : (lang === "he" ? "צור וידאו" : "Generate video")}</button>
                 <button onClick={async () => {
                   const next = !opening.isSeriesDefault;
                   await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { isSeriesDefault: next } });

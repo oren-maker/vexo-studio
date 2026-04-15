@@ -101,16 +101,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const created: { angle: string; url: string }[] = [];
     const errors: { angle: string; error: string }[] = [];
 
-    // Existing front image (if we kept it across this call) becomes the seed.
-    let frontUrl: string | undefined = character.media
-      .find((m) => (m.metadata as { angle?: string } | null)?.angle === "front")?.fileUrl;
+    // Collect reference images as we go. nano-banana accepts up to 3 refs —
+    // passing multiple angles (front + three-quarter + profile) dramatically
+    // improves identity lock for back/action shots vs passing just the front.
+    // Seed with any images that already exist on the character (front first).
+    const priorityOrder = ["front", "three-quarter", "profile", "back", "action"];
+    const refUrls: string[] = [];
+    for (const key of priorityOrder) {
+      const m = character.media.find((x) => (x.metadata as { angle?: string } | null)?.angle === key);
+      if (m?.fileUrl) refUrls.push(m.fileUrl);
+    }
 
     for (const a of toRun) {
       try {
-        const isFront = a.key === "front";
-        const referenceImageUrls = !isFront && frontUrl ? [frontUrl] : undefined;
+        const isFront = a.key === "front" && refUrls.length === 0;
+        // For every non-seed shot, send up to 3 existing reference images.
+        const referenceImageUrls = !isFront && refUrls.length > 0 ? refUrls.slice(0, 3) : undefined;
         const identityClause = referenceImageUrls
-          ? " SAME PERSON AS THE REFERENCE IMAGE — match face, hair, skin, age, and exact wardrobe pixel-for-pixel."
+          ? ` SAME PERSON AS THE ${referenceImageUrls.length} REFERENCE IMAGE${referenceImageUrls.length > 1 ? "S" : ""} — match face shape, eye color, skin tone, hair color & length, facial hair, age, and exact wardrobe pixel-for-pixel. Do not change the person's identity.`
           : "";
         const prompt = `${basePrompt} Camera: ${a.desc}.${identityClause}`;
         const img = await generateImage({ prompt, negativePrompt: PHOTOREAL_NEGATIVE, aspectRatio: "1:1", model: "nano-banana", referenceImageUrls });
@@ -123,7 +131,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           },
         });
         created.push({ angle: a.key, url: img.imageUrl });
-        if (a.key === "front") frontUrl = img.imageUrl;
+        // Feed the new image back into the reference pool so later angles in
+        // the same loop see it too. Keep the most identity-strong shots first.
+        refUrls.unshift(img.imageUrl);
         await chargeUsd({
           organizationId: ctx.organizationId,
           projectId: character.projectId,

@@ -50,20 +50,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         continue;
       }
 
+      // Same identity-lock logic as /characters/[id]/generate-gallery:
+      // always lead with gender+age+name, ban text overlays, accumulate
+      // generated images as references so later angles lock onto the face.
+      const genderClause = c.gender ? `${c.gender.toLowerCase()} ` : "";
+      const ageClause = c.ageRange ? `aged ${c.ageRange} years old` : "";
+      const identityPreamble = `A ${genderClause}character named ${c.name}, ${ageClause}.`.replace(/\s+/g, " ").trim();
+
       const basePrompt = [
-        c.appearance || `${c.gender ?? ""} ${c.ageRange ?? ""} character named ${c.name}`.trim(),
+        identityPreamble,
+        c.appearance ? `Appearance: ${c.appearance}.` : "",
         c.wardrobeRules ? `Wardrobe: ${c.wardrobeRules}.` : "",
         c.personality ? `Personality cue: ${c.personality}.` : "",
         PHOTOREAL_DIRECTIVE,
-        "High-detail cinematic photography, consistent identity across all angles.",
+        "High-detail cinematic photography, consistent identity across all angles. Do NOT render any text, captions, labels, or watermarks.",
       ].filter(Boolean).join(" ");
 
       let made = 0;
+      const refUrls: string[] = [];
       for (const a of ANGLES) {
         if (Date.now() > deadline) break;
         try {
-          const prompt = `${basePrompt} Camera: ${a.desc}.`;
-          const img = await generateImage({ prompt, negativePrompt: PHOTOREAL_NEGATIVE, aspectRatio: "1:1", model: "nano-banana" });
+          const referenceImageUrls = refUrls.length > 0 ? refUrls.slice(0, 3) : undefined;
+          const identityClause = referenceImageUrls
+            ? ` SAME PERSON AS THE ${referenceImageUrls.length} REFERENCE IMAGE${referenceImageUrls.length > 1 ? "S" : ""} — match face shape, eye color, skin tone, hair color & length, facial hair, age, and exact wardrobe pixel-for-pixel.`
+            : "";
+          const prompt = `${basePrompt} Camera: ${a.desc}.${identityClause}`;
+          const img = await generateImage({ prompt, negativePrompt: PHOTOREAL_NEGATIVE, aspectRatio: "1:1", model: "nano-banana", referenceImageUrls });
           const media = await prisma.characterMedia.create({
             data: {
               characterId: c.id,
@@ -73,6 +86,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             },
           });
           made++;
+          refUrls.unshift(img.imageUrl);
           await chargeUsd({
             organizationId: ctx.organizationId,
             projectId: params.id,

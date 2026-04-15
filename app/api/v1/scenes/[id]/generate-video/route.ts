@@ -237,9 +237,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       if (isSora) {
         const sec: SoraSeconds = duration <= 5 ? "4" : duration <= 9 ? "8" : "12";
         const size = body.aspectRatio === "9:16" ? "720x1280" : "1280x720";
+        // Sora only accepts ONE input_reference, and it locks the look of
+        // whoever appears in that image. Storyboard frames drift between
+        // scenes (each was generated independently), so prefer the main
+        // character's canonical front portrait from the gallery — this is
+        // the same image across every scene and gives Sora a stable face
+        // to lock on. Falls back to the storyboard frame only if no
+        // character refs are available.
+        const soraSeed = characterRefImgs[0] ?? firstFrameImg ?? undefined;
         const s = await submitSoraVideo({
           prompt, model: modelKey as SoraModel, seconds: sec, size,
-          imageUrl: firstFrameImg ?? undefined,
+          imageUrl: soraSeed,
         });
         jobId = s.id; provider = "openai"; displayModel = modelKey;
       } else if (isGoogleVeo) {

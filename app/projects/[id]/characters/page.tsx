@@ -83,6 +83,18 @@ export default function CharactersPage() {
     finally { setGenBusy(null); }
   }
 
+  async function regenerateAll(cid: string, name: string) {
+    if (!confirm(lang === "he"
+      ? `למחוק את כל התמונות של ${name} ולייצר 5 חדשות עם זהות נעולה? (~$0.20)`
+      : `Delete all images for ${name} and generate 5 new ones with locked identity? (~$0.20)`)) return;
+    setGenBusy(cid);
+    try {
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: { count: "rest", regenerate: true } });
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setGenBusy(null); }
+  }
+
   const [lightbox, setLightbox] = useState<{ character: Character; index: number } | null>(null);
 
   useEffect(() => {
@@ -208,6 +220,11 @@ export default function CharactersPage() {
                       {c.media.length > 0 && c.media.length < 5 && (
                         <button disabled={genBusy === c.id} onClick={() => generateRest(c.id)} className="text-xs px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50">
                           {genBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (lang === "he" ? `✨ השאר (${5 - c.media.length})` : `✨ Rest (${5 - c.media.length})`)}
+                        </button>
+                      )}
+                      {c.media.length > 0 && (
+                        <button disabled={genBusy === c.id} onClick={() => regenerateAll(c.id, c.name)} className="text-xs px-2 py-1 rounded-lg border border-status-errText text-status-errText disabled:opacity-50" title={lang === "he" ? "מוחק הכל ומייצר 5 חדשות עם זהות נעולה" : "Wipe + regenerate all 5 with locked identity"}>
+                          {genBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (lang === "he" ? "🔄 ייצר מחדש" : "🔄 Regenerate")}
                         </button>
                       )}
                     </div>

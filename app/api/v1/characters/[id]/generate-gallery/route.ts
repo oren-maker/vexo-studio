@@ -22,6 +22,9 @@ export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export 
 
 const Body = z.object({
   count: z.union([z.number().int().min(1).max(5), z.literal("rest")]).optional(),
+  // When true, deletes all existing gallery images first then regenerates the
+  // full set with identity-lock from a single freshly-made front portrait.
+  regenerate: z.boolean().optional(),
 }).partial();
 
 const ANGLES = [
@@ -40,11 +43,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const body = req.headers.get("content-length") && Number(req.headers.get("content-length")) > 0
       ? Body.parse(await req.json()) : Body.parse({});
 
-    const character = await prisma.character.findFirst({
+    let character = await prisma.character.findFirst({
       where: { id: params.id, project: { organizationId: ctx.organizationId } },
       include: { project: true, media: { orderBy: { createdAt: "asc" } } },
     });
     if (!character) throw Object.assign(new Error("character not found"), { statusCode: 404 });
+
+    // Wipe-and-redo path: delete every existing media row so the loop below
+    // generates a fresh front portrait first, then locks every other angle to
+    // it. Fixes "two different faces under the same name" — earlier galleries
+    // generated each angle independently from text only.
+    if (body.regenerate) {
+      await prisma.characterMedia.deleteMany({ where: { characterId: character.id } });
+      character = { ...character, media: [] };
+    }
 
     const doneKeys = new Set<string>(
       character.media
@@ -54,8 +66,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const pending = ANGLES.filter((a) => !doneKeys.has(a.key));
     if (pending.length === 0) return ok({ characterId: character.id, generated: 0, done: true });
 
-    const want = body.count === "rest" ? pending.length : Math.min(body.count ?? 1, pending.length);
-    const toRun = pending.slice(0, want);
+    // ALWAYS generate front first when missing — every other angle uses it as
+    // the identity-lock reference. Without this, nano-banana invents a new
+    // face per angle and the gallery looks like 5 different people.
+    const wantRaw = body.count === "rest" ? pending.length : Math.min(body.count ?? 1, pending.length);
+    const frontPending = pending.find((a) => a.key === "front");
+    const orderedPending = frontPending ? [frontPending, ...pending.filter((a) => a.key !== "front")] : pending;
+    const toRun = orderedPending.slice(0, wantRaw);
 
     const seriesTone = [
       character.project.description ? `Series premise: ${character.project.description}.` : "",
@@ -74,10 +91,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const created: { angle: string; url: string }[] = [];
     const errors: { angle: string; error: string }[] = [];
 
+    // Existing front image (if we kept it across this call) becomes the seed.
+    let frontUrl: string | undefined = character.media
+      .find((m) => (m.metadata as { angle?: string } | null)?.angle === "front")?.fileUrl;
+
     for (const a of toRun) {
       try {
-        const prompt = `${basePrompt} Camera: ${a.desc}.`;
-        const img = await generateImage({ prompt, negativePrompt: PHOTOREAL_NEGATIVE, aspectRatio: "1:1", model: "nano-banana" });
+        const isFront = a.key === "front";
+        const referenceImageUrls = !isFront && frontUrl ? [frontUrl] : undefined;
+        const identityClause = referenceImageUrls
+          ? " SAME PERSON AS THE REFERENCE IMAGE — match face, hair, skin, age, and exact wardrobe pixel-for-pixel."
+          : "";
+        const prompt = `${basePrompt} Camera: ${a.desc}.${identityClause}`;
+        const img = await generateImage({ prompt, negativePrompt: PHOTOREAL_NEGATIVE, aspectRatio: "1:1", model: "nano-banana", referenceImageUrls });
         const media = await prisma.characterMedia.create({
           data: {
             characterId: character.id,
@@ -87,6 +113,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           },
         });
         created.push({ angle: a.key, url: img.imageUrl });
+        if (a.key === "front") frontUrl = img.imageUrl;
         await chargeUsd({
           organizationId: ctx.organizationId,
           projectId: character.projectId,

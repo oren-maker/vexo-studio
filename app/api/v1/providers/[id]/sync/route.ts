@@ -37,6 +37,34 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return ok({ balance: wallet.availableCredits, usageThisMonth: u.usageThisMonth, callsThisMonth: u.callsThisMonth, reachable: u.reachable, source: "google-direct" });
     }
 
+    if (name.includes("openai")) {
+      const { fetchOpenAiBalance } = await import("@/lib/providers/openai-sora");
+      try {
+        const b = await fetchOpenAiBalance();
+        const wallet = await prisma.creditWallet.upsert({
+          where: { providerId: provider.id },
+          update: { availableCredits: b.remaining, isTrackingEnabled: true },
+          create: { providerId: provider.id, availableCredits: b.remaining, totalCreditsAdded: b.total, isTrackingEnabled: true },
+        });
+        await prisma.creditTransaction.create({
+          data: {
+            walletId: wallet.id, transactionType: "ADD", amount: 0, unitType: "USD", sourceType: "MANUAL",
+            description: `OpenAI sync → balance $${b.remaining.toFixed(2)} (${b.source})`,
+            createdByUserId: ctx.user.id,
+          },
+        });
+        return ok({ provider: provider.name, balance: b.remaining, source: b.source });
+      } catch (e) {
+        // OpenAI's billing endpoints are deprecated for project keys —
+        // surface that clearly so the user knows to top up manually.
+        return ok({
+          provider: provider.name,
+          status: "no_remote_balance_api",
+          message: `OpenAI billing API unavailable for this key (${(e as Error).message.slice(0, 200)}). Top up manually with the credit amount you bought on platform.openai.com.`,
+        });
+      }
+    }
+
     if (name.includes("fal")) {
       const b = await fetchBalance();
       const current = b.currentBalance ?? 0;

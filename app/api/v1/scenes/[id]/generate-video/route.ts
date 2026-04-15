@@ -28,6 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         frames: { orderBy: { orderIndex: "asc" } },
         episode: {
           include: {
+            season: { select: { seasonNumber: true } },
             characters: { include: { character: { include: { media: { orderBy: { createdAt: "asc" } } } } } },
           },
         },
@@ -126,10 +127,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       "Include clearly audible dialogue, ambient room tone, footsteps, breathing, and appropriate background music.",
     ].filter(Boolean).join(" ");
 
+    // First scene of every episode gets an auto title card: "Season N Episode M"
+    // overlaid in the opening ~1.5 seconds, then fades out. Also spoken by narrator.
+    const isFirstScene = scene.sceneNumber === 1;
+    const sNum = scene.episode?.season?.seasonNumber;
+    const eNum = scene.episode?.episodeNumber;
+    const titleCardBlock = isFirstScene && sNum != null && eNum != null
+      ? `EPISODE TITLE CARD (first 1.5 seconds only): Overlay large clean white sans-serif text reading "SEASON ${sNum} · EPISODE ${eNum}" centered on screen with 15% safe margins, then fade out smoothly before the action starts. A warm narrator voice reads "Season ${sNum}, Episode ${eNum}" in sync with the on-screen text.`
+      : "";
+
     const basePrompt = willUseI2V
       ? [
           // 1. Audio comes first so VEO 3 doesn't skip it.
           `AUDIO: ${audioBlock}`,
+          titleCardBlock,
           // 2. Photorealism + identity lock
           `Continue from the starting image as a live-action photorealistic film. Real human actors, real skin pores, real eyes, no animation or CGI look.`,
           inScene.length > 0 && `On screen: ${inScene.map((c) => c.name).join(", ")} — keep their faces, hair, wardrobe EXACTLY as in the image, no drift.`,
@@ -145,6 +156,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       ? [
           // AUDIO first here too
           `AUDIO: ${audioBlock}`,
+          titleCardBlock,
           `[Style] ${sheet.style} — Photorealistic live-action film. Real human actors with real skin, real eyes. NO cartoon, NO 3D render, NO illustration.`,
           `[Scene] ${sheet.scene}`,
           `[Character] ${sheet.character}`,
@@ -158,6 +170,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         ].filter(Boolean).join("\n\n")
       : [
           `AUDIO: ${audioBlock}`,
+          titleCardBlock,
           scene.title && `Title: ${scene.title}`,
           scene.summary && `Summary: ${scene.summary}`,
           characterBlock,

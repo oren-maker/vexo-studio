@@ -42,8 +42,10 @@ export default function SeasonPage() {
   const [tab, setTab] = useState<"episodes" | "characters" | "logs" | "opening">("episodes");
   type Opening = { id: string; status: string; videoUrl: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; versions: { id: string; prompt: string; createdAt: string }[] };
   type OpeningCostBreakdown = { text: number; video: number; total: number; calls: number };
+  type OpeningVideo = { id: string; fileUrl: string; at: string; model: string | null; durationSeconds: number | null; costUsd: number | null };
   const [opening, setOpening] = useState<Opening | null>(null);
   const [openingCosts, setOpeningCosts] = useState<OpeningCostBreakdown | null>(null);
+  const [openingVideos, setOpeningVideos] = useState<OpeningVideo[]>([]);
   const [openingWizardOpen, setOpeningWizardOpen] = useState(false);
   const [openingEditing, setOpeningEditing] = useState(false);
   const [openingPromptDraft, setOpeningPromptDraft] = useState("");
@@ -82,10 +84,10 @@ export default function SeasonPage() {
 
   useEffect(() => {
     if (!season || tab !== "opening") return;
-    api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`).then((r) => {
+    api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`).then((r) => {
       setOpening(r.opening);
       setOpeningCosts(r.costBreakdown);
-    }).catch(() => { setOpening(null); setOpeningCosts(null); });
+    }).catch(() => { setOpening(null); setOpeningCosts(null); setOpeningVideos([]); });
   }, [season?.id, tab]);
 
   useEffect(() => {
@@ -603,8 +605,8 @@ export default function SeasonPage() {
                   <div className="text-xs text-text-muted mb-4">{lang === "he" ? `${opening.model} · ${opening.duration}s · ${opening.aspectRatio} · ~$${({seedance:0.124,kling:0.056,"veo3-fast":0.40,"veo3-pro":0.75}[opening.model as "seedance"|"kling"|"veo3-fast"|"veo3-pro"] ?? 0.124) * opening.duration}` : `${opening.model} · ${opening.duration}s · ${opening.aspectRatio}`}</div>
                   <button onClick={async () => {
                     await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
-                    const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
-                    setOpening(r.opening); setOpeningCosts(r.costBreakdown);
+                    const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
+                    setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
                   }} className="px-6 py-2.5 rounded-lg bg-accent text-white font-bold">🎬 {lang === "he" ? "צור וידאו עכשיו" : "Generate video now"}</button>
                 </div>
               )}
@@ -639,18 +641,18 @@ export default function SeasonPage() {
                 <button onClick={() => { setOpeningEditing(true); setOpeningPromptDraft(opening.currentPrompt); }} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">✏ {lang === "he" ? "ערוך פרומט" : "Edit prompt"}</button>
                 <button onClick={async () => {
                   await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
-                  const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
-                  setOpening(r.opening); setOpeningCosts(r.costBreakdown);
+                  const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
+                  setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
                   alert(lang === "he" ? "יצירה החלה — fal מייצר ~60-90 שניות" : "Generation started");
                 }} className={opening.videoUrl
                   ? "px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold"
                   : "px-5 py-2 rounded-lg bg-accent text-white text-sm font-bold"
-                }>🎬 {opening.videoUrl ? (lang === "he" ? "צור מחדש" : "Regenerate") : (lang === "he" ? "צור וידאו" : "Generate video")}</button>
+                }>🎬 {opening.videoUrl ? (lang === "he" ? "צור גרסה חדשה" : "Generate new version") : (lang === "he" ? "צור וידאו" : "Generate video")}</button>
                 <button onClick={async () => {
                   const next = !opening.isSeriesDefault;
                   await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { isSeriesDefault: next } });
-                  const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
-                  setOpening(r.opening); setOpeningCosts(r.costBreakdown);
+                  const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
+                  setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
                 }} className="px-3 py-1.5 rounded-lg border border-bg-main text-text-secondary text-sm">{opening.isSeriesDefault ? (lang === "he" ? "הסר סימון 'ראשית'" : "Unset series default") : (lang === "he" ? "⭐ סמן כפתיחה הראשית" : "⭐ Mark as series default")}</button>
                 <button onClick={() => setOpeningWizardOpen(true)} className="px-3 py-1.5 rounded-lg border border-bg-main text-text-secondary text-sm">🔄 {lang === "he" ? "בנה מחדש באשף" : "Rebuild in wizard"}</button>
                 <button onClick={async () => {
@@ -667,8 +669,8 @@ export default function SeasonPage() {
                     <button onClick={() => setOpeningEditing(false)} className="px-3 py-1.5 rounded-lg border border-bg-card text-sm">{lang === "he" ? "ביטול" : "Cancel"}</button>
                     <button onClick={async () => {
                       await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { prompt: openingPromptDraft } });
-                      const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
-                      setOpening(r.opening); setOpeningCosts(r.costBreakdown);
+                      const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
+                      setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
                       setOpeningEditing(false);
                     }} className="px-4 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">{lang === "he" ? "שמור גרסה" : "Save version"}</button>
                   </div>
@@ -685,13 +687,35 @@ export default function SeasonPage() {
                         <span className="text-[10px] text-text-muted">{new Date(v.createdAt).toLocaleString(lang === "he" ? "he-IL" : undefined)}</span>
                         <button onClick={async () => {
                           await api(`/api/v1/seasons/${season.id}/opening/restore/${v.id}`, { method: "POST" });
-                          const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
-                          setOpening(r.opening); setOpeningCosts(r.costBreakdown);
+                          const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
+                          setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
                         }} className="text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">🔁 {lang === "he" ? "שחזר" : "Restore"}</button>
                       </div>
                     </li>
                   ))}
                   {opening.versions.length === 0 && <li className="text-xs text-text-muted">{lang === "he" ? "אין גרסאות קודמות" : "No versions yet"}</li>}
+                </ul>
+              </details>
+
+              <details open>
+                <summary className="cursor-pointer text-sm font-semibold">🎞 {lang === "he" ? `היסטוריית סרטונים שנוצרו (${openingVideos.length})` : `Video generation history (${openingVideos.length})`}</summary>
+                <ul className="mt-3 space-y-2">
+                  {openingVideos.map((v, i) => (
+                    <li key={v.id} className="bg-bg-main rounded-lg p-3 flex items-center gap-3">
+                      <video src={v.fileUrl} className="w-32 h-20 rounded bg-black object-cover" muted />
+                      <div className="flex-1 min-w-0 text-xs">
+                        <div className="font-semibold">{lang === "he" ? `גרסה #${openingVideos.length - i}` : `Generation #${openingVideos.length - i}`}</div>
+                        <div className="text-text-muted mt-0.5 flex flex-wrap gap-2">
+                          {v.model && <span className="bg-bg-card rounded-full px-2 py-0.5">{v.model}</span>}
+                          {v.durationSeconds && <span className="bg-bg-card rounded-full px-2 py-0.5">{v.durationSeconds}s</span>}
+                          {v.costUsd != null && <span className="bg-bg-card rounded-full px-2 py-0.5 num text-status-errText">${v.costUsd.toFixed(4)}</span>}
+                          <span className="bg-bg-card rounded-full px-2 py-0.5">{new Date(v.at).toLocaleString(lang === "he" ? "he-IL" : undefined)}</span>
+                        </div>
+                      </div>
+                      <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold shrink-0">↗ {lang === "he" ? "פתח" : "Open"}</a>
+                    </li>
+                  ))}
+                  {openingVideos.length === 0 && <li className="text-xs text-text-muted">{lang === "he" ? "עדיין לא נוצרו סרטונים" : "No videos generated yet"}</li>}
                 </ul>
               </details>
             </div>
@@ -707,8 +731,8 @@ export default function SeasonPage() {
           onCancel={() => setOpeningWizardOpen(false)}
           onFinished={async () => {
             setOpeningWizardOpen(false);
-            const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
-            setOpening(r.opening); setOpeningCosts(r.costBreakdown);
+            const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
+            setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
           }}
         />
       )}

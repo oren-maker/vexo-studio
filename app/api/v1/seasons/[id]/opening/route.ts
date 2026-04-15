@@ -28,6 +28,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       where: { seasonId: params.id },
       include: { versions: { orderBy: { createdAt: "desc" }, take: 30 } },
     });
+    // Every successful fal generation creates an Asset row tagged to this opening.
+    // Surface the full list so the UI can show "generation #N · model · cost · when".
+    const videoHistory = opening
+      ? await prisma.asset.findMany({
+          where: { entityType: "SEASON_OPENING", entityId: opening.id, assetType: "VIDEO", status: "READY" },
+          orderBy: { createdAt: "desc" },
+          take: 30,
+          select: { id: true, fileUrl: true, createdAt: true, metadata: true },
+        })
+      : [];
     // Aggregate every CostEntry attributed to this season's opening (text AI +
     // video generation). Both are tagged entityType=SEASON_OPENING + entityId=seasonId.
     const costs = await prisma.costEntry.findMany({
@@ -48,6 +58,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         calls: costs.length,
         entries: costs.map((c) => ({ id: c.id, category: c.costCategory, description: c.description, cost: c.totalCost, at: c.createdAt })),
       },
+      videoHistory: videoHistory.map((a) => {
+        const m = (a.metadata as { model?: string; durationSeconds?: number; costUsd?: number } | null) ?? {};
+        return {
+          id: a.id,
+          fileUrl: a.fileUrl,
+          at: a.createdAt,
+          model: m.model ?? null,
+          durationSeconds: m.durationSeconds ?? null,
+          costUsd: m.costUsd ?? null,
+        };
+      }),
     });
   } catch (e) { return handleError(e); }
 }

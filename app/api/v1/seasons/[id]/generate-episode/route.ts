@@ -10,6 +10,7 @@ import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { assertEpisodeQuota } from "@/lib/plan-limits";
 import { groqJson } from "@/lib/groq";
 import { getContext, buildContext } from "@/lib/project-context";
+import { generateSoundNotes } from "@/lib/sound-notes";
 import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
@@ -128,11 +129,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           },
         });
 
-        const fp = await groqJson<{ frames?: { beatSummary?: string; imagePrompt?: string; negativePrompt?: string }[] }>(
-          `Plan ${framesPerScene} storyboard frames. Return JSON { frames: [{ beatSummary, imagePrompt, negativePrompt }] }. Cinematic image prompts.`,
-          `Scene: ${sp.title}\nMood: ${sp.mood ?? "—"}\nLocation: ${sp.location ?? "—"}\nCharacters: ${(sp.characterNames ?? []).join(", ") || "—"}\n${sp.scriptText}`,
-          { temperature: 0.7, maxTokens: 1200 },
-        ).catch(() => ({ frames: [] as { beatSummary?: string; imagePrompt?: string; negativePrompt?: string }[] }));
+        // Frames + sound notes in parallel — both feed the video model later.
+        // Auto-soundnotes means the user doesn't have to click "✨ Generate"
+        // on every scene; it's already filled when they open the scene.
+        const [fp, soundNotes] = await Promise.all([
+          groqJson<{ frames?: { beatSummary?: string; imagePrompt?: string; negativePrompt?: string }[] }>(
+            `Plan ${framesPerScene} storyboard frames. Return JSON { frames: [{ beatSummary, imagePrompt, negativePrompt }] }. Cinematic image prompts.`,
+            `Scene: ${sp.title}\nMood: ${sp.mood ?? "—"}\nLocation: ${sp.location ?? "—"}\nCharacters: ${(sp.characterNames ?? []).join(", ") || "—"}\n${sp.scriptText}`,
+            { temperature: 0.7, maxTokens: 1200 },
+          ).catch(() => ({ frames: [] as { beatSummary?: string; imagePrompt?: string; negativePrompt?: string }[] })),
+          generateSoundNotes({
+            projectName: contextCache?.summary ? undefined : undefined,
+            episodeNumber: nextNumber,
+            sceneNumber: s + 1,
+            sceneTitle: sp.title,
+            summary: sp.summary,
+            scriptText: sp.scriptText,
+          }, contextCache?.projectId).catch(() => ""),
+        ]);
 
         const plannedFrames = Array.isArray(fp?.frames) ? fp.frames : [];
         const validFrames = plannedFrames.filter((fr) => fr?.imagePrompt).slice(0, framesPerScene);
@@ -148,6 +162,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             })),
             skipDuplicates: true,
           });
+        }
+
+        // Persist soundNotes into scene memoryContext so the video model
+        // gets the full audio brief even on the very first generation.
+        if (soundNotes) {
+          await prisma.scene.update({
+            where: { id: scene.id },
+            data: {
+              memoryContext: {
+                location: sp.location, mood: sp.mood, characters: sp.characterNames ?? [],
+                soundNotes,
+              } as object,
+            },
+          }).catch(() => {});
         }
 
         return { sceneId: scene.id, frames: validFrames.length };

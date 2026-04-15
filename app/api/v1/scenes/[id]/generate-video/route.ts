@@ -7,6 +7,7 @@ import { submitVideo, type VideoModel } from "@/lib/providers/fal";
 import { submitSoraVideo, type SoraModel, type SoraSeconds } from "@/lib/providers/openai-sora";
 import { submitVeoVideo, type GoogleVeoModel } from "@/lib/providers/google-veo";
 import { fetchReferencePrompts, buildReferenceContext } from "@/lib/providers/vexo-learn";
+import { generateSoundNotes } from "@/lib/sound-notes";
 import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
@@ -72,7 +73,32 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       directorSheet?: { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string };
       directorNotes?: string;
       characters?: string[];
+      soundNotes?: string;
     } | null) ?? {};
+
+    // If sound notes are missing, generate them inline before submitting —
+    // an audio-capable video model needs the sound brief in the prompt or
+    // it'll guess music/SFX. ~3-5s extra; well within the 60s budget.
+    if (!mem.soundNotes && scene.scriptText) {
+      try {
+        const sn = await generateSoundNotes({
+          episodeNumber: scene.episode?.episodeNumber,
+          sceneNumber: scene.sceneNumber,
+          sceneTitle: scene.title,
+          summary: scene.summary,
+          scriptText: scene.scriptText,
+          directorSheetAudio: mem.directorSheet?.audio,
+          directorNotes: mem.directorNotes,
+        });
+        if (sn) {
+          mem.soundNotes = sn;
+          await prisma.scene.update({
+            where: { id: scene.id },
+            data: { memoryContext: { ...(scene.memoryContext as object ?? {}), soundNotes: sn } as object },
+          }).catch(() => {});
+        }
+      } catch { /* not fatal — proceed without */ }
+    }
     const sheet = mem.directorSheet;
     const sceneNames = (mem.characters ?? []).map((n) => n.toLowerCase().trim());
     const episodeChars = scene.episode?.characters.map((ec) => ec.character) ?? [];

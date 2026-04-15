@@ -20,6 +20,8 @@
     "@supabase/ssr": "^0.5.2",
     "@vercel/blob": "^2.3.3",
     "@vercel/functions": "^1.5.0",
+    "@google/generative-ai": "^0.24.1",
+    "instagram-url-direct": "^2.0.7",
     "@supabase/supabase-js": "^2.45.6",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",

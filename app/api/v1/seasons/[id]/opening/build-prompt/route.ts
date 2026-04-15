@@ -96,7 +96,7 @@ ${nameCardDirective}
 
 ${pacingDirective}
 
-MANDATORY: The series title "${season.series.title}" MUST appear as a clean typographic title card with LARGE readable letters — either as the very first shot opening the sequence, or as the final beat closing it. State which in the prompt and describe its typography (sans-serif, matching the genre).
+MANDATORY: The series title "${season.series.title}" MUST appear as a clean typographic title card with LARGE readable letters — either as the very first shot opening the sequence, or as the final beat closing it. The title text MUST be fully visible with SAFE margins (at least 15% padding on every edge of the frame — no clipping, no edge crop, no letters touching the borders). Center the title horizontally and vertically. Describe its typography (sans-serif, matching the genre).
 
 Keep it ≤ 1400 chars. Positive phrasing only (no "NOT X" negations). Do not mention the model name. Do not reduce the cast count under any circumstances.`,
       `SERIES BIBLE:\n${bible.slice(0, 1500)}\n\nSERIES TITLE: ${season.series.title}\nSEASON #${season.seasonNumber}${season.title ? ` — ${season.title}` : ""}\nSTYLE CHOICE: ${body.styleLabel ?? body.style}${body.customPromptSeed ? `\nUSER SEED: ${body.customPromptSeed}` : ""}\n\n[CAST to feature — ALL ${cast.length} must appear]\n${castBlock}\n\nDURATION: ${body.duration}s · ASPECT: ${body.aspectRatio} · MODEL: ${body.model}${hasAudio ? " (has audio — music is MANDATORY)" : " (silent)"}`,

@@ -116,21 +116,36 @@ export default function ScenePage() {
     }
   }
 
-  // Tick the job progress + poll scene for new videos
+  // Tick the job progress + poll scene for new videos.
+  // On success OR on 4-minute timeout, trigger a full page data refresh so
+  // status, frames, videos AND the AI cost card all update — not just the
+  // videos array.
   useEffect(() => {
     if (!veoJob || veoJob.done) return;
+    const MAX_WAIT_MS = 240_000; // 4 minutes — generous upper bound even for VEO 3 Pro
     const tick = setInterval(() => {
-      setVeoJob((j) => j ? { ...j, elapsed: Math.round((Date.now() - j.startedAt) / 1000) } : null);
+      setVeoJob((j) => {
+        if (!j) return null;
+        const elapsed = Math.round((Date.now() - j.startedAt) / 1000);
+        return { ...j, elapsed };
+      });
     }, 1000);
     const poll = setInterval(async () => {
       try {
-        const fresh = await api<{ videos?: { id: string; fileUrl: string }[] }>(`/api/v1/scenes/${id}`);
-        setScene((prev) => prev ? { ...prev, videos: fresh.videos ?? prev.videos } : prev);
-        if ((fresh.videos?.length ?? 0) > veoJob.videoCountBefore) {
-          setVeoJob((j) => j ? { ...j, done: true, elapsed: Math.round((Date.now() - j.startedAt) / 1000) } : null);
+        const fresh = await api<{ videos?: { id: string; fileUrl: string }[]; status?: string }>(`/api/v1/scenes/${id}`);
+        const gotNewVideo = (fresh.videos?.length ?? 0) > veoJob.videoCountBefore;
+        const serverSideSettled = fresh.status && ["VIDEO_REVIEW", "STORYBOARD_REVIEW", "STORYBOARD_APPROVED"].includes(fresh.status);
+        const elapsed = Date.now() - veoJob.startedAt;
+        if (gotNewVideo || serverSideSettled || elapsed > MAX_WAIT_MS) {
+          setVeoJob((j) => j ? { ...j, done: true, elapsed: Math.round(elapsed / 1000) } : null);
           clearInterval(tick); clearInterval(poll);
+          // Full refresh — reload scene + costs so every card reflects the final state.
+          await load();
+        } else {
+          // Mid-flight: still update the videos list if anything appeared incrementally.
+          setScene((prev) => prev ? { ...prev, videos: fresh.videos ?? prev.videos } : prev);
         }
-      } catch { /* ignore */ }
+      } catch { /* ignore transient poll errors */ }
     }, 5000);
     return () => { clearInterval(tick); clearInterval(poll); };
   }, [veoJob?.startedAt, veoJob?.done, id]);

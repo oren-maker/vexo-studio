@@ -330,30 +330,6 @@ export default function ScenePage() {
           <span className="text-xs px-3 py-1 rounded-full bg-bg-main font-bold whitespace-nowrap">{scene.status}</span>
         </div>
 
-        <div className="bg-bg-card rounded-card p-3 border border-bg-main flex flex-wrap items-end gap-3">
-          <label className="text-xs">
-            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">{he ? "מודל תמונה" : "Image model"}</span>
-            <select value={imageModel} onChange={(e) => setImageModel(e.target.value as never)} className="px-2 py-1 rounded border border-bg-main text-sm">
-              <option value="nano-banana">Nano Banana (Gemini 2.5 Flash Image)</option>
-            </select>
-          </label>
-          <label className="text-xs">
-            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">{he ? "מודל וידאו" : "Video model"}</span>
-            <select value={videoModel} onChange={(e) => setVideoModel(e.target.value as never)} className="px-2 py-1 rounded border border-bg-main text-sm">
-              <option value="seedance">SeeDance Pro (ByteDance)</option>
-              <option value="kling">Kling 2.1 Master</option>
-            </select>
-          </label>
-          <label className="text-xs">
-            <span className="block text-[10px] uppercase tracking-widest text-text-muted mb-1">{he ? "יחס" : "Aspect"}</span>
-            <select value={aspect} onChange={(e) => setAspect(e.target.value as never)} className="px-2 py-1 rounded border border-bg-main text-sm">
-              <option value="16:9">16:9</option>
-              <option value="9:16">9:16</option>
-              <option value="1:1">1:1</option>
-            </select>
-          </label>
-        </div>
-
         <div className="flex flex-wrap gap-2">
           <button disabled={busy} onClick={genStoryboard} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור תשריט" : "Generate storyboard"}</button>
           <button disabled={busy} onClick={genVideo} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור וידאו" : "Generate video"}</button>

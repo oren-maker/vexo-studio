@@ -817,6 +817,19 @@ export default function SeasonPage() {
                               setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
                             }} className="text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">⭐ {lang === "he" ? "קבע כראשי" : "Set as active"}</button>
                           )}
+                          <button onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const res = await fetch(v.fileUrl);
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `opening-v${openingVideos.length - i}${v.model ? "-" + v.model : ""}.mp4`;
+                              document.body.appendChild(a); a.click(); a.remove();
+                              setTimeout(() => URL.revokeObjectURL(url), 2000);
+                            } catch (err) { alert((err as Error).message); }
+                          }} className="text-[11px] px-2 py-1 rounded border border-accent text-accent font-semibold">⬇ {lang === "he" ? "הורד" : "Download"}</button>
                           <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[11px] px-2 py-1 rounded border border-bg-card text-center">↗ {lang === "he" ? "פתח" : "Open"}</a>
                         </div>
                       </li>

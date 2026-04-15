@@ -35,7 +35,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     });
     if (!scene) throw Object.assign(new Error("scene not found"), { statusCode: 404 });
     // Allow STORYBOARD_REVIEW too — auto-approve workflow
-    if (!["STORYBOARD_APPROVED", "STORYBOARD_REVIEW", "VIDEO_REVIEW"].includes(scene.status)) {
+    // Also allow VIDEO_GENERATING — a previous attempt may have failed silently
+    // (lost fal webhook, dropped connection) and the user wants to retry instead
+    // of being permanently stuck. The new submission overwrites the scene's
+    // active job.
+    if (!["STORYBOARD_APPROVED", "STORYBOARD_REVIEW", "VIDEO_REVIEW", "VIDEO_GENERATING"].includes(scene.status)) {
       throw Object.assign(new Error(`storyboard status is ${scene.status}, expected STORYBOARD_APPROVED`), { statusCode: 409 });
     }
 
@@ -173,15 +177,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? `https://${req.headers.get("host")}`;
     const webhookUrl = `${baseUrl}/api/v1/webhooks/incoming/fal?sceneId=${scene.id}&duration=${duration}&model=${body.videoModel ?? "veo3-fast"}`;
 
-    const submitted = await submitVideo({
-      prompt,
-      model: body.videoModel as VideoModel,
-      durationSeconds: duration,
-      aspectRatio: body.aspectRatio,
-      webhookUrl,
-      imageUrl: firstFrameImg ?? undefined,   // triggers image-to-video routing when present
-      referenceImageUrls: characterRefImgs,   // character identity locks
-    });
+    let submitted: Awaited<ReturnType<typeof submitVideo>>;
+    try {
+      submitted = await submitVideo({
+        prompt,
+        model: body.videoModel as VideoModel,
+        durationSeconds: duration,
+        aspectRatio: body.aspectRatio,
+        webhookUrl,
+        imageUrl: firstFrameImg ?? undefined,
+        referenceImageUrls: characterRefImgs,
+      });
+    } catch (submitErr) {
+      // fal rejected the submission (bad prompt, rate limit, transient) —
+      // revert status so the user isn't locked out on the next attempt.
+      await prisma.scene.update({ where: { id: scene.id }, data: { status: "STORYBOARD_REVIEW" } }).catch(() => {});
+      throw Object.assign(new Error(`fal submit failed: ${(submitErr as Error).message}`), { statusCode: 502 });
+    }
 
     // Track in scene memoryContext for status polling
     const projectId = (await prisma.episode.findUniqueOrThrow({ where: { id: scene.episodeId! }, include: { season: { include: { series: true } } } })).season.series.projectId;

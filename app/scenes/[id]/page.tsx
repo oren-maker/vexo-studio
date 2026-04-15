@@ -28,11 +28,17 @@ export default function ScenePage() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [busy, setBusy] = useState(false);
+  const [aiCosts, setAiCosts] = useState<{ total: number; count: number; byTool: Record<string, { total: number; count: number; latest: string | null }> } | null>(null);
+
+  async function loadCosts() {
+    setAiCosts(await api<{ total: number; count: number; byTool: Record<string, { total: number; count: number; latest: string | null }> }>(`/api/v1/scenes/${id}/ai-costs`).catch(() => null));
+  }
 
   async function load() {
     const s = await api<Scene>(`/api/v1/scenes/${id}`);
     setScene(s);
     setComments(await api<Comment[]>(`/api/v1/scenes/${id}/comments`).catch(() => []));
+    loadCosts();
   }
   useEffect(() => { load(); }, [id]);
 
@@ -331,6 +337,33 @@ export default function ScenePage() {
           <button disabled={busy} onClick={critic} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-50">{he ? "מבקר AI" : "AI critic"}</button>
           <button disabled={busy} onClick={approve} className="px-3 py-1.5 rounded-lg border-2 border-status-okText text-status-okText bg-white text-sm font-semibold hover:bg-status-okText hover:text-white transition-colors disabled:opacity-50">{he ? "אשר סצנה" : "Approve"}</button>
         </div>
+
+        {aiCosts && aiCosts.count > 0 && (() => {
+          const TOOL_LABEL: Record<string, string> = he
+            ? { storyboard: "🖼 תשריט", video: "🎬 וידאו", "director-sheet": "🎬 דף במאי", "sound-notes": "🔊 הערות סאונד", critic: "🧐 מבקר AI", breakdown: "📋 פירוק תסריט", dialogue: "💬 דיאלוג", seo: "🔍 SEO", subtitles: "📝 כתוביות", dubbing: "🗣 דיבוב", lipsync: "👄 Lip-sync", "text-ai": "✍ טקסט AI", other: "אחר" }
+            : { storyboard: "🖼 Storyboard", video: "🎬 Video", "director-sheet": "🎬 Director Sheet", "sound-notes": "🔊 Sound notes", critic: "🧐 AI critic", breakdown: "📋 Breakdown", dialogue: "💬 Dialogue", seo: "🔍 SEO", subtitles: "📝 Subtitles", dubbing: "🗣 Dubbing", lipsync: "👄 Lip-sync", "text-ai": "✍ Text AI", other: "Other" };
+          const entries = Object.entries(aiCosts.byTool).sort((a, b) => b[1].total - a[1].total);
+          return (
+            <div className="rounded-card border border-bg-main bg-bg-card px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-semibold">💰 {he ? "עלות AI של הסצנה" : "Scene AI cost"}</div>
+                <div className="text-lg font-bold num text-accent">${aiCosts.total.toFixed(4)}</div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {entries.map(([tool, v]) => (
+                  <span key={tool} className="text-[11px] bg-bg-main rounded-full px-2 py-1">
+                    <span className="text-text-secondary">{TOOL_LABEL[tool] ?? tool}</span>
+                    <span className="num font-semibold ms-1">${v.total.toFixed(4)}</span>
+                    <span className="text-text-muted ms-1">· {v.count}x</span>
+                  </span>
+                ))}
+              </div>
+              <div className="text-[10px] text-text-muted mt-2">
+                {he ? "מתעדכן אוטומטית אחרי כל ייצור · מצטבר גם בלשונית כספי הסדרה" : "Refreshes after each run · also aggregated in Project Finance"}
+              </div>
+            </div>
+          );
+        })()}
 
         {veoJob && (
           <Card title={he ? "🎬 מייצר וידאו" : "🎬 Generating video"} subtitle={veoJob.done ? (he ? "הושלם" : "Done") : (he ? "fal מעבד את הבקשה (בממוצע 30-90 שניות)" : "fal is processing (typical 30-90s)")}>

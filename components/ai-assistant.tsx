@@ -1,72 +1,113 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { useLang } from "@/lib/i18n";
 
-type Mode = "generate" | "check";
+type Message = { id: string; role: "user" | "brain"; content: string };
 
 export function AiAssistant() {
+  const lang = useLang(); const he = lang === "he";
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>("generate");
-  const [prompt, setPrompt] = useState("");
-  const [criteria, setCriteria] = useState("Clarity, narrative flow, character motivation");
+  const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [out, setOut] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
-  async function run() {
-    setBusy(true); setErr(null); setOut(null);
+  useEffect(() => { if (open) endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, open]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || busy) return;
+    setErr(null); setBusy(true);
+    const userMsg: Message = { id: `u-${Date.now()}`, role: "user", content: text };
+    setMessages((m) => [...m, userMsg]);
+    setInput("");
     try {
-      if (mode === "generate") {
-        const r = await api<{ content: string }>("/api/v1/ai/generate", { method: "POST", body: { prompt } });
-        setOut(r.content);
-      } else {
-        const r = await api<{ score: number; issues: string[]; suggestions: string[] }>("/api/v1/ai/check", { method: "POST", body: { text: prompt, criteria } });
-        setOut(`Score: ${(r.score * 100).toFixed(0)}%\n\nIssues:\n- ${r.issues.join("\n- ") || "none"}\n\nSuggestions:\n- ${r.suggestions.join("\n- ") || "none"}`);
-      }
-    } catch (e: unknown) { setErr((e as Error).message); }
+      // Compose a brain-style system context from the last 6 messages so the
+      // chat feels conversational (the /generate route is stateless).
+      const ctx = [...messages, userMsg].slice(-6).map((m) =>
+        m.role === "user" ? `USER: ${m.content}` : `BRAIN: ${m.content}`,
+      ).join("\n\n");
+      const sys = he
+        ? "אתה 'המוח' של vexo-studio — עוזר חכם וקצר לבמאי AI שמייצר סדרות. ענה בעברית, תכליתי, עם המלצות מעשיות. אם אתה לא בטוח — שאל. אל תנפח."
+        : "You are vexo-studio's 'Brain' — a sharp short assistant for an AI series director. Answer briefly with concrete recommendations. If unsure, ask. Don't pad.";
+      const r = await api<{ content: string }>("/api/v1/ai/generate", {
+        method: "POST",
+        body: { prompt: `${sys}\n\nשיחה עד עכשיו:\n${ctx}\n\nתשובת המוח:` },
+      });
+      setMessages((m) => [...m, { id: `b-${Date.now()}`, role: "brain", content: r.content.trim() }]);
+    } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }
+
+  function clearChat() { setMessages([]); setErr(null); }
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-6 end-6 w-14 h-14 rounded-full bg-accent text-white text-2xl shadow-card hover:bg-accent-light flex items-center justify-center z-20"
-        aria-label="Open AI Assistant"
-        title="AI Assistant"
+        aria-label="Open Brain"
+        title="Brain Chat"
       >
-        ✨
+        🧠
       </button>
       {open && (
-        <div className="fixed inset-0 bg-black/50 z-30 flex items-end justify-end p-6">
-          <div className="bg-bg-card rounded-card shadow-card border border-bg-main w-full max-w-md flex flex-col" style={{ maxHeight: "80vh" }}>
+        <div className="fixed inset-0 bg-black/50 z-30 flex items-end justify-end p-6" onClick={() => setOpen(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-bg-card rounded-card shadow-card border border-bg-main w-full max-w-md flex flex-col" style={{ maxHeight: "85vh", height: "85vh" }}>
             <div className="px-5 py-3 border-b border-bg-main flex items-center justify-between">
               <div>
-                <div className="font-semibold">AI Assistant</div>
-                <div className="text-[11px] text-text-muted">Powered by Groq · Llama 3.3 70B</div>
+                <div className="font-semibold flex items-center gap-2">🧠 {he ? "מוח" : "Brain"}</div>
+                <div className="text-[11px] text-text-muted">{he ? "צ'אט עוזר · Gemini" : "Assistant chat · Gemini"}</div>
               </div>
-              <button onClick={() => setOpen(false)} className="text-text-muted hover:text-text-primary">✕</button>
+              <div className="flex items-center gap-2">
+                {messages.length > 0 && <button onClick={clearChat} className="text-xs text-text-muted hover:text-status-errText" title={he ? "נקה צ'אט" : "Clear chat"}>🗑</button>}
+                <button onClick={() => setOpen(false)} className="text-text-muted hover:text-text-primary">✕</button>
+              </div>
             </div>
-            <div className="px-5 py-3 border-b border-bg-main flex gap-1 text-sm">
-              <button onClick={() => setMode("generate")} className={`px-3 py-1 rounded-lg ${mode === "generate" ? "bg-accent text-white" : "bg-bg-main"}`}>Generate</button>
-              <button onClick={() => setMode("check")} className={`px-3 py-1 rounded-lg ${mode === "check" ? "bg-accent text-white" : "bg-bg-main"}`}>Check</button>
-            </div>
-            <div className="px-5 py-4 flex-1 overflow-y-auto">
-              <label className="block text-xs uppercase tracking-widest text-text-muted mb-1">{mode === "generate" ? "Prompt" : "Text to evaluate"}</label>
-              <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} placeholder={mode === "generate" ? "Write 3 catchy episode titles about…" : "Paste a script, description or comment to score"} className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm" />
-              {mode === "check" && (
-                <>
-                  <label className="block text-xs uppercase tracking-widest text-text-muted mb-1 mt-3">Criteria</label>
-                  <input value={criteria} onChange={(e) => setCriteria(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm" />
-                </>
+
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+              {messages.length === 0 && (
+                <div className="text-center text-text-muted text-sm py-8">
+                  <div className="text-4xl mb-2">🧠</div>
+                  <div>{he ? "שאל אותי כל דבר על הסדרה" : "Ask me anything about your series"}</div>
+                  <div className="text-[11px] mt-2 text-text-muted/70">{he ? "לדוגמה: \"כתוב 3 כותרות לפרק על בריחה לחלל\"" : "e.g. \"write 3 episode titles about escape to space\""}</div>
+                </div>
               )}
-              <button disabled={busy || !prompt.trim()} onClick={run} className="mt-3 w-full px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">
-                {busy ? "Working…" : mode === "generate" ? "Generate" : "Evaluate"}
+              {messages.map((m) => (
+                <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-accent text-white" : "bg-bg-main text-text-primary"}`}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {busy && (
+                <div className="flex justify-start">
+                  <div className="bg-bg-main rounded-2xl px-3 py-2 text-sm text-text-muted">{he ? "חושב…" : "Thinking…"}</div>
+                </div>
+              )}
+              {err && <div className="text-status-errText text-xs">⚠ {err}</div>}
+              <div ref={endRef} />
+            </div>
+
+            <div className="px-3 py-2 border-t border-bg-main flex items-end gap-2">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                rows={2}
+                placeholder={he ? "שאל את המוח… (Enter לשליחה)" : "Ask the brain… (Enter to send)"}
+                className="flex-1 px-3 py-2 rounded-lg border border-bg-main text-sm resize-none"
+                disabled={busy}
+              />
+              <button
+                onClick={send}
+                disabled={busy || !input.trim()}
+                className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50"
+              >
+                {busy ? "…" : (he ? "שלח" : "Send")}
               </button>
-              {err && <div className="mt-3 text-status-errText text-xs">{err}</div>}
-              {out && (
-                <div className="mt-4 bg-bg-main rounded-lg p-3 text-sm whitespace-pre-wrap font-mono">{out}</div>
-              )}
             </div>
           </div>
         </div>

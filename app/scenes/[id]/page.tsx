@@ -532,6 +532,16 @@ export default function ScenePage() {
                           } catch (e) { alert((e as Error).message); }
                         }} className="mt-2 w-full text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">⭐ {he ? "קבע כראשי" : "Set as main"}</button>
                       )}
+                      {(m.provider === "openai" || /sora/i.test(m.model ?? "")) && (
+                        <button onClick={async () => {
+                          const change = prompt(he ? "מה לשנות בסרטון? (לדוגמה: 'שנה את הרקע ליום במקום לילה' / 'תוסיף גשם')" : "What to change? (e.g. 'change background to day' / 'add rain')");
+                          if (!change) return;
+                          try {
+                            await api(`/api/v1/scenes/${scene.id}/remix-video`, { method: "POST", body: { assetId: v.id, prompt: change } });
+                            alert(he ? "Remix נשלח. ייקח 1-3 דקות. רענן את הדף בעוד דקה." : "Remix submitted. Takes 1-3 min. Refresh in a minute.");
+                          } catch (e) { alert((e as Error).message); }
+                        }} className="mt-1 w-full text-[11px] px-2 py-1 rounded border border-status-warnText text-status-warnText font-semibold">✨ {he ? "Remix (שמירת זהות)" : "Remix (keep identity)"}</button>
+                      )}
                     </div>
                   </div>
                 );

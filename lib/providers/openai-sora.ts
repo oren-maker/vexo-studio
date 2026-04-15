@@ -124,6 +124,23 @@ export async function downloadSoraVideo(id: string): Promise<{ bytes: Buffer; mi
   return { bytes: buf, mimeType };
 }
 
+/**
+ * Remix an existing Sora video — keeps identity / look / motion intact and
+ * applies the new prompt as a directive ("change the lighting", "make it
+ * dawn"). Same model + seconds + size as the source. Cost = same as a fresh
+ * generation. Returns a new video id we can poll like any other.
+ */
+export async function remixSoraVideo(opts: { sourceId: string; prompt: string }): Promise<{ id: string; model: SoraModel; seconds: SoraSeconds }> {
+  const res = await fetch(`${OPENAI}/videos/${opts.sourceId}/remix`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: opts.prompt.slice(0, 2000) }),
+  });
+  if (!res.ok) throw new Error(`Sora remix ${res.status}: ${(await res.text()).slice(0, 400)}`);
+  const data = await res.json();
+  return { id: data.id, model: data.model, seconds: String(data.seconds) as SoraSeconds };
+}
+
 export const SORA_PRICING: Record<SoraModel, number> = {
   "sora-2": 0.10,
   "sora-2-pro": 0.30,

@@ -1035,7 +1035,26 @@ export default function SeasonPage() {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setPlayingVideo(null)}>
           <div className="relative w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setPlayingVideo(null)} className="absolute -top-10 end-0 text-white text-2xl leading-none px-2">✕</button>
-            <div className="text-white text-sm font-semibold mb-2">{playingVideo.label}</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-white text-sm font-semibold">{playingVideo.label}</div>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch(playingVideo.url);
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${playingVideo.label.replace(/[^\w.-]+/g, "_")}.mp4`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 2000);
+                  } catch (e) { alert((e as Error).message); }
+                }}
+                className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-semibold"
+              >⬇ {lang === "he" ? "הורד באיכות מקסימלית" : "Download (max quality)"}</button>
+            </div>
             <video src={playingVideo.url} controls autoPlay className="w-full rounded-lg bg-black" />
           </div>
         </div>

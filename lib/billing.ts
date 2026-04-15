@@ -27,8 +27,12 @@ export async function chargeUsd(opts: {
   const qty = opts.quantity ?? 1;
   const total = +(opts.unitCost * qty).toFixed(6);
 
-  let provider = await prisma.provider.findFirst({ where: { organizationId: opts.organizationId, name: opts.providerName } });
-  // Auto-create the provider + a tracking wallet so spend is always visible
+  // Pull provider + wallet in one round-trip — was previously a second
+  // findUnique on the wallet inside this same call.
+  let provider = await prisma.provider.findFirst({
+    where: { organizationId: opts.organizationId, name: opts.providerName },
+    include: { wallet: true },
+  });
   if (!provider && AUTO_CREATE_PROVIDERS[opts.providerName]) {
     const cfg = AUTO_CREATE_PROVIDERS[opts.providerName];
     try {
@@ -39,46 +43,49 @@ export async function chargeUsd(opts: {
           category: cfg.category,
           apiUrl: cfg.apiUrl,
           isActive: true,
+          wallet: { create: { availableCredits: 0, totalCreditsAdded: 0, isTrackingEnabled: true } },
         },
+        include: { wallet: true },
       });
-      await prisma.creditWallet.create({
-        data: { providerId: provider.id, availableCredits: 0, totalCreditsAdded: 0, isTrackingEnabled: true },
-      }).catch(() => {});
-    } catch { /* race condition — try fetch again */
-      provider = await prisma.provider.findFirst({ where: { organizationId: opts.organizationId, name: opts.providerName } });
+    } catch { /* race — re-fetch */
+      provider = await prisma.provider.findFirst({
+        where: { organizationId: opts.organizationId, name: opts.providerName },
+        include: { wallet: true },
+      });
     }
   }
   const providerId = provider?.id;
+  const wallet = provider?.wallet;
 
-  await prisma.costEntry.create({
-    data: {
-      projectId: opts.projectId ?? undefined,
-      entityType: opts.entityType, entityId: opts.entityId,
-      costCategory: opts.category,
-      providerId,
-      description: opts.description,
-      unitCost: opts.unitCost, quantity: qty, totalCost: total,
-      sourceType: "JOB",
-      createdByUserId: opts.userId ?? undefined,
-    },
-  });
-
-  // Deduct wallet (if exists). USD-only.
-  if (providerId && total > 0) {
-    const wallet = await prisma.creditWallet.findUnique({ where: { providerId } });
-    if (wallet) {
-      await prisma.$transaction([
-        prisma.creditWallet.update({ where: { id: wallet.id }, data: { availableCredits: { decrement: total } } }),
-        prisma.creditTransaction.create({
-          data: {
-            walletId: wallet.id, transactionType: "DEDUCT", amount: total, unitType: "USD",
-            sourceType: "JOB", description: opts.description, referenceId: opts.entityId,
-            createdByUserId: opts.userId ?? undefined,
-          },
-        }),
-      ]);
-    }
+  // Cost entry + wallet deduction can run in parallel — they touch
+  // different rows and neither blocks the other.
+  const writes: Promise<unknown>[] = [
+    prisma.costEntry.create({
+      data: {
+        projectId: opts.projectId ?? undefined,
+        entityType: opts.entityType, entityId: opts.entityId,
+        costCategory: opts.category,
+        providerId,
+        description: opts.description,
+        unitCost: opts.unitCost, quantity: qty, totalCost: total,
+        sourceType: "JOB",
+        createdByUserId: opts.userId ?? undefined,
+      },
+    }),
+  ];
+  if (wallet && total > 0) {
+    writes.push(prisma.$transaction([
+      prisma.creditWallet.update({ where: { id: wallet.id }, data: { availableCredits: { decrement: total } } }),
+      prisma.creditTransaction.create({
+        data: {
+          walletId: wallet.id, transactionType: "DEDUCT", amount: total, unitType: "USD",
+          sourceType: "JOB", description: opts.description, referenceId: opts.entityId,
+          createdByUserId: opts.userId ?? undefined,
+        },
+      }),
+    ]));
   }
+  await Promise.all(writes);
 
   return { totalCost: total, providerId };
 }

@@ -30,45 +30,53 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const url = new URL(req.url);
     const limit = Math.min(Number(url.searchParams.get("limit") ?? "200"), 500);
 
-    // Get IDs of every scene/frame/episode/character in this project so we can
-    // filter AuditLog rows (which are keyed by entityType+entityId not projectId)
-    const [scenes, frames, episodes, characters, characterMedia, assets] = await Promise.all([
+    // Phase 1 — pull root entities (scenes/episodes/characters) and the
+    // project-keyed feeds (assets, ai logs, costs) in parallel. These are
+    // either indexed on projectId directly or trivially indexed.
+    // Frames + characterMedia are deferred to phase 2 because they're
+    // cheaper as IN-queries on sceneId/characterId than as 4-level joins
+    // through season → series → project.
+    const [scenes, episodes, characters, assets, ai, costs] = await Promise.all([
       prisma.scene.findMany({ where: { episode: { season: { series: { projectId: params.id } } } }, select: { id: true, sceneNumber: true, title: true, episodeId: true } }),
-      prisma.sceneFrame.findMany({ where: { scene: { episode: { season: { series: { projectId: params.id } } } } }, select: { id: true, orderIndex: true, sceneId: true } }),
       prisma.episode.findMany({ where: { season: { series: { projectId: params.id } } }, select: { id: true, episodeNumber: true, title: true } }),
       prisma.character.findMany({ where: { projectId: params.id }, select: { id: true, name: true } }),
-      prisma.characterMedia.findMany({ where: { character: { projectId: params.id } }, select: { id: true, characterId: true, mediaType: true, metadata: true, createdAt: true } }),
       prisma.asset.findMany({ where: { projectId: params.id }, select: { id: true, entityType: true, entityId: true, assetType: true, createdAt: true, metadata: true } }),
+      prisma.aILog.findMany({ where: { projectId: params.id }, orderBy: { createdAt: "desc" }, take: 100 }),
+      prisma.costEntry.findMany({ where: { projectId: params.id }, orderBy: { createdAt: "desc" }, take: 200 }),
+    ]);
+
+    const sceneIds = scenes.map((s) => s.id);
+    const characterIdList = characters.map((c) => c.id);
+
+    // Phase 2 — frames + characterMedia + audits, all simple IN-queries on
+    // indexed columns (sceneId, characterId, entityId). Auditlog gets the
+    // full entityId list once we have it, so it scans the (entityType,
+    // entityId) index directly instead of a giant cross-join.
+    const [frames, characterMedia] = await Promise.all([
+      sceneIds.length > 0
+        ? prisma.sceneFrame.findMany({ where: { sceneId: { in: sceneIds } }, select: { id: true, orderIndex: true, sceneId: true } })
+        : Promise.resolve([] as { id: string; orderIndex: number; sceneId: string }[]),
+      characterIdList.length > 0
+        ? prisma.characterMedia.findMany({ where: { characterId: { in: characterIdList } }, select: { id: true, characterId: true, mediaType: true, metadata: true, createdAt: true } })
+        : Promise.resolve([] as { id: string; characterId: string; mediaType: string; metadata: unknown; createdAt: Date }[]),
     ]);
 
     const entityIds = [
-      ...scenes.map((s) => s.id),
+      ...sceneIds,
       ...frames.map((f) => f.id),
       ...episodes.map((e) => e.id),
-      ...characters.map((c) => c.id),
+      ...characterIdList,
       ...characterMedia.map((m) => m.id),
     ];
 
-    const [audits, ai, costs] = await Promise.all([
-      entityIds.length > 0
-        ? prisma.auditLog.findMany({
-            where: { organizationId: ctx.organizationId, entityId: { in: entityIds } },
-            orderBy: { createdAt: "desc" },
-            take: limit,
-            include: { actor: { select: { fullName: true, email: true } } },
-          })
-        : Promise.resolve([]),
-      prisma.aILog.findMany({ where: { projectId: params.id }, orderBy: { createdAt: "desc" }, take: 100 }),
-      // CostEntry is the source of truth for every paid operation — AI text,
-      // image, video. Pull every entry attributed to this project so operations
-      // that don't trigger AuditLog (AI text calls mutating memoryContext,
-      // webhook-written video charges) still show up in the feed.
-      prisma.costEntry.findMany({
-        where: { projectId: params.id },
-        orderBy: { createdAt: "desc" },
-        take: 200,
-      }),
-    ]);
+    const audits = entityIds.length > 0
+      ? await prisma.auditLog.findMany({
+          where: { organizationId: ctx.organizationId, entityId: { in: entityIds } },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+          include: { actor: { select: { fullName: true, email: true } } },
+        })
+      : [];
 
     const sceneById = new Map(scenes.map((s) => [s.id, s]));
     const frameById = new Map(frames.map((f) => [f.id, f]));

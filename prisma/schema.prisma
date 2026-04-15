@@ -917,6 +917,8 @@ model CharacterMedia {
   createdAt        DateTime @default(now())
 
   character Character @relation(fields: [characterId], references: [id])
+
+  @@index([characterId])
 }
 
 model CharacterVoice {

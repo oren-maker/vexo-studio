@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const sceneId = url.searchParams.get("sceneId");
+    const openingId = url.searchParams.get("openingId");
     const submittedDuration = Number(url.searchParams.get("duration") ?? "0");
     const submittedModel = url.searchParams.get("model") as VideoModel | null;
     const body = await req.json();
@@ -81,7 +82,34 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ received: true, sceneId, hadVideo: !!videoUrl });
+    if (openingId && videoUrl) {
+      const opening = await prisma.seasonOpening.findUnique({
+        where: { id: openingId },
+        include: { season: { include: { series: { include: { project: true } } } } },
+      });
+      if (opening) {
+        const projectId = opening.season.series.projectId;
+        const reportedSec = Number(result?.video?.duration ?? result?.duration ?? 0);
+        const finalSec = reportedSec > 0 && reportedSec <= 20
+          ? reportedSec
+          : (submittedDuration > 0 && submittedDuration <= 20 ? submittedDuration : opening.duration);
+        const modelForMeta = submittedModel ?? opening.model;
+        const costUsd = priceVideo(modelForMeta as VideoModel, finalSec);
+        await prisma.seasonOpening.update({
+          where: { id: openingId },
+          data: { videoUrl, status: "READY", cost: (opening.cost ?? 0) + costUsd },
+        });
+        await prisma.asset.create({
+          data: {
+            projectId, entityType: "SEASON_OPENING", entityId: openingId, assetType: "VIDEO",
+            fileUrl: videoUrl, mimeType: "video/mp4", status: "READY",
+            metadata: { provider: "fal", requestId, model: modelForMeta, durationSeconds: finalSec, costUsd } as object,
+          },
+        });
+      }
+    }
+
+    return NextResponse.json({ received: true, sceneId, openingId, hadVideo: !!videoUrl });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }

@@ -522,8 +522,44 @@ model Season {
 
   series   Series    @relation(fields: [seriesId], references: [id])
   episodes Episode[]
+  opening  SeasonOpening?
 
   @@unique([seriesId, seasonNumber])
+}
+
+model SeasonOpening {
+  id                String   @id @default(cuid())
+  seasonId          String   @unique
+  style             String
+  styleLabel        String?
+  includeCharacters Boolean  @default(true)
+  characterIds      String[] @default([])
+  duration          Int      @default(8)
+  aspectRatio       String   @default("16:9")
+  model             String   @default("seedance")
+  currentPrompt     String
+  videoUrl          String?
+  falRequestId      String?
+  status            String   @default("DRAFT")
+  isSeriesDefault   Boolean  @default(false)
+  cost              Float?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  season   Season                       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  versions SeasonOpeningPromptVersion[]
+
+  @@index([seasonId, status])
+}
+
+model SeasonOpeningPromptVersion {
+  id        String   @id @default(cuid())
+  openingId String
+  prompt    String
+  createdAt DateTime @default(now())
+  opening   SeasonOpening @relation(fields: [openingId], references: [id], onDelete: Cascade)
+
+  @@index([openingId, createdAt])
 }
 
 model Episode {

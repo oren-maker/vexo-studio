@@ -59,7 +59,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const result = await step("suggest-styles", () => groqJson<{ styles?: { key?: string; name?: string; vibe?: string; samplePrompt?: string }[] }>(
       `You are a title-sequence director. Propose EXACTLY 4 distinct visual-style options for a TV-intro video (10 seconds, live-action photorealistic). Each style must be clearly different from the others — e.g. dark cinematic montage, light abstract motion, character-reveal close-ups, kinetic typography driven. Return JSON { styles: [{ key (slug), name (2-4 words), vibe (1 sentence), samplePrompt (2-3 sentences describing the shot as a director would brief a DP) }] }.`,
       `SERIES BIBLE:\n${bible}\n\nRECURRING CAST:\n${castBlock || "(none yet)"}\n\nRECENT EPISODES:\n${recent || "(no episodes yet)"}\n\nLANGUAGE: ${season.series.project.language}`,
-      { temperature: 0.9, maxTokens: 2000, entityType: "SEASON_OPENING", entityId: season.id, description: `Opening · style suggestions` },
+      {
+        temperature: 0.9, maxTokens: 2000,
+        entityType: "SEASON_OPENING", entityId: season.id,
+        description: `Opening · style suggestions`,
+        organizationId: ctx.organizationId, projectId: season.series.projectId,
+      },
     ));
 
     const styles = Array.isArray(result?.styles) ? result.styles.filter((s): s is { key: string; name: string; vibe: string; samplePrompt: string } => !!s?.key && !!s?.name && !!s?.samplePrompt) : [];

@@ -6,7 +6,16 @@ import { Card } from "@/components/page-shell";
 import { useLang } from "@/lib/i18n";
 
 type Director = { id: string; mode: string; learningEnabled: boolean; autopilotEnabled: boolean; experienceScore: number };
-type Log = { id: string; actorType: string; actionType: string; createdAt: string; decisionReason: string | null; successScore: number | null };
+type Log = {
+  id: string;
+  at: string;
+  source: "ailog" | "cost";
+  actionType: string;
+  actorType: string | null;
+  entityLabel: string;
+  costUsd: number | null;
+  description: string | null;
+};
 
 export default function AIDirectorPage() {
   const { id } = useParams<{ id: string }>();
@@ -111,18 +120,35 @@ export default function AIDirectorPage() {
           </div>
         </div>
       </Card>
-      <Card title={he ? "יומן פעולות" : "Action log"} subtitle={`${logs.length} ${he ? "פריטים" : "entries"}`}>
+      <Card title={he ? "יומן פעולות AI" : "AI action log"} subtitle={he ? `${logs.length} פעולות · כולל ייצור תמונות, וידאו וטקסט בסצנות ובפרקים` : `${logs.length} entries · includes image/video/text generation inside scenes and episodes`}>
         {logs.length === 0 ? <div className="text-text-muted text-sm">{he ? "אין פעולות עדיין" : "No actions yet."}</div> : (
-          <ul className="space-y-2 text-sm">
-            {logs.slice(0, 50).map((l) => (
-              <li key={l.id} className="bg-bg-main rounded-lg p-3">
-                <div className="flex justify-between text-xs">
-                  <span className="font-mono">{l.actorType} · {l.actionType}</span>
-                  <span className="text-text-muted">{new Date(l.createdAt).toLocaleString()}</span>
-                </div>
-                {l.decisionReason && <div className="text-text-secondary mt-1">{l.decisionReason}</div>}
-              </li>
-            ))}
+          <ul className="space-y-2 text-sm max-h-[650px] overflow-auto">
+            {logs.slice(0, 200).map((l) => {
+              const TYPE_LABEL: Record<string, string> = he ? {
+                IMAGE_GEN: "🖼 ייצור תמונה", VIDEO_GEN: "🎬 ייצור וידאו",
+                DIRECTOR_SHEET: "🎬 דף במאי", SOUND_NOTES: "🔊 הערות סאונד",
+                CRITIC: "🧐 מבקר AI", BREAKDOWN: "📋 פירוק תסריט",
+                DIALOGUE: "💬 דיאלוג", SEO: "🔍 SEO", OPENING: "🎞 פתיחת עונה",
+                TEXT_AI: "✍ טקסט AI", CHARACTER_GALLERY: "🎭 גלריית דמויות",
+                CONTEXT_REFRESH: "🧠 רענון זיכרון",
+              } : {};
+              const tag = TYPE_LABEL[l.actionType] ?? l.actionType;
+              return (
+                <li key={l.id} className="bg-bg-main rounded-lg p-3">
+                  <div className="flex justify-between items-start gap-3 text-xs">
+                    <div className="flex flex-wrap gap-2 items-center flex-1">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${l.source === "cost" ? "bg-accent/15 text-accent" : "bg-status-okBg text-status-okText"}`}>
+                        {tag}
+                      </span>
+                      <span className="text-text-secondary">{l.entityLabel}</span>
+                      {l.costUsd != null && l.costUsd > 0 && <span className="num text-[10px] text-status-errText font-semibold">${l.costUsd.toFixed(4)}</span>}
+                    </div>
+                    <span className="text-[10px] text-text-muted shrink-0">{new Date(l.at).toLocaleString(he ? "he-IL" : undefined)}</span>
+                  </div>
+                  {l.description && <div className="text-text-muted text-[11px] mt-1">{l.description}</div>}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

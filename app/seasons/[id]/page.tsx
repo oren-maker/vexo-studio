@@ -110,7 +110,14 @@ export default function SeasonPage() {
       try {
         const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
         const ready = r.opening?.status === "READY" && !!r.opening?.videoUrl;
+        const failed = r.opening?.status === "FAILED";
         const elapsed = Date.now() - openingJob.startedAt;
+        if (failed) {
+          setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
+          setOpeningJob((j) => j ? { ...j, done: true, elapsed: Math.round(elapsed / 1000) } : null);
+          clearInterval(tick); clearInterval(poll);
+          return;
+        }
         if (ready || elapsed > MAX_MS) {
           // If timed out without completing, unstick the server-side status so
           // the user isn't blocked — stuck GENERATING otherwise lingers forever.
@@ -631,7 +638,21 @@ export default function SeasonPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {(openingJob && !openingJob.done) || opening.status === "GENERATING" ? (
+              {opening.status === "FAILED" ? (
+                <div className="bg-status-errBg rounded-lg p-5 text-center">
+                  <div className="text-3xl mb-2">⚠️</div>
+                  <div className="text-sm font-semibold text-status-errText mb-1">{lang === "he" ? "הייצור נכשל" : "Generation failed"}</div>
+                  <div className="text-xs text-status-errText mb-4">{lang === "he" ? "ייתכן שהפרומט נדחה על ידי מסנן ה-moderation של הספק (OpenAI/Google). נסה לערוך את הפרומט למילים נייטרליות יותר, או לבחור מודל אחר (SeeDance/VEO 3)." : "The prompt may have been blocked by the provider's moderation filter (OpenAI/Google). Edit the prompt to use more neutral language, or pick a different model (SeeDance/VEO 3)."}</div>
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    <button onClick={async () => {
+                      await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { status: "DRAFT" } });
+                      const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
+                      setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
+                    }} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold">{lang === "he" ? "🔄 אפס ונסה שוב" : "🔄 Reset and try again"}</button>
+                    <button onClick={() => setOpeningWizardOpen(true)} className="px-4 py-2 rounded-lg border border-accent text-accent text-sm font-semibold">{lang === "he" ? "✨ ערוך באשף" : "✨ Edit in wizard"}</button>
+                  </div>
+                </div>
+              ) : (openingJob && !openingJob.done) || opening.status === "GENERATING" ? (
                 <div className="bg-bg-main rounded-lg p-5 space-y-3">
                   <div className="flex justify-between items-center">
                     <div>

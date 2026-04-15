@@ -101,6 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const prompt = await step("build-prompt", () => groqJson<{ prompt?: string }>(
       `You write cinema-grade video prompts for a TV title sequence. Return JSON { prompt: "..." } with ONE cohesive prompt ready to send to a video model. Follow the 6-layer formula: Subject → Action → Environment → Art Style → Lighting → Technical.
+${body.model.startsWith("sora") ? "IMPORTANT — target is OpenAI Sora: keep language neutral and descriptive. AVOID words that trigger moderation filters (paranoid, drugs, tattoos, blood, violence, sexual, surveillance, suspicious, threatening, dark psychological, thriller, noir-dark, crime, espionage). Use positive descriptive language instead (a thoughtful protagonist, a quiet scientist, a focused investigator)." : ""}
 
 ${audioDirective}
 

@@ -62,12 +62,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const bible = ctxCache?.summary ?? season.series.project.description ?? "";
 
     const hasAudio = MODEL_HAS_AUDIO[body.model];
+    // MANDATORY music + sparse narration. Previous builds only had narration
+    // over the title drop with no background music. This must be continuous.
     const audioDirective = hasAudio
-      ? `Include diegetic whooshes and a driving musical sting under the title card. Music: ${season.series.project.genreTag ?? "cinematic"}-appropriate. Brief spoken title drop is allowed.`
-      : `No narration. The video will be silent — stage the composition so it reads without audio.`;
+      ? `MANDATORY CONTINUOUS BACKGROUND MUSIC for the ENTIRE duration — a driving, cinematic ${season.series.project.genreTag ?? "cinematic"}-appropriate score with a clear melody, rhythm, and rising arc. Music starts at second 0 and never stops. Layer in diegetic whooshes as each name card hits. A single brief narrator voice reads the series title ONLY at the title card — no other narration.`
+      : `No narration or music — silent video. Stage the composition so it reads without any audio.`;
+
+    // Pacing math: reserve ~1s for the title card, divide the rest evenly across characters.
+    // Each name card must hold ≥1.5 seconds to be readable.
+    const titleCardSeconds = 1.5;
+    const perCharacter = cast.length > 0 ? (body.duration - titleCardSeconds) / cast.length : 0;
+    const tooFast = perCharacter > 0 && perCharacter < 1.5;
+    const pacingDirective = cast.length > 0 ? (
+      tooFast
+        ? `CRITICAL PACING: duration is ${body.duration}s with ${cast.length} characters — that's only ${perCharacter.toFixed(1)}s per character which is TOO FAST to read. Instead group the characters: show them in 2-3 shots (pairs or the whole ensemble) with ONE shared name-card beat per group that lists multiple names. Each text beat holds for ≥1.5 seconds.`
+        : `PACING: allocate ~${perCharacter.toFixed(1)}s per character shot + name card. Every name card MUST hold on screen for AT LEAST 1.5 seconds — crystal readable, not a flash. No rapid-cut montage where names blur.`
+    ) : "";
 
     const nameCardDirective = body.includeCharacters && cast.length > 0
-      ? `Show each cast member in a signature beat, then a name card that reads exactly their name in clean sans-serif over a brief matching color wash: ${cast.map((c) => `"${c.name}"`).join(", ")}.`
+      ? `Show EVERY ONE of these ${cast.length} cast members (non-negotiable — none may be dropped): ${cast.map((c) => `"${c.name}"`).join(", ")}. Each gets a signature hero shot followed (or overlaid) by a LARGE, crystal-clear sans-serif name card spelling their name EXACTLY as written here. Name card stays on screen ≥1.5 seconds.`
       : `No character close-ups — make the intro abstract and typographic around the series title "${season.series.title}".`;
 
     const castBlock = cast.length > 0
@@ -75,8 +88,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       : "(abstract intro — no specific cast)";
 
     const prompt = await step("build-prompt", () => groqJson<{ prompt?: string }>(
-      `You write cinema-grade video prompts for a TV title sequence. Return JSON { prompt: "..." } with ONE cohesive prompt ready to send to a video model. Follow the 6-layer formula: Subject → Action → Environment → Art Style → Lighting → Technical. ${audioDirective} ${nameCardDirective} MANDATORY: The series title "${season.series.title}" MUST appear as a clean typographic title card — either as the very first shot opening the sequence, or as the final beat closing it. Specify which in the prompt and describe its typography (sans-serif, matching the genre). Keep it ≤ 1200 chars. Positive phrasing only (no "NOT X" negations). Do not mention the model name.`,
-      `SERIES BIBLE:\n${bible.slice(0, 1500)}\n\nSERIES TITLE: ${season.series.title}\nSEASON #${season.seasonNumber}${season.title ? ` — ${season.title}` : ""}\nSTYLE CHOICE: ${body.styleLabel ?? body.style}${body.customPromptSeed ? `\nUSER SEED: ${body.customPromptSeed}` : ""}\n\n[CAST to feature]\n${castBlock}\n\nDURATION: ${body.duration}s · ASPECT: ${body.aspectRatio} · MODEL: ${body.model}${hasAudio ? " (has audio)" : " (silent)"}`,
+      `You write cinema-grade video prompts for a TV title sequence. Return JSON { prompt: "..." } with ONE cohesive prompt ready to send to a video model. Follow the 6-layer formula: Subject → Action → Environment → Art Style → Lighting → Technical.
+
+${audioDirective}
+
+${nameCardDirective}
+
+${pacingDirective}
+
+MANDATORY: The series title "${season.series.title}" MUST appear as a clean typographic title card with LARGE readable letters — either as the very first shot opening the sequence, or as the final beat closing it. State which in the prompt and describe its typography (sans-serif, matching the genre).
+
+Keep it ≤ 1400 chars. Positive phrasing only (no "NOT X" negations). Do not mention the model name. Do not reduce the cast count under any circumstances.`,
+      `SERIES BIBLE:\n${bible.slice(0, 1500)}\n\nSERIES TITLE: ${season.series.title}\nSEASON #${season.seasonNumber}${season.title ? ` — ${season.title}` : ""}\nSTYLE CHOICE: ${body.styleLabel ?? body.style}${body.customPromptSeed ? `\nUSER SEED: ${body.customPromptSeed}` : ""}\n\n[CAST to feature — ALL ${cast.length} must appear]\n${castBlock}\n\nDURATION: ${body.duration}s · ASPECT: ${body.aspectRatio} · MODEL: ${body.model}${hasAudio ? " (has audio — music is MANDATORY)" : " (silent)"}`,
       {
         temperature: 0.8, maxTokens: 1400,
         entityType: "SEASON_OPENING", entityId: season.id,

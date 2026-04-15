@@ -19,6 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin", label: t("nav.dashboard") },
     { href: "/projects", label: t("nav.projects") },
     { href: "/admin/wallets", label: lang === "he" ? "תקציבים וטוקנים" : "Budgets & Tokens" },
+    { href: "/learn", label: lang === "he" ? "🧠 ויקסו למידה" : "🧠 VEXO Learn" },
   ];
 
   // Collapsible "Admin Settings" group

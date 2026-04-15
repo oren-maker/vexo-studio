@@ -85,7 +85,13 @@ export const prisma = _prisma.$extends({
 function fireAudit(model: string, action: string, oldValue: unknown, newValue: unknown, entityId: string) {
   // Fire-and-forget. Reads actor from AsyncLocalStorage that authenticate() set.
   const actor = getRequestActor();
-  if (!actor) return; // No request context (cron, seed, etc.) — skip
+  if (!actor) {
+    // Surface the "no actor" case in logs — previously we were silently
+    // dropping every audit because the context wasn't propagating. Don't
+    // spam: only log once per model/action combo.
+    console.warn(`[audit-skip] no actor for ${model} ${action} ${entityId}`);
+    return;
+  }
   _prisma.auditLog.create({
     data: {
       organizationId: actor.organizationId,
@@ -97,5 +103,9 @@ function fireAudit(model: string, action: string, oldValue: unknown, newValue: u
       newValue: (safeJson(newValue) ?? undefined) as object | undefined,
       ipAddress: actor.ipAddress,
     },
-  }).catch(() => { /* never throw from audit path */ });
+  }).catch((e) => {
+    // Log the failure so we can see WHY the audit is missing. Previously
+    // every error was silently swallowed.
+    console.warn(`[audit-fail] ${model} ${action} ${entityId}: ${(e as Error).message}`);
+  });
 }

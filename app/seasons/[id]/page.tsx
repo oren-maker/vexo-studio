@@ -638,6 +638,7 @@ export default function SeasonPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              <div id="opening-status" />
               {opening.status === "FAILED" ? (
                 <div className="bg-status-errBg rounded-lg p-5 text-center">
                   <div className="text-3xl mb-2">⚠️</div>
@@ -671,23 +672,6 @@ export default function SeasonPage() {
                 </div>
               ) : opening.videoUrl ? (
                 <video src={opening.videoUrl} controls className="w-full max-w-2xl rounded-lg bg-black mx-auto" />
-              ) : opening.status === "GENERATING" ? (
-                <div className="bg-bg-main rounded-lg p-5 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="text-sm font-semibold">🎬 {lang === "he" ? `${opening.model} מייצר…` : `${opening.model} is rendering…`}</div>
-                      <div className="text-[11px] text-text-muted mt-1">{lang === "he" ? "fal מעבד — ברוב המקרים 60-90 שניות, עד 4 דקות" : "fal is rendering — typically 60-90s, up to 4min"}</div>
-                    </div>
-                    <div className="text-end">
-                      <div className="text-[10px] text-text-muted uppercase tracking-widest">{lang === "he" ? "זמן שעבר" : "Elapsed"}</div>
-                      <div className="text-3xl font-bold num">{openingJob?.elapsed ?? 0}s</div>
-                    </div>
-                  </div>
-                  <div className="h-2 rounded-full bg-bg-card overflow-hidden">
-                    <div className="h-full bg-accent transition-all" style={{ width: `${Math.min(100, ((openingJob?.elapsed ?? 0) / 90) * 100)}%` }} />
-                  </div>
-                  <div className="text-[11px] text-text-muted">{lang === "he" ? "הדף יתרענן אוטומטית כשהסרטון מוכן." : "Page auto-refreshes when the video is ready."}</div>
-                </div>
               ) : (
                 <div className="bg-accent/5 border-2 border-dashed border-accent rounded-lg p-6 text-center">
                   <div className="text-4xl mb-2">🎬</div>
@@ -697,6 +681,7 @@ export default function SeasonPage() {
                     <button disabled={!!openingJob && !openingJob.done} onClick={async () => {
                       if (openingJob && !openingJob.done) return;
                       setOpeningJob({ startedAt: Date.now(), elapsed: 0, done: false });
+                      document.getElementById("opening-status")?.scrollIntoView({ behavior: "smooth", block: "center" });
                       await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
                       const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
                       setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);

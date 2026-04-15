@@ -79,13 +79,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       character.project.genreTag ? `Genre: ${character.project.genreTag}.` : "",
     ].filter(Boolean).join(" ");
 
+    // ALWAYS lead with the hard identity facts (gender + age + name) — the
+    // `appearance` field is often just vague adjectives and would otherwise
+    // shadow these. Without an explicit gender, nano-banana sometimes flips
+    // the character (e.g. "Dr. Ethan Kim" rendered as a woman because the
+    // appearance text said only "Intelligent, slightly disheveled").
+    const genderClause = character.gender ? `${character.gender.toLowerCase()} ` : "";
+    const ageClause = character.ageRange ? `aged ${character.ageRange} years old` : "";
+    const identityPreamble = `A ${genderClause}character named ${character.name}, ${ageClause}.`.replace(/\s+/g, " ").trim();
+
     const basePrompt = [
-      character.appearance || `${character.gender ?? ""} ${character.ageRange ?? ""} character named ${character.name}`.trim(),
+      identityPreamble,
+      character.appearance ? `Appearance: ${character.appearance}.` : "",
       character.wardrobeRules ? `Wardrobe: ${character.wardrobeRules}.` : "",
       character.personality ? `Personality: ${character.personality}.` : "",
       seriesTone,
       PHOTOREAL_DIRECTIVE,
-      "High-detail cinematic photography. Consistent identity across all angles.",
+      "High-detail cinematic photography. Consistent identity across all angles. Do NOT render any text, captions, labels, or watermarks anywhere in the image.",
     ].filter(Boolean).join(" ");
 
     const created: { angle: string; url: string }[] = [];

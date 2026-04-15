@@ -8,6 +8,8 @@ import { submitSoraVideo, type SoraModel, type SoraSeconds } from "@/lib/provide
 import { submitVeoVideo, type GoogleVeoModel } from "@/lib/providers/google-veo";
 import { fetchReferencePrompts, buildReferenceContext } from "@/lib/providers/vexo-learn";
 import { generateSoundNotes } from "@/lib/sound-notes";
+import { buildCharacterSheet, describeSheetLayout } from "@/lib/character-sheet";
+import { put as putBlob } from "@vercel/blob";
 import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
@@ -239,16 +241,39 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         // would need Storyboard chaining, which is Web-only — we cap here.
         const sec: SoraSeconds = duration <= 5 ? "4" : duration <= 9 ? "8" : duration <= 13 ? "12" : duration <= 17 ? "16" : "20";
         const size = body.aspectRatio === "9:16" ? "720x1280" : "1280x720";
-        // Sora only accepts ONE input_reference, and it locks the look of
-        // whoever appears in that image. Storyboard frames drift between
-        // scenes (each was generated independently), so prefer the main
-        // character's canonical front portrait from the gallery — this is
-        // the same image across every scene and gives Sora a stable face
-        // to lock on. Falls back to the storyboard frame only if no
-        // character refs are available.
-        const soraSeed = characterRefImgs[0] ?? firstFrameImg ?? undefined;
+        // Build a composite character sheet whenever 2+ scene characters have
+        // portraits — Sora gets ALL identities locked in one reference image
+        // and the prompt tells it who is where. For 1 char (or none) fall back
+        // to the single portrait → storyboard frame chain.
+        let soraSeed: string | undefined;
+        let identityClause = "";
+        const sheetCast = inScene
+          .map((c) => {
+            const front = c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0];
+            return front?.fileUrl ? { name: c.name, portraitUrl: front.fileUrl } : null;
+          })
+          .filter((x): x is { name: string; portraitUrl: string } => !!x);
+
+        if (sheetCast.length >= 2) {
+          try {
+            const sheetBuf = await buildCharacterSheet(sheetCast);
+            const blob = await putBlob(`character-sheets/${scene.id}-${Date.now()}.jpg`, sheetBuf, {
+              access: "public", contentType: "image/jpeg", addRandomSuffix: true,
+            });
+            soraSeed = blob.url;
+            identityClause = describeSheetLayout(sheetCast);
+          } catch (e) {
+            console.warn("[character-sheet] build failed, falling back to single portrait:", (e as Error).message);
+            soraSeed = sheetCast[0].portraitUrl;
+          }
+        } else {
+          soraSeed = sheetCast[0]?.portraitUrl ?? characterRefImgs[0] ?? firstFrameImg ?? undefined;
+          if (sheetCast.length === 1) identityClause = describeSheetLayout(sheetCast);
+        }
+
+        const soraPrompt = identityClause ? `${identityClause}\n\n${prompt}` : prompt;
         const s = await submitSoraVideo({
-          prompt, model: modelKey as SoraModel, seconds: sec, size,
+          prompt: soraPrompt, model: modelKey as SoraModel, seconds: sec, size,
           imageUrl: soraSeed,
         });
         jobId = s.id; provider = "openai"; displayModel = modelKey;

@@ -47,9 +47,11 @@ export async function generateSoundNotes(c: SoundNotesContext, projectId?: strin
     c.directorNotes && `Director notes: ${c.directorNotes.slice(0, 200)}`,
   ].filter(Boolean).join("\n\n");
 
+  // 800 tokens fits the 300-450 word target with headroom; 1500 was too generous
+  // and pushed groq's response time over Vercel's 60s function limit on cold starts.
   const text = await groqChat(
     [{ role: "system", content: SYSTEM }, { role: "user", content: user }],
-    { temperature: 0.5, maxTokens: 1500, projectId, description: `Sound notes · scene ${c.sceneNumber}` },
+    { temperature: 0.5, maxTokens: 800, projectId, description: `Sound notes · scene ${c.sceneNumber}` },
   );
   return text.trim();
 }

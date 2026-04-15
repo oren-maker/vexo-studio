@@ -15,7 +15,7 @@ export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export 
 export async function POST(req: NextRequest) {
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
-    const f = requirePermission(ctx, "manage_billing"); if (f) return f;
+    const f = requirePermission(ctx, "manage_providers"); if (f) return f;
 
     const providers = await prisma.provider.findMany({
       where: { organizationId: ctx.organizationId },

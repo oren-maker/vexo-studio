@@ -18,7 +18,7 @@ export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export 
 const Body = z.object({
   title: z.string().optional(),
   hint: z.string().optional(),
-  scenesPerEpisode: z.number().int().min(2).max(8).default(4),
+  scenesPerEpisode: z.number().int().min(2).max(12).default(8),
   framesPerScene: z.number().int().min(2).max(6).default(3),
 }).partial();
 

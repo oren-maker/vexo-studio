@@ -68,7 +68,7 @@ export default function ScenePage() {
   const [veoModalOpen, setVeoModalOpen] = useState(false);
   const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean } | null>(null);
   const [veoModel, setVeoModel] = useState<AllVideoModel>("sora-2");
-  const [veoDuration, setVeoDuration] = useState(8);
+  const [veoDuration, setVeoDuration] = useState(12);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
   const RATES: Record<AllVideoModel, number> = {
     "sora-2": 0.10, "sora-2-pro": 0.30, "veo3-pro": 0.75, seedance: 0.124, "vidu-q1": 0.08,

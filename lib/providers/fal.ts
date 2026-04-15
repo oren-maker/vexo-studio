@@ -144,8 +144,10 @@ export async function submitVideo(opts: {
   const veoDuration = rawSec <= 5 ? "4s" : rawSec <= 7 ? "6s" : "8s";
   const identityLock = useI2V ? "Keep every person's face, hair, skin, wardrobe identical to the starting image. " : "";
   const finalPrompt = isVeo
-    // VEO: short, positive, no negations, ≤ ~800 chars.
-    ? (identityLock + "Live-action photorealistic film footage. " + opts.prompt).slice(0, 1400)
+    // VEO: keep it *tight*. Long prompts + style/music directives regularly
+    // trigger `no_media_generated`. Cap at 800 chars for Pro/Fast and drop the
+    // realism preamble entirely — i2v already anchors realism via the seed frame.
+    ? (useI2V ? opts.prompt.slice(0, 800) : ("Live-action footage. " + opts.prompt).slice(0, 800))
     : ("Live-action photorealistic film footage, REAL human actors filmed on a cinema camera, NOT animation, NOT CGI. " + identityLock + "Subject: " + opts.prompt
         + " [Art Style] photorealistic prestige-drama cinematography, Netflix/A24 feature-film look. [Lighting] natural physical lighting with soft shadows, Rembrandt lighting on faces. [Technical] 8k, 24fps, 35mm cinema lens at f/2, shallow depth of field, subtle film grain. [Anti-plastic] real skin with visible pores, real eye catch-light, natural micro-expressions, realistic fabric weave. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D animation, NOT illustration, NOT a video game cutscene, NOT plastic skin.");
   const body: Record<string, unknown> = {

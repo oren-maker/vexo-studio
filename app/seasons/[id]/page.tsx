@@ -112,10 +112,16 @@ export default function SeasonPage() {
         const ready = r.opening?.status === "READY" && !!r.opening?.videoUrl;
         const elapsed = Date.now() - openingJob.startedAt;
         if (ready || elapsed > MAX_MS) {
+          // If timed out without completing, unstick the server-side status so
+          // the user isn't blocked — stuck GENERATING otherwise lingers forever.
+          if (!ready && r.opening?.status === "GENERATING") {
+            await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { status: "DRAFT" } }).catch(() => {});
+          }
           setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
           setOpeningJob((j) => j ? { ...j, done: true, elapsed: Math.round(elapsed / 1000) } : null);
           clearInterval(tick); clearInterval(poll);
           if (ready) setTimeout(() => window.location.reload(), 1200);
+          else window.location.reload();
         } else {
           setOpening(r.opening);
         }

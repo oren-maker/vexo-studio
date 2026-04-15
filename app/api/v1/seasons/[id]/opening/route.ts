@@ -82,6 +82,7 @@ const Patch = z.object({
   includeCharacters: z.boolean().optional(),
   characterIds: z.array(z.string()).optional(),
   styleLabel: z.string().optional(),
+  status: z.enum(["DRAFT", "GENERATING", "READY", "FAILED"]).optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -109,6 +110,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (body.includeCharacters !== undefined) updateData.includeCharacters = body.includeCharacters;
     if (body.characterIds !== undefined) updateData.characterIds = body.characterIds;
     if (body.styleLabel !== undefined) updateData.styleLabel = body.styleLabel;
+    if (body.status !== undefined) updateData.status = body.status;
 
     // If user flips this opening to series-default, demote any other opening in the same series.
     if (body.isSeriesDefault === true) {

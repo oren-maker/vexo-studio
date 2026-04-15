@@ -12,6 +12,7 @@ const MODEL_INFO = {
   "google-veo-3.1-lite-generate-preview": { emoji: "🌟", name: "VEO 3.1 Lite (Google ישיר)",  maxDuration: 8, pricePerSec: 0.20, audio: true, multiRef: true },
   "sora-2":     { emoji: "🎭", name: "Sora 2 (OpenAI ישיר)",      maxDuration: 12, pricePerSec: 0.10, audio: true, multiRef: false },
   "sora-2-pro": { emoji: "🏆", name: "Sora 2 Pro (OpenAI ישיר)",  maxDuration: 12, pricePerSec: 0.30, audio: true, multiRef: false },
+  "vidu-q1":    { emoji: "🧩", name: "Vidu Q1 (fal · עד 7 דמויות)", maxDuration: 8,  pricePerSec: 0.08, audio: true, multiRef: true },
 } as const;
 type ModelKey = keyof typeof MODEL_INFO;
 

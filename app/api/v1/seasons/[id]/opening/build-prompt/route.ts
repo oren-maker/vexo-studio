@@ -25,6 +25,7 @@ const Body = z.object({
     "seedance", "kling", "veo3-fast", "veo3-pro",
     "google-veo-3.1-fast-generate-preview", "google-veo-3.1-generate-preview", "google-veo-3.1-lite-generate-preview",
     "sora-2", "sora-2-pro",
+    "vidu-q1",
   ]).default("seedance"),
   customPromptSeed: z.string().optional(),
 });
@@ -37,6 +38,7 @@ const MODEL_HAS_AUDIO: Record<string, boolean> = {
   "google-veo-3.1-lite-generate-preview": true,
   "sora-2": true,
   "sora-2-pro": true,
+  "vidu-q1": true,
 };
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

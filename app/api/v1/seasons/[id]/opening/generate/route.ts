@@ -142,7 +142,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           aspectRatio: opening.aspectRatio as "16:9" | "9:16" | "1:1",
           webhookUrl,
           imageUrl: seedImageUrl,
-          referenceImageUrls: referenceImageUrls.slice(0, 3),
+          // Vidu Q1 accepts up to 7 reference subjects; other models cap at 3.
+          referenceImageUrls: opening.model === "vidu-q1" ? referenceImageUrls.slice(0, 7) : referenceImageUrls.slice(0, 3),
         });
       } catch (e) {
         await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "DRAFT" } }).catch(() => {});

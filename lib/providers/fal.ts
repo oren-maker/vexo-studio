@@ -168,9 +168,11 @@ export async function submitVideo(opts: {
     body.negative_prompt = "cartoon, anime, animation, 3D render, illustration, painting, drawing, stylized, video game graphics, cgi look, plastic skin, doll-like faces, oversaturated colors";
   }
   if (useI2V && opts.imageUrl) body.image_url = opts.imageUrl;
-  // image_urls is only supported on the text-to-video path of specific models
-  // (some fal endpoints 400 on unknown fields). Only send when NOT using i2v.
-  if (!useI2V && opts.referenceImageUrls && opts.referenceImageUrls.length > 0) {
+  // Vidu Q1 takes its own field name and accepts up to 7 subjects.
+  if (isVidu && opts.referenceImageUrls && opts.referenceImageUrls.length > 0) {
+    body.reference_image_urls = opts.referenceImageUrls.slice(0, 7);
+  } else if (!isVidu && !useI2V && opts.referenceImageUrls && opts.referenceImageUrls.length > 0) {
+    // Other non-i2v paths get image_urls (3-cap); most models ignore it silently.
     body.image_urls = opts.referenceImageUrls.slice(0, 3);
   }
 
@@ -233,6 +235,8 @@ export const FAL_PRICING_USD = {
   // Google VEO 3 via fal
   "veo3-pro":  { perSecond: 0.75 },
   "veo3-fast": { perSecond: 0.40 },
+  // Vidu Q1 Reference-to-Video: ~$0.40 per 5s clip → ~$0.08 per second
+  "vidu-q1":   { perSecond: 0.08 },
 
   // Text — Gemini 2.5 Flash via fal-ai/any-llm. Per 1M tokens (passthrough).
   "gemini-2.5-flash": { perMillionInput: 0.075, perMillionOutput: 0.30 },

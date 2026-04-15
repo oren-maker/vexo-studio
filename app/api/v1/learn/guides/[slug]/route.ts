@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
   const hasGuideTrans = guide.translations.some((t) => t.lang === lang);
   if (!hasGuideTrans && lang !== guide.defaultLang) {
     try {
-      const { translateGuideToLang } = await import("@/lib/translate");
+      const { translateGuideToLang } = await import("@/lib/learn/translate");
       await translateGuideToLang(guide.id, lang);
       // re-fetch
       const refreshed = await prisma.guide.findUnique({

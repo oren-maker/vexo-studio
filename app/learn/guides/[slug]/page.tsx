@@ -32,7 +32,7 @@ export default async function GuideViewPage({
   if (!data?.guide) notFound();
 
   const guide = data.guide;
-  const { prisma } = await import("@/lib/db");
+  const { prisma } = await import("@/lib/learn/db");
   prisma.guide.update({ where: { slug: guide.slug }, data: { viewCount: { increment: 1 } } }).catch(() => {});
   const trans = guide.translations.find((t: any) => t.lang === lang) || guide.translations.find((t: any) => t.lang === guide.defaultLang) || guide.translations[0];
   const dir = isRtl(lang) ? "rtl" : "ltr";

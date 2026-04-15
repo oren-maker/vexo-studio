@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     // Lazy translate if missing
     const hasGuideTrans = guide.translations.some((t) => t.lang === lang);
     if (!hasGuideTrans && lang !== guide.defaultLang) {
-      const { translateGuideToLang } = await import("@/lib/translate");
+      const { translateGuideToLang } = await import("@/lib/learn/translate");
       try { await translateGuideToLang(guide.id, lang); } catch {}
     }
 

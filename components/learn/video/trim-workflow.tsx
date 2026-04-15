@@ -63,7 +63,7 @@ export default function TrimWorkflow() {
 
       // 2. Local mode: run scene detection in browser
       setPhase("detecting"); setProgressPct(20); setProgressMsg("טוען FFmpeg.wasm…");
-      const { detectScenes } = await import("@/lib/scene-detection");
+      const { detectScenes } = await import("@/lib/learn/scene-detection");
       const result = await detectScenes(f, {
         threshold: 0.4,
         onProgress: (pct, msg) => { setProgressPct(20 + Math.round(pct * 0.55)); setProgressMsg(msg); },

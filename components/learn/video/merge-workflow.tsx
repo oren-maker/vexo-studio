@@ -167,7 +167,7 @@ export default function MergeWorkflow() {
 
       // 4a. WASM path: extract frames + (optionally) generate AI transitions first
       setProgressPct(5); setProgressMsg("טוען FFmpeg.wasm…");
-      const ffmpegMod = await import("@/lib/ffmpeg-wasm");
+      const ffmpegMod = await import("@/lib/learn/ffmpeg-wasm");
       const { mergeClipsInBrowser, extractFirstFrame, extractLastFrame } = ffmpegMod;
 
       // For each AI transition, extract last frame of clip[i] + first frame of clip[i+1], upload, generate

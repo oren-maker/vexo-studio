@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
 
-type Message = { id: string; role: "user" | "brain"; content: string };
+type Message = { id: string; role: "user" | "director"; content: string };
 
 export function AiAssistant() {
   const lang = useLang(); const he = lang === "he";
@@ -27,11 +27,11 @@ export function AiAssistant() {
       // Compose a brain-style system context from the last 6 messages so the
       // chat feels conversational (the /generate route is stateless).
       const ctx = [...messages, userMsg].slice(-6).map((m) =>
-        m.role === "user" ? `USER: ${m.content}` : `BRAIN: ${m.content}`,
+        m.role === "user" ? `USER: ${m.content}` : `DIRECTOR: ${m.content}`,
       ).join("\n\n");
       const sys = he
-        ? "אתה 'המוח' של vexo-studio — עוזר חכם וקצר לבמאי AI שמייצר סדרות. ענה בעברית, תכליתי, עם המלצות מעשיות. אם אתה לא בטוח — שאל. אל תנפח."
-        : "You are vexo-studio's 'Brain' — a sharp short assistant for an AI series director. Answer briefly with concrete recommendations. If unsure, ask. Don't pad.";
+        ? "אתה הבמאי AI של vexo-studio — במאי סדרות מנוסה שעוזר ליוצר לתכנן עלילות, לכתוב סצנות, לבחור מודלים, ולשפר תוצרים. ענה בעברית, תכליתי, עם המלצות מעשיות. אם אתה לא בטוח — שאל. אל תנפח."
+        : "You are vexo-studio's AI Director — an experienced series director helping the creator plan plots, write scenes, pick models, and improve outputs. Answer briefly with concrete recommendations. If unsure, ask. Don't pad.";
       // Hard 55s client-side timeout so the UI never gets stuck on "thinking…"
       // even if the function silently dies upstream.
       const ctrl = new AbortController();
@@ -44,7 +44,7 @@ export function AiAssistant() {
           signal: ctrl.signal,
         });
       } finally { clearTimeout(t); }
-      setMessages((m) => [...m, { id: `b-${Date.now()}`, role: "brain", content: r.content.trim() }]);
+      setMessages((m) => [...m, { id: `b-${Date.now()}`, role: "director", content: r.content.trim() }]);
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -56,18 +56,18 @@ export function AiAssistant() {
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-6 end-6 w-14 h-14 rounded-full bg-accent text-white text-2xl shadow-card hover:bg-accent-light flex items-center justify-center z-20"
-        aria-label="Open Brain"
-        title="Brain Chat"
+        aria-label="Open AI Director"
+        title="AI Director"
       >
-        🧠
+        🎬
       </button>
       {open && (
         <div className="fixed inset-0 bg-black/50 z-30 flex items-end justify-end p-6" onClick={() => setOpen(false)}>
           <div onClick={(e) => e.stopPropagation()} className="bg-bg-card rounded-card shadow-card border border-bg-main w-full max-w-md flex flex-col" style={{ maxHeight: "85vh", height: "85vh" }}>
             <div className="px-5 py-3 border-b border-bg-main flex items-center justify-between">
               <div>
-                <div className="font-semibold flex items-center gap-2">🧠 {he ? "מוח" : "Brain"}</div>
-                <div className="text-[11px] text-text-muted">{he ? "צ'אט עוזר · Gemini" : "Assistant chat · Gemini"}</div>
+                <div className="font-semibold flex items-center gap-2">🎬 {he ? "במאי AI" : "AI Director"}</div>
+                <div className="text-[11px] text-text-muted">{he ? "צ'אט במאי · Gemini" : "Director chat · Gemini"}</div>
               </div>
               <div className="flex items-center gap-2">
                 {messages.length > 0 && <button onClick={clearChat} className="text-xs text-text-muted hover:text-status-errText" title={he ? "נקה צ'אט" : "Clear chat"}>🗑</button>}
@@ -78,8 +78,8 @@ export function AiAssistant() {
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {messages.length === 0 && (
                 <div className="text-center text-text-muted text-sm py-8">
-                  <div className="text-4xl mb-2">🧠</div>
-                  <div>{he ? "שאל אותי כל דבר על הסדרה" : "Ask me anything about your series"}</div>
+                  <div className="text-4xl mb-2">🎬</div>
+                  <div>{he ? "אני הבמאי שלך — שאל אותי כל דבר על הסדרה" : "I'm your director — ask me anything about your series"}</div>
                   <div className="text-[11px] mt-2 text-text-muted/70">{he ? "לדוגמה: \"כתוב 3 כותרות לפרק על בריחה לחלל\"" : "e.g. \"write 3 episode titles about escape to space\""}</div>
                 </div>
               )}
@@ -105,7 +105,7 @@ export function AiAssistant() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                 rows={2}
-                placeholder={he ? "שאל את המוח… (Enter לשליחה)" : "Ask the brain… (Enter to send)"}
+                placeholder={he ? "שאל את הבמאי… (Enter לשליחה)" : "Ask the director… (Enter to send)"}
                 className="flex-1 px-3 py-2 rounded-lg border border-bg-main text-sm resize-none"
                 disabled={busy}
               />

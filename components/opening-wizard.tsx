@@ -3,16 +3,16 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
 const MODEL_INFO = {
-  seedance:    { emoji: "⚡", name: "SeeDance 2",          maxDuration: 12, pricePerSec: 0.124, audio: false, multiRef: false },
-  kling:       { emoji: "🎬", name: "Kling 2.1",          maxDuration: 10, pricePerSec: 0.056, audio: false, multiRef: false },
-  "veo3-fast": { emoji: "🟪", name: "VEO 3 Fast (fal)",   maxDuration: 8,  pricePerSec: 0.40,  audio: true,  multiRef: false },
-  "veo3-pro":  { emoji: "💎", name: "VEO 3 Pro (fal)",    maxDuration: 8,  pricePerSec: 0.75,  audio: true,  multiRef: false },
-  "google-veo-3.1-fast-generate-preview": { emoji: "✨", name: "VEO 3.1 Fast (Google ישיר)",  maxDuration: 8, pricePerSec: 0.35, audio: true, multiRef: true },
-  "google-veo-3.1-generate-preview":      { emoji: "💫", name: "VEO 3.1 Pro (Google ישיר)",   maxDuration: 8, pricePerSec: 0.50, audio: true, multiRef: true },
-  "google-veo-3.1-lite-generate-preview": { emoji: "🌟", name: "VEO 3.1 Lite (Google ישיר)",  maxDuration: 8, pricePerSec: 0.20, audio: true, multiRef: true },
-  "sora-2":     { emoji: "🎭", name: "Sora 2 (OpenAI ישיר)",      maxDuration: 12, pricePerSec: 0.10, audio: true, multiRef: false },
-  "sora-2-pro": { emoji: "🏆", name: "Sora 2 Pro (OpenAI ישיר)",  maxDuration: 12, pricePerSec: 0.30, audio: true, multiRef: false },
-  "vidu-q1":    { emoji: "🧩", name: "Vidu Q1 (fal · עד 7 דמויות)", maxDuration: 8,  pricePerSec: 0.08, audio: true, multiRef: true },
+  seedance:    { emoji: "⚡", name: "SeeDance 2",          maxDuration: 12, pricePerSec: 0.124, audio: false, maxSubjects: 1 },
+  kling:       { emoji: "🎬", name: "Kling 2.1",          maxDuration: 10, pricePerSec: 0.056, audio: false, maxSubjects: 1 },
+  "veo3-fast": { emoji: "🟪", name: "VEO 3 Fast (fal)",   maxDuration: 8,  pricePerSec: 0.40,  audio: true,  maxSubjects: 1 },
+  "veo3-pro":  { emoji: "💎", name: "VEO 3 Pro (fal)",    maxDuration: 8,  pricePerSec: 0.75,  audio: true,  maxSubjects: 1 },
+  "google-veo-3.1-fast-generate-preview": { emoji: "✨", name: "VEO 3.1 Fast (Google ישיר)",  maxDuration: 8, pricePerSec: 0.35, audio: true, maxSubjects: 3 },
+  "google-veo-3.1-generate-preview":      { emoji: "💫", name: "VEO 3.1 Pro (Google ישיר)",   maxDuration: 8, pricePerSec: 0.50, audio: true, maxSubjects: 3 },
+  "google-veo-3.1-lite-generate-preview": { emoji: "🌟", name: "VEO 3.1 Lite (Google ישיר)",  maxDuration: 8, pricePerSec: 0.20, audio: true, maxSubjects: 3 },
+  "sora-2":     { emoji: "🎭", name: "Sora 2 (OpenAI ישיר)",      maxDuration: 12, pricePerSec: 0.10, audio: true, maxSubjects: 1 },
+  "sora-2-pro": { emoji: "🏆", name: "Sora 2 Pro (OpenAI ישיר)",  maxDuration: 12, pricePerSec: 0.30, audio: true, maxSubjects: 1 },
+  "vidu-q1":    { emoji: "🧩", name: "Vidu Q1 (fal)",            maxDuration: 8,  pricePerSec: 0.08, audio: true, maxSubjects: 7 },
 } as const;
 type ModelKey = keyof typeof MODEL_INFO;
 
@@ -197,7 +197,7 @@ export function OpeningWizard({
                         <span className="text-xl">{m.emoji}</span>
                         <span className="font-semibold">{m.name}</span>
                         <span className={`text-[10px] rounded-full px-2 py-0.5 ${m.audio ? "bg-status-okBg text-status-okText" : "bg-bg-main text-text-muted"}`}>{m.audio ? "🔊 " + (he ? "סאונד" : "audio") : "🔇 " + (he ? "שקט" : "silent")}</span>
-                        {m.multiRef && <span className="text-[10px] rounded-full px-2 py-0.5 bg-accent/15 text-accent font-semibold">👥 {he ? "עד 3 דמויות" : "3 subjects"}</span>}
+                        {m.maxSubjects > 1 && <span className="text-[10px] rounded-full px-2 py-0.5 bg-accent/15 text-accent font-semibold">👥 {he ? `עד ${m.maxSubjects} דמויות` : `${m.maxSubjects} subjects`}</span>}
                       </div>
                       <div className="text-xs text-text-muted mt-1">{he ? `עד ${m.maxDuration}s · $${m.pricePerSec}/sec` : `up to ${m.maxDuration}s · $${m.pricePerSec}/sec`}</div>
                     </button>

@@ -28,7 +28,28 @@ export default function EpisodePage() {
   const [creating, setCreating] = useState(false);
   const [costs, setCosts] = useState<{ total: number; breakdown: { episode: number; scenes: number; frames: number; characterMedia: number }; byCategory: Record<string, number> } | null>(null);
   const [tab, setTab] = useState<"scenes" | "costs">("scenes");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
   const he = lang === "he";
+
+  async function generateScenesAI() {
+    setAiBusy(true);
+    setAiMsg(he ? "סוקר פרקים קודמים, דמויות והשתלשלות העלילה…" : "Reviewing prior episodes, cast, and arc…");
+    try {
+      const r = await api<{ scenesCreated: number; framesCreated: number; priorEpisodesReviewed: number }>(
+        `/api/v1/episodes/${id}/scenes/generate-ai`,
+        { method: "POST", body: { scenesCount: 4, framesPerScene: 3 } },
+      );
+      setAiMsg(he
+        ? `נוצרו ${r.scenesCreated} סצנות · ${r.framesCreated} מסגרות · סקר ${r.priorEpisodesReviewed} פרקים קודמים`
+        : `Created ${r.scenesCreated} scenes · ${r.framesCreated} frames · reviewed ${r.priorEpisodesReviewed} prior episodes`);
+      await load();
+    } catch (e) {
+      setAiMsg((e as Error).message);
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   async function load() {
     setEp(await api(`/api/v1/episodes/${id}`));
@@ -151,8 +172,18 @@ export default function EpisodePage() {
             <div>
               <div className="text-lg font-bold">{he ? "סצנות" : "Scenes"} <span className="text-text-muted text-sm font-normal">· {scenes.length}</span></div>
             </div>
-            <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">+ {he ? "סצנה" : "Scene"}</button>
+            <div className="flex items-center gap-2">
+              <button disabled={aiBusy} onClick={generateScenesAI} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-50">
+                🤖 {aiBusy ? (he ? "יוצר סצנות…" : "Generating…") : (he ? "צור סצנות עם AI" : "Generate scenes with AI")}
+              </button>
+              <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">+ {he ? "סצנה" : "Scene"}</button>
+            </div>
           </div>
+          {aiMsg && (
+            <div className={`text-sm mb-3 rounded-lg px-3 py-2 ${aiBusy ? "bg-bg-main text-text-secondary" : "bg-status-okBg text-status-okText"}`}>
+              {aiMsg}
+            </div>
+          )}
           {creating && (
             <form onSubmit={createScene} className="bg-bg-main rounded-lg p-3 mb-3 flex gap-2">
               <input name="n" required type="number" min="1" defaultValue={scenes.length + 1} className="w-20 px-3 py-2 rounded-lg border border-bg-main bg-white" />

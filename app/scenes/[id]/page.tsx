@@ -59,44 +59,29 @@ export default function ScenePage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, scene, he]);
   const [imageModel, setImageModel] = useState<"nano-banana">("nano-banana");
+  // Curated shortlist — one best-in-class option per use case, no dupes.
+  // Sora 2 is the default (good audio + 12s + cheap).
   type AllVideoModel =
-    | "seedance" | "kling" | "veo3-pro" | "veo3-fast" | "vidu-q1"
-    | "sora-2" | "sora-2-pro"
-    | "google-veo-3.1-fast-generate-preview"
-    | "google-veo-3.1-generate-preview"
-    | "google-veo-3.1-lite-generate-preview";
-  const [videoModel, setVideoModel] = useState<AllVideoModel>("seedance");
+    | "sora-2" | "sora-2-pro" | "veo3-pro" | "seedance" | "vidu-q1";
+  const [videoModel, setVideoModel] = useState<AllVideoModel>("sora-2");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
   const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean } | null>(null);
-  const [veoModel, setVeoModel] = useState<AllVideoModel>("seedance");
-  const [veoDuration, setVeoDuration] = useState(5);
+  const [veoModel, setVeoModel] = useState<AllVideoModel>("sora-2");
+  const [veoDuration, setVeoDuration] = useState(8);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
   const RATES: Record<AllVideoModel, number> = {
-    seedance: 0.124, kling: 0.056, "veo3-fast": 0.40, "veo3-pro": 0.75, "vidu-q1": 0.08,
-    "sora-2": 0.10, "sora-2-pro": 0.30,
-    "google-veo-3.1-fast-generate-preview": 0.35,
-    "google-veo-3.1-generate-preview": 0.50,
-    "google-veo-3.1-lite-generate-preview": 0.20,
+    "sora-2": 0.10, "sora-2-pro": 0.30, "veo3-pro": 0.75, seedance: 0.124, "vidu-q1": 0.08,
   };
   const MAX_DURATION: Record<AllVideoModel, number> = {
-    seedance: 12, kling: 10, "veo3-fast": 8, "veo3-pro": 8, "vidu-q1": 5,
-    "sora-2": 12, "sora-2-pro": 12,
-    "google-veo-3.1-fast-generate-preview": 8,
-    "google-veo-3.1-generate-preview": 8,
-    "google-veo-3.1-lite-generate-preview": 8,
+    "sora-2": 12, "sora-2-pro": 12, "veo3-pro": 8, seedance: 12, "vidu-q1": 5,
   };
-  const MODEL_LABEL: Record<AllVideoModel, { emoji: string; name: string; price: string; audio: boolean }> = {
-    seedance:    { emoji: "⚡", name: "SeeDance 2",    price: "$0.124/sec", audio: false },
-    kling:       { emoji: "🎬", name: "Kling 2.1",    price: "$0.056/sec", audio: false },
-    "veo3-fast": { emoji: "🟪", name: "VEO 3 Fast",   price: "$0.40/sec",  audio: true  },
-    "veo3-pro":  { emoji: "💎", name: "VEO 3 Pro",    price: "$0.75/sec",  audio: true  },
-    "vidu-q1":   { emoji: "👥", name: "Vidu Q1",      price: "$0.08/sec",  audio: false },
-    "sora-2":    { emoji: "🟢", name: "Sora 2",       price: "$0.10/sec",  audio: true  },
-    "sora-2-pro":{ emoji: "💚", name: "Sora 2 Pro",   price: "$0.30/sec",  audio: true  },
-    "google-veo-3.1-fast-generate-preview": { emoji: "🔵", name: "Google VEO 3.1 Fast", price: "$0.35/sec", audio: true },
-    "google-veo-3.1-generate-preview":      { emoji: "🔷", name: "Google VEO 3.1 Pro",  price: "$0.50/sec", audio: true },
-    "google-veo-3.1-lite-generate-preview": { emoji: "🧊", name: "Google VEO 3.1 Lite", price: "$0.20/sec", audio: false },
+  const MODEL_LABEL: Record<AllVideoModel, { emoji: string; name: string; price: string; audio: boolean; note?: string }> = {
+    "sora-2":     { emoji: "🟢", name: "Sora 2",      price: "$0.10/sec", audio: true,  note: "ברירת מחדל" },
+    "sora-2-pro": { emoji: "💚", name: "Sora 2 Pro",  price: "$0.30/sec", audio: true,  note: "פרימיום" },
+    "veo3-pro":   { emoji: "💎", name: "VEO 3 Pro",   price: "$0.75/sec", audio: true,  note: "איכות גבוהה" },
+    seedance:     { emoji: "⚡", name: "SeeDance 2",  price: "$0.124/sec", audio: false, note: "ארוך וזול" },
+    "vidu-q1":    { emoji: "👥", name: "Vidu Q1",     price: "$0.08/sec",  audio: false, note: "עד 7 דמויות" },
   };
   const maxDurForModel = MAX_DURATION[veoModel];
   const veoRate = RATES[veoModel];
@@ -676,7 +661,7 @@ export default function ScenePage() {
 
       {veoModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setVeoModalOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-card bg-bg-card border border-bg-main p-5 space-y-4">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-card bg-bg-card border border-bg-main p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-lg">🎬 {he ? "ייצור וידאו" : "Video generation"}</h3>
               <button onClick={() => setVeoModalOpen(false)} className="text-text-muted">✕</button>
@@ -685,7 +670,7 @@ export default function ScenePage() {
             <div>
               <div className="text-xs text-text-muted mb-1.5">{he ? "מודל" : "Model"}</div>
               <div className="grid grid-cols-2 gap-2">
-                {(["seedance", "kling", "veo3-fast", "veo3-pro", "vidu-q1", "sora-2", "sora-2-pro", "google-veo-3.1-fast-generate-preview", "google-veo-3.1-generate-preview", "google-veo-3.1-lite-generate-preview"] as const).map((k) => {
+                {(["sora-2", "sora-2-pro", "veo3-pro", "seedance", "vidu-q1"] as const).map((k) => {
                   const ml = MODEL_LABEL[k];
                   const active = veoModel === k;
                   return (

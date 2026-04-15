@@ -531,10 +531,10 @@ export default function SeasonPage() {
               return (
                 <li key={c.id} className="bg-bg-main rounded-lg p-3 space-y-2">
                   <div className="flex justify-between items-start gap-2">
-                    <div>
+                    <Link href={`/characters/${c.id}`} className="flex-1 min-w-0 hover:underline">
                       <div className="font-semibold">{c.name}</div>
                       <div className="text-[11px] text-text-muted">{[c.roleType, c.gender, c.ageRange].filter(Boolean).join(" · ")}</div>
-                    </div>
+                    </Link>
                     <div className="flex flex-col gap-1 items-end">
                       {c.media.length === 0 ? (
                         <button disabled={charBusy === c.id} onClick={() => generateOneGallery(c.id, "one")} className="text-[11px] px-2 py-1 rounded-lg bg-accent text-white disabled:opacity-50">
@@ -597,7 +597,16 @@ export default function SeasonPage() {
                   <div className="text-text-muted">{lang === "he" ? "fal מעבד את הפתיחה — תרענן בעוד רגע" : "fal is rendering — refresh in a moment"}</div>
                 </div>
               ) : (
-                <div className="bg-bg-main rounded-lg p-6 text-center text-text-muted">{lang === "he" ? "פרומט מוכן אבל הסרטון עדיין לא נוצר" : "Prompt ready, video not yet generated"}</div>
+                <div className="bg-accent/5 border-2 border-dashed border-accent rounded-lg p-6 text-center">
+                  <div className="text-4xl mb-2">🎬</div>
+                  <div className="text-sm font-semibold mb-1">{lang === "he" ? "הפרומט נשמר — מוכן לייצור" : "Prompt saved — ready to render"}</div>
+                  <div className="text-xs text-text-muted mb-4">{lang === "he" ? `${opening.model} · ${opening.duration}s · ${opening.aspectRatio} · ~$${({seedance:0.124,kling:0.056,"veo3-fast":0.40,"veo3-pro":0.75}[opening.model as "seedance"|"kling"|"veo3-fast"|"veo3-pro"] ?? 0.124) * opening.duration}` : `${opening.model} · ${opening.duration}s · ${opening.aspectRatio}`}</div>
+                  <button onClick={async () => {
+                    await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
+                    const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
+                    setOpening(r.opening); setOpeningCosts(r.costBreakdown);
+                  }} className="px-6 py-2.5 rounded-lg bg-accent text-white font-bold">🎬 {lang === "he" ? "צור וידאו עכשיו" : "Generate video now"}</button>
+                </div>
               )}
               <div className="flex flex-wrap gap-2 text-sm">
                 <span className="bg-bg-main rounded-full px-3 py-1 text-xs">{opening.styleLabel ?? opening.status}</span>

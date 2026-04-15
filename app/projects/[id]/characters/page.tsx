@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
@@ -183,10 +184,10 @@ export default function CharactersPage() {
             {chars.map((c) => (
               <li key={c.id} className="bg-bg-main rounded-lg p-4 space-y-3">
                 <div className="flex justify-between items-start gap-2">
-                  <div>
+                  <Link href={`/characters/${c.id}`} className="flex-1 min-w-0 hover:underline">
                     <div className="font-semibold">{c.name}</div>
                     <div className="text-xs text-text-muted">{[c.roleType, c.gender, c.ageRange].filter(Boolean).join(" · ")}</div>
-                  </div>
+                  </Link>
                   <div className="flex gap-1">
                     <button onClick={() => setEditing(c)} className="text-xs px-2 py-1 rounded border border-bg-card">{lang === "he" ? "ערוך" : "Edit"}</button>
                     <button onClick={() => del(c.id)} className="text-xs px-2 py-1 rounded border border-status-errText text-status-errText">{lang === "he" ? "מחק" : "Delete"}</button>

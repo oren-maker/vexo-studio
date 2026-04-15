@@ -108,6 +108,27 @@ export default function BudgetsTokensPage() {
     <Card title={lang === "he" ? "תקציבים וטוקנים" : "Budgets & Tokens"} subtitle={lang === "he" ? "ניהול ספקי AI ויתרות הקרדיט שלהם — סנכרון, טעינה, היסטוריה" : "Manage AI providers and their credit balances — sync, top up, history"}>
       {err && <div className="text-status-errText text-sm mb-3">{err}</div>}
 
+      {providers.length > 0 && (() => {
+        const totalAdded = providers.reduce((s, p) => s + (p.wallet?.totalCreditsAdded ?? 0), 0);
+        const totalAvail = providers.reduce((s, p) => s + (p.wallet?.availableCredits ?? 0), 0);
+        const totalSpent = providers.reduce((s, p) => s + (p.totalSpent ?? 0), 0);
+        return (
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="bg-bg-main rounded-lg p-3 text-center">
+              <div className="text-[11px] text-text-muted uppercase tracking-wider">{lang === "he" ? "סך הכל הוטען" : "Total topped up"}</div>
+              <div className="text-2xl font-bold num mt-1">${totalAdded.toFixed(2)}</div>
+            </div>
+            <div className="bg-status-okBg rounded-lg p-3 text-center">
+              <div className="text-[11px] text-status-okText uppercase tracking-wider">{lang === "he" ? "נשאר זמין" : "Remaining available"}</div>
+              <div className="text-2xl font-bold num mt-1 text-status-okText">${totalAvail.toFixed(2)}</div>
+            </div>
+            <div className="bg-status-errBg rounded-lg p-3 text-center">
+              <div className="text-[11px] text-status-errText uppercase tracking-wider">{lang === "he" ? "סך הכל בוזבז" : "Total spent"}</div>
+              <div className="text-2xl font-bold num mt-1 text-status-errText">−${totalSpent.toFixed(4)}</div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="flex justify-between items-center mb-4">
         <span className="text-xs text-text-muted">{providers.length} <T>providers</T></span>

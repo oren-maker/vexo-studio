@@ -138,9 +138,15 @@ export async function submitVideo(opts: {
   const identityLock = useI2V ? "Keep the faces, hair color and length, skin tone, wardrobe and body shape of every person IDENTICAL to the starting image — zero drift. " : "";
   const VIDEO_REALISM_PREFIX = `Live-action photorealistic film footage, REAL human actors filmed on a cinema camera, NOT animation, NOT CGI. ${identityLock}Subject: `;
   const VIDEO_REALISM_SUFFIX = " [Art Style] photorealistic prestige-drama cinematography, Netflix/A24 feature-film look. [Lighting] natural physical lighting with soft shadows, Rembrandt lighting on faces, motivated practicals, light reflecting off skin and surfaces. [Technical] 8k, 24fps, shot on 35mm cinema lens at f/2, shallow depth of field, subtle film grain, natural color grade. [Anti-plastic] real skin with visible pores and freckles, real eye catch-light and iris detail, natural micro-expressions and breathing, individual hair strands, realistic fabric folds and weave. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D animation, NOT illustration, NOT a video game cutscene, NOT stylized, NOT a CGI render, NOT plastic skin.";
+  // VEO 3 (both Pro and Fast) accepts ONLY the discrete values "4s"/"6s"/"8s".
+  // SeeDance and Kling accept integer seconds as a stringified number.
+  // Map the requested seconds to the nearest allowed value per model.
+  const rawSec = Math.max(1, Math.min(opts.durationSeconds ?? 5, 20));
+  const veoDuration = rawSec <= 5 ? "4s" : rawSec <= 7 ? "6s" : "8s";
+  const isVeo = modelKey === "veo3-pro" || modelKey === "veo3-fast";
   const body: Record<string, unknown> = {
     prompt: VIDEO_REALISM_PREFIX + opts.prompt + VIDEO_REALISM_SUFFIX,
-    duration: String(Math.max(1, Math.min(opts.durationSeconds ?? 5, 20))),
+    duration: isVeo ? veoDuration : String(rawSec),
     aspect_ratio: opts.aspectRatio ?? "16:9",
     // Kling honors negative_prompt; VEO/SeeDance silently drop it. Safe to send.
     negative_prompt: "cartoon, anime, animation, 3D render, illustration, painting, drawing, stylized, video game graphics, cgi look, plastic skin, doll-like faces, oversaturated colors",

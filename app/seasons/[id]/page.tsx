@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { sceneProgress, avg, progressColor, progressLabel } from "@/lib/progress";
 import { useLang } from "@/lib/i18n";
+import { OpeningWizard } from "@/components/opening-wizard";
 
 type Frame = { generatedImageUrl: string | null; approvedImageUrl: string | null };
 type Scene = { id: string; sceneNumber: number; status: string; scriptText: string | null; frames: Frame[] };
@@ -38,7 +39,12 @@ export default function SeasonPage() {
 
   const [err, setErr] = useState<string | null>(null);
   const [costs, setCosts] = useState<Record<string, number>>({});
-  const [tab, setTab] = useState<"episodes" | "characters" | "logs">("episodes");
+  const [tab, setTab] = useState<"episodes" | "characters" | "logs" | "opening">("episodes");
+  type Opening = { id: string; status: string; videoUrl: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; versions: { id: string; prompt: string; createdAt: string }[] };
+  const [opening, setOpening] = useState<Opening | null>(null);
+  const [openingWizardOpen, setOpeningWizardOpen] = useState(false);
+  const [openingEditing, setOpeningEditing] = useState(false);
+  const [openingPromptDraft, setOpeningPromptDraft] = useState("");
   const [contextData, setContextData] = useState<{ cache: { summary: string; data: any; updatedAt: string; tokenCount: number } | null; logs: { id: string; createdAt: string; decisionReason: string | null; output: any }[] } | null>(null);
   const [activity, setActivity] = useState<{ id: string; at: string; kind: string; actor: string | null; title: string; detail?: string; entityType: string; entityId: string }[] | null>(null);
   const [ctxBusy, setCtxBusy] = useState(false);
@@ -71,6 +77,11 @@ export default function SeasonPage() {
     if (!season) return;
     api<ProjectCharacter[]>(`/api/v1/projects/${season.series.project.id}/characters`).then(setCharacters).catch(() => setCharacters([]));
   }, [season?.series.project.id, tab]);
+
+  useEffect(() => {
+    if (!season || tab !== "opening") return;
+    api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`).then((r) => setOpening(r.opening)).catch(() => setOpening(null));
+  }, [season?.id, tab]);
 
   useEffect(() => {
     if (!season || tab !== "logs") return;
@@ -374,6 +385,12 @@ export default function SeasonPage() {
           {lang === "he" ? "דמויות" : "Characters"} <span className="text-text-muted">({characters.length})</span>
         </button>
         <button
+          onClick={() => setTab("opening")}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "opening" ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text-secondary"}`}
+        >
+          🎬 {lang === "he" ? "פתיחה" : "Opening"}
+        </button>
+        <button
           onClick={() => setTab("logs")}
           className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "logs" ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text-secondary"}`}
         >
@@ -552,6 +569,110 @@ export default function SeasonPage() {
           </ul>
         )}
       </div>
+      )}
+
+      {tab === "opening" && (
+        <Card
+          title={lang === "he" ? "🎬 פתיחת העונה" : "Season opening"}
+          subtitle={lang === "he" ? "סרטון פתיחה שנוצר על ידי AI — בהתאם לסדרה, הדמויות ולסגנון שתבחר" : "AI-built intro — matches the series, cast, and style you pick"}
+        >
+          {!opening ? (
+            <div className="text-center py-10">
+              <div className="text-5xl mb-3">🎬</div>
+              <div className="text-text-muted mb-4">{lang === "he" ? "עדיין אין פתיחה לעונה זו" : "No opening for this season yet"}</div>
+              <button onClick={() => setOpeningWizardOpen(true)} className="px-5 py-2.5 rounded-lg bg-accent text-white font-semibold">{lang === "he" ? "✨ יצירת פתיחה עם AI" : "✨ Create opening with AI"}</button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {opening.videoUrl ? (
+                <video src={opening.videoUrl} controls className="w-full max-w-2xl rounded-lg bg-black mx-auto" />
+              ) : opening.status === "GENERATING" ? (
+                <div className="bg-bg-main rounded-lg p-6 text-center">
+                  <div className="text-3xl mb-2">⏳</div>
+                  <div className="text-text-muted">{lang === "he" ? "fal מעבד את הפתיחה — תרענן בעוד רגע" : "fal is rendering — refresh in a moment"}</div>
+                </div>
+              ) : (
+                <div className="bg-bg-main rounded-lg p-6 text-center text-text-muted">{lang === "he" ? "פרומט מוכן אבל הסרטון עדיין לא נוצר" : "Prompt ready, video not yet generated"}</div>
+              )}
+              <div className="flex flex-wrap gap-2 text-sm">
+                <span className="bg-bg-main rounded-full px-3 py-1 text-xs">{opening.styleLabel ?? opening.status}</span>
+                <span className="bg-bg-main rounded-full px-3 py-1 text-xs">{opening.model} · {opening.duration}s · {opening.aspectRatio}</span>
+                {opening.isSeriesDefault && <span className="bg-status-okBg text-status-okText rounded-full px-3 py-1 text-xs font-semibold">⭐ {lang === "he" ? "פתיחה ראשית לסדרה" : "Series default"}</span>}
+                {opening.cost != null && <span className="bg-bg-main rounded-full px-3 py-1 text-xs num">${opening.cost.toFixed(2)}</span>}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => { setOpeningEditing(true); setOpeningPromptDraft(opening.currentPrompt); }} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">✏ {lang === "he" ? "ערוך פרומט" : "Edit prompt"}</button>
+                <button onClick={async () => {
+                  await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
+                  const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
+                  setOpening(r.opening);
+                  alert(lang === "he" ? "יצירה החלה — fal מייצר ~60-90 שניות" : "Generation started");
+                }} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">🎬 {lang === "he" ? "צור מחדש" : "Regenerate"}</button>
+                <button onClick={async () => {
+                  const next = !opening.isSeriesDefault;
+                  await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { isSeriesDefault: next } });
+                  const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
+                  setOpening(r.opening);
+                }} className="px-3 py-1.5 rounded-lg border border-bg-main text-text-secondary text-sm">{opening.isSeriesDefault ? (lang === "he" ? "הסר סימון 'ראשית'" : "Unset series default") : (lang === "he" ? "⭐ סמן כפתיחה הראשית" : "⭐ Mark as series default")}</button>
+                <button onClick={() => setOpeningWizardOpen(true)} className="px-3 py-1.5 rounded-lg border border-bg-main text-text-secondary text-sm">🔄 {lang === "he" ? "בנה מחדש באשף" : "Rebuild in wizard"}</button>
+                <button onClick={async () => {
+                  if (!confirm(lang === "he" ? "למחוק את הפתיחה?" : "Delete this opening?")) return;
+                  await api(`/api/v1/seasons/${season.id}/opening`, { method: "DELETE" });
+                  setOpening(null);
+                }} className="px-3 py-1.5 rounded-lg border border-status-errText text-status-errText text-sm">🗑</button>
+              </div>
+
+              {openingEditing && (
+                <div className="bg-bg-main rounded-lg p-3 space-y-2">
+                  <textarea value={openingPromptDraft} onChange={(e) => setOpeningPromptDraft(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-card font-mono text-xs" />
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setOpeningEditing(false)} className="px-3 py-1.5 rounded-lg border border-bg-card text-sm">{lang === "he" ? "ביטול" : "Cancel"}</button>
+                    <button onClick={async () => {
+                      await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { prompt: openingPromptDraft } });
+                      const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
+                      setOpening(r.opening);
+                      setOpeningEditing(false);
+                    }} className="px-4 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">{lang === "he" ? "שמור גרסה" : "Save version"}</button>
+                  </div>
+                </div>
+              )}
+
+              <details>
+                <summary className="cursor-pointer text-sm font-semibold">🕘 {lang === "he" ? `גרסאות פרומט (${opening.versions.length})` : `Prompt versions (${opening.versions.length})`}</summary>
+                <ul className="mt-3 space-y-2">
+                  {opening.versions.map((v) => (
+                    <li key={v.id} className="bg-bg-main rounded-lg p-3 flex gap-3 items-start">
+                      <div className="flex-1 text-xs font-mono text-text-secondary whitespace-pre-wrap line-clamp-4">{v.prompt}</div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="text-[10px] text-text-muted">{new Date(v.createdAt).toLocaleString(lang === "he" ? "he-IL" : undefined)}</span>
+                        <button onClick={async () => {
+                          await api(`/api/v1/seasons/${season.id}/opening/restore/${v.id}`, { method: "POST" });
+                          const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
+                          setOpening(r.opening);
+                        }} className="text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">🔁 {lang === "he" ? "שחזר" : "Restore"}</button>
+                      </div>
+                    </li>
+                  ))}
+                  {opening.versions.length === 0 && <li className="text-xs text-text-muted">{lang === "he" ? "אין גרסאות קודמות" : "No versions yet"}</li>}
+                </ul>
+              </details>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {openingWizardOpen && season && (
+        <OpeningWizard
+          seasonId={season.id}
+          characters={characters as unknown as { id: string; name: string; roleType?: string | null; media: { fileUrl: string }[] }[]}
+          he={lang === "he"}
+          onCancel={() => setOpeningWizardOpen(false)}
+          onFinished={async () => {
+            setOpeningWizardOpen(false);
+            const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
+            setOpening(r.opening);
+          }}
+        />
       )}
 
       {tab === "logs" && (

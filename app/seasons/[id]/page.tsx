@@ -603,11 +603,15 @@ export default function SeasonPage() {
                   <div className="text-4xl mb-2">🎬</div>
                   <div className="text-sm font-semibold mb-1">{lang === "he" ? "הפרומט נשמר — מוכן לייצור" : "Prompt saved — ready to render"}</div>
                   <div className="text-xs text-text-muted mb-4">{lang === "he" ? `${opening.model} · ${opening.duration}s · ${opening.aspectRatio} · ~$${({seedance:0.124,kling:0.056,"veo3-fast":0.40,"veo3-pro":0.75}[opening.model as "seedance"|"kling"|"veo3-fast"|"veo3-pro"] ?? 0.124) * opening.duration}` : `${opening.model} · ${opening.duration}s · ${opening.aspectRatio}`}</div>
-                  <button onClick={async () => {
-                    await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
-                    const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
-                    setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
-                  }} className="px-6 py-2.5 rounded-lg bg-accent text-white font-bold">🎬 {lang === "he" ? "צור וידאו עכשיו" : "Generate video now"}</button>
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    <button onClick={async () => {
+                      await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
+                      const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
+                      setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
+                    }} className="px-6 py-2.5 rounded-lg bg-accent text-white font-bold">🎬 {lang === "he" ? "צור וידאו עכשיו" : "Generate video now"}</button>
+                    <button onClick={() => setOpeningWizardOpen(true)} className="px-6 py-2.5 rounded-lg border-2 border-accent text-accent font-bold bg-white">✨ {lang === "he" ? "ערוך באשף" : "Edit in wizard"}</button>
+                  </div>
+                  <div className="text-[11px] text-text-muted mt-3">{lang === "he" ? "האשף יפתח עם כל ההגדרות הקיימות — סגנון, דמויות, מודל, פרומט — אפשר לשנות ולשמור שוב" : "Wizard re-opens with all current settings loaded — tweak and save again"}</div>
                 </div>
               )}
               <div className="flex flex-wrap gap-2 text-sm">

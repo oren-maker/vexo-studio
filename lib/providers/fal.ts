@@ -132,25 +132,32 @@ export async function submitVideo(opts: {
   const model = (useI2V ? VIDEO_MODELS_I2V[modelKey] : VIDEO_MODELS[modelKey]);
   // Photorealism must be at the FRONT of the prompt for highest weight.
   // VEO 3 and SeeDance ignore negative_prompt; only Kling honors it.
-  // Same 6-layer formula applied to video. If the caller passes a reference frame
-  // (i2v), we ALSO tell the model to keep face/wardrobe identical to it — per the
-  // Claude School reference-image pattern.
-  const identityLock = useI2V ? "Keep the faces, hair color and length, skin tone, wardrobe and body shape of every person IDENTICAL to the starting image — zero drift. " : "";
-  const VIDEO_REALISM_PREFIX = `Live-action photorealistic film footage, REAL human actors filmed on a cinema camera, NOT animation, NOT CGI. ${identityLock}Subject: `;
-  const VIDEO_REALISM_SUFFIX = " [Art Style] photorealistic prestige-drama cinematography, Netflix/A24 feature-film look. [Lighting] natural physical lighting with soft shadows, Rembrandt lighting on faces, motivated practicals, light reflecting off skin and surfaces. [Technical] 8k, 24fps, shot on 35mm cinema lens at f/2, shallow depth of field, subtle film grain, natural color grade. [Anti-plastic] real skin with visible pores and freckles, real eye catch-light and iris detail, natural micro-expressions and breathing, individual hair strands, realistic fabric folds and weave. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D animation, NOT illustration, NOT a video game cutscene, NOT stylized, NOT a CGI render, NOT plastic skin.";
-  // VEO 3 (both Pro and Fast) accepts ONLY the discrete values "4s"/"6s"/"8s".
-  // SeeDance and Kling accept integer seconds as a stringified number.
-  // Map the requested seconds to the nearest allowed value per model.
+  // VEO 3 quirks (from live testing Apr 2026):
+  //   • duration ONLY accepts literal "4s"/"6s"/"8s" — numeric strings get 422
+  //   • heavy "NOT X" negations and long anti-plastic suffixes trigger
+  //     `no_media_generated` at fal. Keep VEO prompts short, positive, scene-only.
+  //   • negative_prompt is silently dropped.
+  // SeeDance/Kling are the opposite: integer seconds + tolerate the full realism
+  // wrapper. Apply the wrapper only for those models.
   const rawSec = Math.max(1, Math.min(opts.durationSeconds ?? 5, 20));
-  const veoDuration = rawSec <= 5 ? "4s" : rawSec <= 7 ? "6s" : "8s";
   const isVeo = modelKey === "veo3-pro" || modelKey === "veo3-fast";
+  const veoDuration = rawSec <= 5 ? "4s" : rawSec <= 7 ? "6s" : "8s";
+  const identityLock = useI2V ? "Keep every person's face, hair, skin, wardrobe identical to the starting image. " : "";
+  const finalPrompt = isVeo
+    // VEO: short, positive, no negations, ≤ ~800 chars.
+    ? (identityLock + "Live-action photorealistic film footage. " + opts.prompt).slice(0, 1400)
+    : ("Live-action photorealistic film footage, REAL human actors filmed on a cinema camera, NOT animation, NOT CGI. " + identityLock + "Subject: " + opts.prompt
+        + " [Art Style] photorealistic prestige-drama cinematography, Netflix/A24 feature-film look. [Lighting] natural physical lighting with soft shadows, Rembrandt lighting on faces. [Technical] 8k, 24fps, 35mm cinema lens at f/2, shallow depth of field, subtle film grain. [Anti-plastic] real skin with visible pores, real eye catch-light, natural micro-expressions, realistic fabric weave. STRICTLY NOT animated, NOT cartoon, NOT anime, NOT 3D animation, NOT illustration, NOT a video game cutscene, NOT plastic skin.");
   const body: Record<string, unknown> = {
-    prompt: VIDEO_REALISM_PREFIX + opts.prompt + VIDEO_REALISM_SUFFIX,
+    prompt: finalPrompt,
     duration: isVeo ? veoDuration : String(rawSec),
     aspect_ratio: opts.aspectRatio ?? "16:9",
-    // Kling honors negative_prompt; VEO/SeeDance silently drop it. Safe to send.
-    negative_prompt: "cartoon, anime, animation, 3D render, illustration, painting, drawing, stylized, video game graphics, cgi look, plastic skin, doll-like faces, oversaturated colors",
   };
+  // Only Kling honors negative_prompt. VEO rejects it on some configs; SeeDance
+  // silently drops; sending universally caused 422 on VEO.
+  if (modelKey === "kling") {
+    body.negative_prompt = "cartoon, anime, animation, 3D render, illustration, painting, drawing, stylized, video game graphics, cgi look, plastic skin, doll-like faces, oversaturated colors";
+  }
   if (useI2V && opts.imageUrl) body.image_url = opts.imageUrl;
   // image_urls is only supported on the text-to-video path of specific models
   // (some fal endpoints 400 on unknown fields). Only send when NOT using i2v.

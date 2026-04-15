@@ -75,7 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       : "(abstract intro — no specific cast)";
 
     const prompt = await step("build-prompt", () => groqJson<{ prompt?: string }>(
-      `You write cinema-grade video prompts for a TV title sequence. Return JSON { prompt: "..." } with ONE cohesive prompt ready to send to a video model. Follow the 6-layer formula: Subject → Action → Environment → Art Style → Lighting → Technical. ${audioDirective} ${nameCardDirective} Keep it ≤ 1200 chars. Positive phrasing only (no "NOT X" negations). Do not mention the model name.`,
+      `You write cinema-grade video prompts for a TV title sequence. Return JSON { prompt: "..." } with ONE cohesive prompt ready to send to a video model. Follow the 6-layer formula: Subject → Action → Environment → Art Style → Lighting → Technical. ${audioDirective} ${nameCardDirective} MANDATORY: The series title "${season.series.title}" MUST appear as a clean typographic title card — either as the very first shot opening the sequence, or as the final beat closing it. Specify which in the prompt and describe its typography (sans-serif, matching the genre). Keep it ≤ 1200 chars. Positive phrasing only (no "NOT X" negations). Do not mention the model name.`,
       `SERIES BIBLE:\n${bible.slice(0, 1500)}\n\nSERIES TITLE: ${season.series.title}\nSEASON #${season.seasonNumber}${season.title ? ` — ${season.title}` : ""}\nSTYLE CHOICE: ${body.styleLabel ?? body.style}${body.customPromptSeed ? `\nUSER SEED: ${body.customPromptSeed}` : ""}\n\n[CAST to feature]\n${castBlock}\n\nDURATION: ${body.duration}s · ASPECT: ${body.aspectRatio} · MODEL: ${body.model}${hasAudio ? " (has audio)" : " (silent)"}`,
       {
         temperature: 0.8, maxTokens: 1400,

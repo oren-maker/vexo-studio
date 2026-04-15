@@ -34,7 +34,7 @@ export function OpeningWizard({
   const [charIds, setCharIds] = useState<string[]>(() => characters.slice(0, 4).map((c) => c.id));
 
   const [model, setModel] = useState<ModelKey>("seedance");
-  const [duration, setDuration] = useState(8);
+  const [duration, setDuration] = useState(12);
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
 
   const [prompt, setPrompt] = useState("");
@@ -42,10 +42,8 @@ export function OpeningWizard({
   const [buildBusy, setBuildBusy] = useState(false);
   const [buildErr, setBuildErr] = useState<string | null>(null);
 
-  const [genBusy, setGenBusy] = useState(false);
-  const [genErr, setGenErr] = useState<string | null>(null);
-  const [genElapsed, setGenElapsed] = useState(0);
-  const [genDone, setGenDone] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   // Fetch style suggestions on mount
   useEffect(() => {
@@ -101,30 +99,18 @@ export function OpeningWizard({
     finally { setBuildBusy(false); }
   }
 
-  async function generate() {
+  async function saveAndClose() {
     if (!openingId) return;
-    // Save any pending prompt edits first
-    await saveEditedPrompt();
-    setGenBusy(true); setGenErr(null); setGenElapsed(0); setGenDone(false);
-    const started = Date.now();
-    const tick = setInterval(() => setGenElapsed(Math.round((Date.now() - started) / 1000)), 1000);
+    setSaveBusy(true); setSaveErr(null);
     try {
-      await api(`/api/v1/seasons/${seasonId}/opening/generate`, { method: "POST", body: {} });
-      // Poll opening status
-      const poll = setInterval(async () => {
-        try {
-          const o = await api<{ opening: { status: string; videoUrl: string | null } | null }>(`/api/v1/seasons/${seasonId}/opening`);
-          if (o.opening?.status === "READY" && o.opening?.videoUrl) {
-            clearInterval(poll); clearInterval(tick); setGenDone(true);
-            setTimeout(() => onFinished(openingId), 1200);
-          } else if (Math.round((Date.now() - started) / 1000) > 240) {
-            clearInterval(poll); clearInterval(tick); setGenErr(he ? "לקח יותר מ-4 דקות — בדוק במסך לוגים" : "Timed out after 4 minutes");
-          }
-        } catch { /* keep polling */ }
-      }, 5000);
-    } catch (e) {
-      clearInterval(tick); setGenErr((e as Error).message); setGenBusy(false);
-    }
+      // Persist any final edits to the prompt + settings
+      await api(`/api/v1/seasons/${seasonId}/opening`, {
+        method: "PATCH",
+        body: { prompt, duration, aspectRatio: aspect, model, includeCharacters: includeChars, characterIds: includeChars ? charIds : [] },
+      });
+      onFinished(openingId);
+    } catch (e) { setSaveErr((e as Error).message); }
+    finally { setSaveBusy(false); }
   }
 
   return (
@@ -211,10 +197,18 @@ export function OpeningWizard({
                   );
                 })}
               </div>
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3 mb-1">
                 <label className="text-xs text-text-muted w-20">{he ? "משך" : "Duration"}</label>
-                <input type="range" min={1} max={MODEL_INFO[model].maxDuration} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="flex-1" />
+                <input type="range" min={4} max={MODEL_INFO[model].maxDuration} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="flex-1" />
                 <span className="num font-semibold w-12 text-end">{duration}s</span>
+              </div>
+              {MODEL_INFO[model].maxDuration <= 8 && (
+                <div className="text-[11px] text-status-warnText mb-3 ms-20">
+                  ℹ {he ? `${MODEL_INFO[model].name} מוגבל ל-8 שניות — לפתיחה ארוכה יותר (עד 12s) בחר SeeDance 2` : `${MODEL_INFO[model].name} caps at 8s — for a longer intro (up to 12s) pick SeeDance 2`}
+                </div>
+              )}
+              <div className="text-[11px] text-text-muted mb-3 ms-20">
+                📌 {he ? "שם הסדרה יופיע אוטומטית בתחילת או בסוף הפתיחה ככרטיסיית כותרת" : "Series title will appear as a title card at the start or end"}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-text-muted w-20">{he ? "יחס" : "Aspect"}</span>
@@ -248,30 +242,21 @@ export function OpeningWizard({
 
           {step === 5 && (
             <div>
-              <div className="text-sm font-semibold mb-3">{he ? "סיכום ויצירה" : "Confirm & generate"}</div>
+              <div className="text-sm font-semibold mb-3">{he ? "סיכום ושמירה" : "Review & save"}</div>
               <div className="bg-bg-main rounded-lg p-3 text-xs space-y-1 mb-4">
                 <div><span className="text-text-muted">{he ? "סגנון:" : "Style:"}</span> <span className="font-semibold">{pickedStyle?.name ?? "—"}</span></div>
                 <div><span className="text-text-muted">{he ? "דמויות:" : "Cast:"}</span> {includeChars ? charIds.length : (he ? "אין" : "none")}</div>
                 <div><span className="text-text-muted">{he ? "מודל:" : "Model:"}</span> {MODEL_INFO[model].emoji} {MODEL_INFO[model].name}</div>
                 <div><span className="text-text-muted">{he ? "משך × יחס:" : "Duration × aspect:"}</span> {duration}s · {aspect}</div>
-                <div><span className="text-text-muted">{he ? "עלות:" : "Cost:"}</span> <span className="num font-bold">${estUsd.toFixed(2)}</span></div>
+                <div><span className="text-text-muted">{he ? "עלות משוערת לייצור:" : "Est. generation cost:"}</span> <span className="num font-bold">${estUsd.toFixed(2)}</span></div>
               </div>
-              {!genBusy && !genDone && !genErr && (
-                <button onClick={generate} className="w-full py-3 rounded-lg bg-accent text-white font-semibold">🎬 {he ? "צור פתיחה" : "Generate opening"}</button>
-              )}
-              {genBusy && (
-                <div className="rounded-lg bg-bg-main p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="text-sm">{genDone ? `✅ ${he ? "הושלם" : "Done"}` : (he ? `${MODEL_INFO[model].name} מייצר…` : `${MODEL_INFO[model].name} is rendering…`)}</div>
-                    <div className="text-2xl font-bold num">{genElapsed}s</div>
-                  </div>
-                  <div className="h-2 rounded-full bg-bg-card overflow-hidden">
-                    <div className={`h-full transition-all ${genDone ? "bg-status-okText" : "bg-accent"}`} style={{ width: `${Math.min(100, (genElapsed / 90) * 100)}%` }} />
-                  </div>
-                  <div className="text-[11px] text-text-muted mt-2">{he ? "fal מעבד — ~60-90s לרוב, עד 4 דקות" : "fal is rendering — usually 60-90s, up to 4min"}</div>
-                </div>
-              )}
-              {genErr && <div className="bg-status-errBg text-status-errText rounded-lg p-3 text-sm">{genErr}</div>}
+              <div className="bg-accent/10 rounded-lg p-3 text-xs text-accent mb-4">
+                ℹ {he ? "ההגדרות יישמרו. הסרטון עצמו לא ייווצר עכשיו — לחץ על 'צור וידאו' בכרטיס הפתיחה אחרי שתסגור את האשף." : "Settings will be saved. The video itself won't be rendered — click 'Generate video' on the opening card after closing the wizard."}
+              </div>
+              <button disabled={saveBusy} onClick={saveAndClose} className="w-full py-3 rounded-lg bg-accent text-white font-semibold disabled:opacity-50">
+                {saveBusy ? (he ? "שומר…" : "Saving…") : `💾 ${he ? "שמור וצא" : "Save & close"}`}
+              </button>
+              {saveErr && <div className="bg-status-errBg text-status-errText rounded-lg p-3 text-sm mt-3">{saveErr}</div>}
             </div>
           )}
         </div>
@@ -279,7 +264,7 @@ export function OpeningWizard({
         <div className="p-4 border-t border-bg-main flex justify-between items-center">
           <button onClick={onCancel} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">{he ? "ביטול" : "Cancel"}</button>
           <div className="flex gap-2">
-            {step > 1 && <button onClick={() => setStep((s) => (s - 1) as 1|2|3|4|5)} disabled={genBusy} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm disabled:opacity-50">{he ? "חזור" : "Back"}</button>}
+            {step > 1 && <button onClick={() => setStep((s) => (s - 1) as 1|2|3|4|5)} disabled={saveBusy} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm disabled:opacity-50">{he ? "חזור" : "Back"}</button>}
             {step < 3 && <button onClick={() => setStep((s) => (s + 1) as 1|2|3|4|5)} disabled={step === 1 && !pickedStyle} className="px-4 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50">{he ? "הבא" : "Next"}</button>}
             {step === 3 && <button onClick={() => { buildPrompt(); setStep(4); }} className="px-4 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">{he ? "בנה פרומט →" : "Build prompt →"}</button>}
             {step === 4 && prompt && <button onClick={() => setStep(5)} className="px-4 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">{he ? "הבא →" : "Next →"}</button>}

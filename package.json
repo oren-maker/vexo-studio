@@ -14,8 +14,11 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@prisma/client": "^5.22.0",
     "@supabase/ssr": "^0.5.2",
+    "@vercel/blob": "^2.3.3",
     "@supabase/supabase-js": "^2.45.6",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",

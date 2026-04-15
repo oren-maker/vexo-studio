@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
+import { EpisodeMergedVideo } from "@/components/episode-merged-video";
 import { useLang } from "@/lib/i18n";
 
 type EpChar = { character: { id: string; name: string; roleType: string | null; media: { fileUrl: string }[] } };
@@ -143,6 +144,8 @@ export default function EpisodePage() {
           </div>
         </Card>
       )}
+
+      <EpisodeMergedVideo episodeId={id} />
 
       <div className="flex gap-2 flex-wrap">
         <Link href={`/episodes/${id}/seo`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">SEO</Link>

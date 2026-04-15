@@ -9,11 +9,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { handleError, ok } from "@/lib/route-utils";
+import { fetchOpenAiBalance } from "@/lib/providers/openai-sora";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 
 const Body = z.object({
-  initialCredits: z.number().min(0).default(0),
+  initialCredits: z.number().min(0).optional(),
+  // When true, ignore initialCredits and pull the live OpenAI balance.
+  syncFromOpenAi: z.boolean().optional(),
 }).partial();
 
 export async function POST(req: NextRequest) {
@@ -25,6 +28,7 @@ export async function POST(req: NextRequest) {
 
     let provider = await prisma.provider.findFirst({
       where: { organizationId: ctx.organizationId, name: "OpenAI" },
+      include: { wallet: true },
     });
     if (!provider) {
       provider = await prisma.provider.create({
@@ -34,37 +38,49 @@ export async function POST(req: NextRequest) {
           category: "VIDEO",
           apiUrl: "https://api.openai.com",
           isActive: true,
+          wallet: { create: { availableCredits: 0, totalCreditsAdded: 0, isTrackingEnabled: true } },
         },
+        include: { wallet: true },
       });
     }
 
-    let wallet = await prisma.creditWallet.findUnique({ where: { providerId: provider.id } });
+    // Optional: pull live balance from OpenAI billing API. Falls back to
+    // the manual initialCredits if the call fails or returns 0.
+    let topUp = body.initialCredits ?? 0;
+    let topUpSource = "manual";
+    if (body.syncFromOpenAi) {
+      try {
+        const live = await fetchOpenAiBalance();
+        if (live.remaining > 0) { topUp = live.remaining; topUpSource = `openai:${live.source}`; }
+      } catch { /* leave topUp as manual */ }
+    }
+
+    let wallet = provider.wallet;
     if (!wallet) {
       wallet = await prisma.creditWallet.create({
         data: {
           providerId: provider.id,
-          availableCredits: body.initialCredits ?? 0,
-          totalCreditsAdded: body.initialCredits ?? 0,
+          availableCredits: topUp,
+          totalCreditsAdded: topUp,
           isTrackingEnabled: true,
         },
       });
-    } else if (body.initialCredits != null && body.initialCredits > 0) {
-      // Top up by the configured amount
+    } else if (topUp > 0) {
       wallet = await prisma.creditWallet.update({
         where: { id: wallet.id },
         data: {
-          availableCredits: { increment: body.initialCredits },
-          totalCreditsAdded: { increment: body.initialCredits },
+          availableCredits: { increment: topUp },
+          totalCreditsAdded: { increment: topUp },
         },
       });
       await prisma.creditTransaction.create({
         data: {
           walletId: wallet.id,
           transactionType: "ADD",
-          amount: body.initialCredits,
+          amount: topUp,
           unitType: "USD",
-          sourceType: "MANUAL",
-          description: "Seed from OpenAI credit balance",
+          sourceType: topUpSource === "manual" ? "MANUAL" : "API_SYNC",
+          description: `Seed OpenAI credits (${topUpSource})`,
           createdByUserId: ctx.user.id,
         },
       });

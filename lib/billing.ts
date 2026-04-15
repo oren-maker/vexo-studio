@@ -7,8 +7,9 @@ import { prisma } from "./prisma";
 // Providers we auto-create on first charge so usage is tracked + visible
 // in the wallets page even before the user manually configures them.
 const AUTO_CREATE_PROVIDERS: Record<string, { category: string; apiUrl?: string }> = {
-  "Google Gemini": { category: "TEXT", apiUrl: "https://generativelanguage.googleapis.com" },
+  "Google Gemini": { category: "TEXT",  apiUrl: "https://generativelanguage.googleapis.com" },
   "fal.ai":        { category: "VIDEO", apiUrl: "https://fal.run" },
+  "OpenAI":        { category: "VIDEO", apiUrl: "https://api.openai.com" },
 };
 
 export async function chargeUsd(opts: {

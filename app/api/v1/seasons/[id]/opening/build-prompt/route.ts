@@ -92,8 +92,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     ) : "";
 
     const nameCardDirective = body.includeCharacters && cast.length > 0
-      ? `Show EVERY ONE of these ${cast.length} cast members (non-negotiable — none may be dropped): ${cast.map((c) => `"${c.name}"`).join(", ")}. Each gets a signature hero shot followed (or overlaid) by a LARGE, crystal-clear sans-serif name card spelling their name EXACTLY as written here. Name card stays on screen ≥1.5 seconds.`
-      : `No character close-ups — make the intro abstract and typographic around the series title "${season.series.title}".`;
+      ? `Show EVERY ONE of these ${cast.length} cast members (non-negotiable — none may be dropped): ${cast.map((c) => `"${c.name}"`).join(", ")}. Each gets a signature hero shot followed (or overlaid) by a LARGE, crystal-clear sans-serif name card spelling their name EXACTLY as written here. Name card stays on screen ≥1.5 seconds.${hasAudio ? ` AUDIO NARRATION: a warm, confident announcer voice reads each character's name out loud as their card appears, synced to the on-screen text. Sequence of spoken names in order of appearance: ${cast.map((c) => `"${c.name}"`).join(" … ")}. After all names, the narrator reads the series title "${season.series.title}" on the final title card. Clear, intelligible English (or the series language) pronunciation.` : ""}`
+      : `No character close-ups — make the intro abstract and typographic around the series title "${season.series.title}".${hasAudio ? ` The narrator reads the series title "${season.series.title}" once, clearly, at the title card.` : ""}`;
 
     const castBlock = cast.length > 0
       ? cast.map((c) => `- ${c.name}${c.roleType ? ` (${c.roleType})` : ""}: ${(c.appearance ?? "").slice(0, 140)}${c.wardrobeRules ? ` | wardrobe: ${c.wardrobeRules.slice(0, 80)}` : ""}`).join("\n")

@@ -12,6 +12,7 @@ export function AiAssistant() {
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (open) endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, open]);
@@ -24,27 +25,22 @@ export function AiAssistant() {
     setMessages((m) => [...m, userMsg]);
     setInput("");
     try {
-      // Compose a brain-style system context from the last 6 messages so the
-      // chat feels conversational (the /generate route is stateless).
-      const ctx = [...messages, userMsg].slice(-6).map((m) =>
-        m.role === "user" ? `USER: ${m.content}` : `DIRECTOR: ${m.content}`,
-      ).join("\n\n");
-      const sys = he
-        ? "אתה הבמאי AI של vexo-studio — במאי סדרות מנוסה שעוזר ליוצר לתכנן עלילות, לכתוב סצנות, לבחור מודלים, ולשפר תוצרים. ענה בעברית, תכליתי, עם המלצות מעשיות. אם אתה לא בטוח — שאל. אל תנפח."
-        : "You are vexo-studio's AI Director — an experienced series director helping the creator plan plots, write scenes, pick models, and improve outputs. Answer briefly with concrete recommendations. If unsure, ask. Don't pad.";
-      // Hard 55s client-side timeout so the UI never gets stuck on "thinking…"
-      // even if the function silently dies upstream.
+      // Hit the migrated vexo-learn brain — same engine as /learn/brain/chat,
+      // wired into the full DailyBrainCache + KnowledgeNode + Guide context.
+      // It maintains the conversation server-side via chatId.
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 55_000);
-      let r: { content: string };
+      let r: { reply?: string; chatId?: string; content?: string };
       try {
-        r = await api<{ content: string }>("/api/v1/ai/generate", {
+        r = await api<{ reply?: string; chatId?: string; content?: string }>("/api/v1/learn/brain/chat", {
           method: "POST",
-          body: { prompt: `${sys}\n\nשיחה עד עכשיו:\n${ctx}\n\nתשובת המוח:`, maxTokens: 1200 },
+          body: { message: text, chatId: chatId ?? undefined },
           signal: ctrl.signal,
         });
       } finally { clearTimeout(t); }
-      setMessages((m) => [...m, { id: `b-${Date.now()}`, role: "director", content: r.content.trim() }]);
+      if (r.chatId && r.chatId !== chatId) setChatId(r.chatId);
+      const reply = (r.reply ?? r.content ?? "").trim();
+      setMessages((m) => [...m, { id: `b-${Date.now()}`, role: "director", content: reply || "(אין תגובה)" }]);
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }

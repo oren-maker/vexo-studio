@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       ...characterMedia.map((m) => m.id),
     ];
 
-    const [audits, ai] = await Promise.all([
+    const [audits, ai, costs] = await Promise.all([
       entityIds.length > 0
         ? prisma.auditLog.findMany({
             where: { organizationId: ctx.organizationId, entityId: { in: entityIds } },
@@ -59,6 +59,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           })
         : Promise.resolve([]),
       prisma.aILog.findMany({ where: { projectId: params.id }, orderBy: { createdAt: "desc" }, take: 100 }),
+      // CostEntry is the source of truth for every paid operation — AI text,
+      // image, video. Pull every entry attributed to this project so operations
+      // that don't trigger AuditLog (AI text calls mutating memoryContext,
+      // webhook-written video charges) still show up in the feed.
+      prisma.costEntry.findMany({
+        where: { projectId: params.id },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      }),
     ]);
 
     const sceneById = new Map(scenes.map((s) => [s.id, s]));
@@ -144,6 +153,56 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         entityType: "AI",
         entityId: l.id,
         meta: l.output,
+      });
+    }
+
+    // Every paid operation. Classify by description so the UI can color/group.
+    const classifyCost = (description: string | null, entityType: string): string => {
+      const d = (description ?? "").toLowerCase();
+      if (entityType === "FRAME" || d.includes("nano-banana") || d.includes("image ")) return "cost-image";
+      if (d.includes("video") || d.includes("seedance") || d.includes("kling") || d.includes("veo")) return "cost-video";
+      if (d.includes("director sheet")) return "cost-director-sheet";
+      if (d.includes("sound")) return "cost-sound-notes";
+      if (d.includes("critic")) return "cost-critic";
+      if (d.includes("breakdown")) return "cost-breakdown";
+      if (d.includes("dialogue")) return "cost-dialogue";
+      if (d.includes("seo")) return "cost-seo";
+      if (d.includes("subtitle")) return "cost-subtitles";
+      if (d.includes("dubbing")) return "cost-dubbing";
+      if (d.includes("gemini") || entityType === "AI_TEXT") return "cost-text-ai";
+      if (entityType === "CHARACTER_MEDIA") return "cost-character-image";
+      return "cost-other";
+    };
+    const costTitle = (c: typeof costs[number]): string => {
+      // Prefer a human label tied to the entity the cost was against
+      if (c.entityType === "FRAME") {
+        const f = frameById.get(c.entityId);
+        if (f) {
+          const sc = sceneById.get(f.sceneId);
+          return sc ? `SC${String(sc.sceneNumber).padStart(2, "0")} · frame ${f.orderIndex + 1} — ${c.description ?? ""}` : `frame ${f.orderIndex + 1}`;
+        }
+      }
+      if (c.entityType === "SCENE") {
+        const sc = sceneById.get(c.entityId);
+        return sc ? `SC${String(sc.sceneNumber).padStart(2, "0")} ${sc.title ?? ""} — ${c.description ?? ""}`.trim() : `scene — ${c.description ?? ""}`;
+      }
+      if (c.entityType === "CHARACTER_MEDIA") {
+        const m = mediaById.get(c.entityId);
+        const char = m ? charById.get(m.characterId) : null;
+        return char ? `${char.name} — ${c.description ?? ""}` : `character image — ${c.description ?? ""}`;
+      }
+      return c.description ?? c.entityType;
+    };
+    for (const c of costs) {
+      rows.push({
+        id: `cost-${c.id}`,
+        at: c.createdAt.toISOString(),
+        kind: classifyCost(c.description, c.entityType),
+        actor: null,
+        title: costTitle(c),
+        detail: `$${c.totalCost.toFixed(4)}`,
+        entityType: c.entityType,
+        entityId: c.entityId,
       });
     }
 

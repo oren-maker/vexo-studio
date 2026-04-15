@@ -625,12 +625,19 @@ export default function SeasonPage() {
           "ai-context_refresh": "🧠 רענון זיכרון AI", "ai-episode_generation": "🤖 יצירת פרק AI",
           "ai-scene_generation": "🤖 יצירת סצנות AI", "ai-director_feedback": "🤖 משוב במאי AI",
           "ai-character_generation": "🤖 יצירת דמויות AI", "ai-storyboard_generation": "🤖 יצירת תשריט AI",
+          "cost-image": "🖼 תמונה (fal)", "cost-video": "🎬 וידאו (fal)",
+          "cost-director-sheet": "🎬 דף במאי AI", "cost-sound-notes": "🔊 הערות סאונד AI",
+          "cost-critic": "🧐 מבקר AI", "cost-breakdown": "📋 פירוק תסריט AI", "cost-dialogue": "💬 דיאלוג AI",
+          "cost-seo": "🔍 SEO AI", "cost-subtitles": "📝 כתוביות AI", "cost-dubbing": "🗣 דיבוב AI",
+          "cost-text-ai": "✍ טקסט AI", "cost-character-image": "🎭 תמונת דמות (fal)", "cost-other": "💰 עלות אחרת",
         } : {};
         const colorFor = (kind: string) => {
-          if (kind.startsWith("frame") || kind === "video-created" || kind === "asset-created") return "bg-accent/15 text-accent";
+          if (kind === "cost-image" || kind === "cost-character-image" || kind.startsWith("frame") || kind === "asset-created") return "bg-accent/15 text-accent";
+          if (kind === "cost-video" || kind === "video-created") return "bg-purple-100 text-purple-700";
           if (kind.startsWith("scene")) return "bg-status-warningBg text-status-warnText";
           if (kind.startsWith("episode")) return "bg-status-okBg text-status-okText";
           if (kind.startsWith("character")) return "bg-purple-100 text-purple-700";
+          if (kind.startsWith("cost-")) return "bg-status-warningBg text-status-warnText";
           if (kind.startsWith("ai-")) return "bg-bg-main text-text-secondary";
           return "bg-bg-main text-text-muted";
         };
@@ -649,6 +656,7 @@ export default function SeasonPage() {
                       {KIND_LABEL[r.kind] ?? r.kind}
                     </span>
                     <span className="flex-1 truncate text-text-secondary">{r.title}</span>
+                    {r.detail && r.detail.startsWith("$") && <span className="shrink-0 text-[10px] num font-semibold text-status-errText">{r.detail}</span>}
                     {r.actor && <span className="text-[10px] text-text-muted shrink-0">{r.actor}</span>}
                     <span className="text-[10px] text-text-muted shrink-0">{new Date(r.at).toLocaleString(lang === "he" ? "he-IL" : undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
                   </li>

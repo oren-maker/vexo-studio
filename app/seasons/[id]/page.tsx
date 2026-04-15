@@ -40,7 +40,7 @@ export default function SeasonPage() {
   const [err, setErr] = useState<string | null>(null);
   const [costs, setCosts] = useState<Record<string, number>>({});
   const [tab, setTab] = useState<"episodes" | "characters" | "logs" | "opening">("episodes");
-  type Opening = { id: string; status: string; videoUrl: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; versions: { id: string; prompt: string; createdAt: string }[] };
+  type Opening = { id: string; status: string; videoUrl: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; updatedAt: string; versions: { id: string; prompt: string; createdAt: string }[] };
   type OpeningCostBreakdown = { text: number; video: number; total: number; calls: number };
   type OpeningVideo = { id: string; fileUrl: string; at: string; model: string | null; durationSeconds: number | null; costUsd: number | null };
   const [opening, setOpening] = useState<Opening | null>(null);
@@ -90,8 +90,11 @@ export default function SeasonPage() {
       setOpeningCosts(r.costBreakdown);
       setOpeningVideos(r.videoHistory ?? []);
       if (r.opening?.status === "GENERATING" && !openingJob) {
-        // Scene was already generating when we opened the tab — resume the live panel.
-        setOpeningJob({ startedAt: Date.now(), elapsed: 0, done: false });
+        // A job is already in flight when we open the tab. Anchor elapsed time
+        // to the server's updatedAt (when status flipped to GENERATING) — not
+        // "now" — so the timer reflects real elapsed time of the running job.
+        const started = r.opening.updatedAt ? new Date(r.opening.updatedAt).getTime() : Date.now();
+        setOpeningJob({ startedAt: started, elapsed: Math.round((Date.now() - started) / 1000), done: false });
       }
     }).catch(() => { setOpening(null); setOpeningCosts(null); setOpeningVideos([]); });
   }, [season?.id, tab]);

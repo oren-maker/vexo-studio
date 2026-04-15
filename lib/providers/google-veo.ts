@@ -56,20 +56,14 @@ export interface VeoSubmitResult {
 export async function submitVeoVideo(opts: VeoSubmitOptions): Promise<VeoSubmitResult> {
   const rawSec = Math.max(1, Math.min(opts.durationSeconds ?? 8, 8));
 
-  // Reference images only supported on VEO 3.1 models
-  const supportsReferenceImages = opts.model.startsWith("veo-3.1");
-
+  // VEO 3.1 preview via Gemini API rejects `referenceImages` with any format
+  // (imageBytes / fileUri / gcsUri) — the multi-subject feature appears to be
+  // Vertex-AI-only. So we only send i2v seed when available; the extra
+  // character portraits are dropped at this layer.
   const instance: Record<string, unknown> = { prompt: opts.prompt };
   if (opts.imageUrl) {
     const { data, mimeType } = await urlToBase64(opts.imageUrl);
     instance.image = { imageBytes: data, mimeType };
-  }
-  if (supportsReferenceImages && opts.referenceImageUrls && opts.referenceImageUrls.length > 0) {
-    const refs = await Promise.all(opts.referenceImageUrls.slice(0, 3).map(async (u) => {
-      const { data, mimeType } = await urlToBase64(u);
-      return { image: { imageBytes: data, mimeType }, referenceType: "asset" };
-    }));
-    instance.referenceImages = refs;
   }
 
   const body = {

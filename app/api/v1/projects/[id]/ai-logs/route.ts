@@ -90,17 +90,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const classifyAction = (c: typeof costs[number]): string => {
       const d = (c.description ?? "").toLowerCase();
-      if (c.entityType === "FRAME" || d.includes("nano-banana") || d.includes("image ")) return "IMAGE_GEN";
-      if (d.includes("video") || d.includes("seedance") || d.includes("kling") || d.includes("veo")) return "VIDEO_GEN";
+      // Entity-type and description-prefix checks first — only fall back to
+      // model-name heuristics after the explicit matches.
+      if (c.entityType === "SEASON_OPENING") return "OPENING";
+      if (d.startsWith("opening")) return "OPENING";
       if (d.includes("director sheet")) return "DIRECTOR_SHEET";
       if (d.includes("sound")) return "SOUND_NOTES";
       if (d.includes("critic")) return "CRITIC";
       if (d.includes("breakdown")) return "BREAKDOWN";
       if (d.includes("dialogue")) return "DIALOGUE";
       if (d.includes("seo")) return "SEO";
-      if (d.includes("opening")) return "OPENING";
-      if (d.includes("gemini") || c.entityType === "AI_TEXT") return "TEXT_AI";
       if (c.entityType === "CHARACTER_MEDIA") return "CHARACTER_GALLERY";
+      if (c.entityType === "FRAME" || d.includes("nano-banana") || d.includes("image ")) return "IMAGE_GEN";
+      if (d.includes("seedance") || d.includes("kling") || d.includes("veo") || d.includes("video")) return "VIDEO_GEN";
+      if (d.includes("gemini") || c.entityType === "AI_TEXT") return "TEXT_AI";
       return c.costCategory;
     };
 

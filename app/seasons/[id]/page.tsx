@@ -654,7 +654,7 @@ export default function SeasonPage() {
                   const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
                   setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
                 }} className="px-3 py-1.5 rounded-lg border border-bg-main text-text-secondary text-sm">{opening.isSeriesDefault ? (lang === "he" ? "הסר סימון 'ראשית'" : "Unset series default") : (lang === "he" ? "⭐ סמן כפתיחה הראשית" : "⭐ Mark as series default")}</button>
-                <button onClick={() => setOpeningWizardOpen(true)} className="px-3 py-1.5 rounded-lg border border-bg-main text-text-secondary text-sm">🔄 {lang === "he" ? "בנה מחדש באשף" : "Rebuild in wizard"}</button>
+                <button onClick={() => setOpeningWizardOpen(true)} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent text-sm font-semibold">✨ {lang === "he" ? "פתח באשף" : "Open wizard"}</button>
                 <button onClick={async () => {
                   if (!confirm(lang === "he" ? "למחוק את הפתיחה?" : "Delete this opening?")) return;
                   await api(`/api/v1/seasons/${season.id}/opening`, { method: "DELETE" });
@@ -699,22 +699,38 @@ export default function SeasonPage() {
 
               <details open>
                 <summary className="cursor-pointer text-sm font-semibold">🎞 {lang === "he" ? `היסטוריית סרטונים שנוצרו (${openingVideos.length})` : `Video generation history (${openingVideos.length})`}</summary>
-                <ul className="mt-3 space-y-2">
-                  {openingVideos.map((v, i) => (
-                    <li key={v.id} className="bg-bg-main rounded-lg p-3 flex items-center gap-3">
-                      <video src={v.fileUrl} className="w-32 h-20 rounded bg-black object-cover" muted />
-                      <div className="flex-1 min-w-0 text-xs">
-                        <div className="font-semibold">{lang === "he" ? `גרסה #${openingVideos.length - i}` : `Generation #${openingVideos.length - i}`}</div>
-                        <div className="text-text-muted mt-0.5 flex flex-wrap gap-2">
-                          {v.model && <span className="bg-bg-card rounded-full px-2 py-0.5">{v.model}</span>}
-                          {v.durationSeconds && <span className="bg-bg-card rounded-full px-2 py-0.5">{v.durationSeconds}s</span>}
-                          {v.costUsd != null && <span className="bg-bg-card rounded-full px-2 py-0.5 num text-status-errText">${v.costUsd.toFixed(4)}</span>}
-                          <span className="bg-bg-card rounded-full px-2 py-0.5">{new Date(v.at).toLocaleString(lang === "he" ? "he-IL" : undefined)}</span>
+                <div className="text-[11px] text-text-muted mt-1 mb-3">{lang === "he" ? "כל הסרטונים נשמרים — לחץ '⭐ קבע כראשי' כדי לבחור איזה מהם יוצג כפתיחה הפעילה." : "All videos are preserved — click '⭐ Set as active' to pick which plays as the active opening."}</div>
+                <ul className="space-y-2">
+                  {openingVideos.map((v, i) => {
+                    const isActive = opening.videoUrl === v.fileUrl;
+                    return (
+                      <li key={v.id} className={`rounded-lg p-3 flex items-center gap-3 ${isActive ? "bg-status-okBg border-2 border-status-okText" : "bg-bg-main"}`}>
+                        <video src={v.fileUrl} className="w-32 h-20 rounded bg-black object-cover" muted />
+                        <div className="flex-1 min-w-0 text-xs">
+                          <div className="font-semibold flex items-center gap-2">
+                            {lang === "he" ? `גרסה #${openingVideos.length - i}` : `Generation #${openingVideos.length - i}`}
+                            {isActive && <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-okText text-white font-semibold">⭐ {lang === "he" ? "ראשי" : "Active"}</span>}
+                          </div>
+                          <div className="text-text-muted mt-0.5 flex flex-wrap gap-2">
+                            {v.model && <span className="bg-bg-card rounded-full px-2 py-0.5">{v.model}</span>}
+                            {v.durationSeconds && <span className="bg-bg-card rounded-full px-2 py-0.5">{v.durationSeconds}s</span>}
+                            {v.costUsd != null && <span className="bg-bg-card rounded-full px-2 py-0.5 num text-status-errText">${v.costUsd.toFixed(4)}</span>}
+                            <span className="bg-bg-card rounded-full px-2 py-0.5">{new Date(v.at).toLocaleString(lang === "he" ? "he-IL" : undefined)}</span>
+                          </div>
                         </div>
-                      </div>
-                      <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold shrink-0">↗ {lang === "he" ? "פתח" : "Open"}</a>
-                    </li>
-                  ))}
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {!isActive && (
+                            <button onClick={async () => {
+                              await api(`/api/v1/seasons/${season.id}/opening/set-active-video`, { method: "POST", body: { assetId: v.id } });
+                              const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
+                              setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
+                            }} className="text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">⭐ {lang === "he" ? "קבע כראשי" : "Set as active"}</button>
+                          )}
+                          <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] px-2 py-1 rounded border border-bg-card text-center">↗ {lang === "he" ? "פתח" : "Open"}</a>
+                        </div>
+                      </li>
+                    );
+                  })}
                   {openingVideos.length === 0 && <li className="text-xs text-text-muted">{lang === "he" ? "עדיין לא נוצרו סרטונים" : "No videos generated yet"}</li>}
                 </ul>
               </details>

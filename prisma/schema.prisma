@@ -1236,6 +1236,7 @@ model CostEntry {
   project Project? @relation(fields: [projectId], references: [id])
 
   @@index([entityType, entityId])
+  @@index([projectId, createdAt])
 }
 
 model RevenueEntry {
@@ -1254,6 +1255,7 @@ model RevenueEntry {
   project Project? @relation(fields: [projectId], references: [id])
 
   @@index([entityType, entityId])
+  @@index([projectId, occurredAt])
 }
 
 model RevenueStream {

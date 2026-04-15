@@ -43,7 +43,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
       include: {
         frames: { orderBy: { orderIndex: "asc" } },
-        episode: { include: { characters: { include: { character: { include: { media: true } } } } } },
+        // We already have every character (with media) in `characters` above.
+        // Only need character names here so we can resolve the cast — fetch
+        // names only and look up media via charByName.
+        episode: { include: { characters: { include: { character: { select: { id: true, name: true } } } } } },
       },
       orderBy: [{ episodeId: "asc" }, { sceneNumber: "asc" }],
     });
@@ -59,10 +62,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       // Resolve this scene's characters
       const mem = (scene.memoryContext as { characters?: string[] } | null) ?? {};
       const sceneNames = (mem.characters ?? []).map((n) => n.toLowerCase().trim());
-      const episodeCast = scene.episode?.characters.map((ec) => ec.character) ?? [];
-      const resolved = (sceneNames.length > 0
-        ? sceneNames.map((n) => charByName.get(n)).filter((c): c is NonNullable<typeof c> => !!c)
-        : episodeCast);
+      // Always resolve through charByName so we get the media that was loaded
+      // once upfront — avoids re-fetching character galleries via deep include.
+      const episodeCastNames = (scene.episode?.characters ?? []).map((ec) => ec.character.name.toLowerCase().trim());
+      const namesToResolve = sceneNames.length > 0 ? sceneNames : episodeCastNames;
+      const resolved = namesToResolve
+        .map((n) => charByName.get(n))
+        .filter((c): c is NonNullable<typeof c> => !!c);
 
       const missingGallery = resolved.filter((c) => !c.media || c.media.length === 0);
       if (resolved.length > 0 && missingGallery.length > 0) {
@@ -71,8 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
 
       const refsPicked = resolved.map((c) => {
-        const mediaList = (c as { media?: { fileUrl: string; metadata?: unknown }[] }).media ?? [];
-        const front = mediaList.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? mediaList[0];
+        const front = c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0];
         return { name: c.name, url: front?.fileUrl };
       }).filter((r): r is { name: string; url: string } => !!r.url);
       const referenceImageUrls = refsPicked.map((r) => r.url);

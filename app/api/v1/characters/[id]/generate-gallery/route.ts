@@ -16,6 +16,7 @@ import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { generateImage, priceImage } from "@/lib/providers/fal";
 import { chargeUsd } from "@/lib/billing";
 import { handleError, ok } from "@/lib/route-utils";
+import { PHOTOREAL_DIRECTIVE, PHOTOREAL_NEGATIVE } from "@/lib/photoreal";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       character.wardrobeRules ? `Wardrobe: ${character.wardrobeRules}.` : "",
       character.personality ? `Personality: ${character.personality}.` : "",
       seriesTone,
+      PHOTOREAL_DIRECTIVE,
       "High-detail cinematic photography. Consistent identity across all angles.",
     ].filter(Boolean).join(" ");
 
@@ -75,7 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     for (const a of toRun) {
       try {
         const prompt = `${basePrompt} Camera: ${a.desc}.`;
-        const img = await generateImage({ prompt, aspectRatio: "1:1", model: "nano-banana" });
+        const img = await generateImage({ prompt, negativePrompt: PHOTOREAL_NEGATIVE, aspectRatio: "1:1", model: "nano-banana" });
         const media = await prisma.characterMedia.create({
           data: {
             characterId: character.id,

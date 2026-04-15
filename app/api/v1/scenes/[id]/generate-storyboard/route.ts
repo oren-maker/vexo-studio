@@ -7,6 +7,7 @@ import { generateImage, priceImage } from "@/lib/providers/fal";
 import { fetchReferencePrompts, buildReferenceContext } from "@/lib/providers/vexo-learn";
 import { chargeUsd } from "@/lib/billing";
 import { handleError, ok } from "@/lib/route-utils";
+import { PHOTOREAL_DIRECTIVE, PHOTOREAL_NEGATIVE } from "@/lib/photoreal";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           const refs = await fetchReferencePrompts(basePrompt, 3);
           const referenceCtx = buildReferenceContext(refs);
           const prompt = [
+            PHOTOREAL_DIRECTIVE,
             basePrompt,
             identityLine,
             stylePrompt && `Style: ${stylePrompt}`,
@@ -90,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           ].filter(Boolean).join("\n\n");
           const r = await generateImage({
             prompt,
-            negativePrompt: frame.negativePrompt ?? undefined,
+            negativePrompt: [frame.negativePrompt, PHOTOREAL_NEGATIVE].filter(Boolean).join(", "),
             aspectRatio: body.aspectRatio,
             model: body.imageModel,
             referenceImageUrls,

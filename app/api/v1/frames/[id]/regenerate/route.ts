@@ -8,6 +8,7 @@ import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { generateImage, priceImage } from "@/lib/providers/fal";
 import { chargeUsd } from "@/lib/billing";
 import { handleError, ok } from "@/lib/route-utils";
+import { PHOTOREAL_DIRECTIVE, PHOTOREAL_NEGATIVE } from "@/lib/photoreal";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 30;
 
@@ -64,10 +65,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       ? `SAME CHARACTERS AS THE REFERENCE IMAGES: ${refs.map((r) => r.name).join(", ")}. Match their faces, hair, wardrobe and build EXACTLY.`
       : "";
 
-    const prompt = [frame.imagePrompt, identityLine].filter(Boolean).join("\n\n");
+    const prompt = [PHOTOREAL_DIRECTIVE, frame.imagePrompt, identityLine].filter(Boolean).join("\n\n");
     const r = await generateImage({
       prompt,
-      negativePrompt: frame.negativePrompt ?? undefined,
+      negativePrompt: [frame.negativePrompt, PHOTOREAL_NEGATIVE].filter(Boolean).join(", "),
       aspectRatio: "16:9",
       model: "nano-banana",
       referenceImageUrls,

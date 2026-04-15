@@ -72,7 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       organizationId: ctx.organizationId,
       projectId: season.series.projectId,
       entityType: "SEASON_OPENING",
-      entityId: opening.id,
+      entityId: season.id,
       providerName: "fal.ai",
       category: "GENERATION",
       description: `Opening · ${opening.model} · ${opening.duration}s`,

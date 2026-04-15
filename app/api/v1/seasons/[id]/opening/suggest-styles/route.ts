@@ -59,14 +59,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const result = await step("suggest-styles", () => groqJson<{ styles?: { key?: string; name?: string; vibe?: string; samplePrompt?: string }[] }>(
       `You are a title-sequence director. Propose EXACTLY 4 distinct visual-style options for a TV-intro video (10 seconds, live-action photorealistic). Each style must be clearly different from the others — e.g. dark cinematic montage, light abstract motion, character-reveal close-ups, kinetic typography driven. Return JSON { styles: [{ key (slug), name (2-4 words), vibe (1 sentence), samplePrompt (2-3 sentences describing the shot as a director would brief a DP) }] }.`,
       `SERIES BIBLE:\n${bible}\n\nRECURRING CAST:\n${castBlock || "(none yet)"}\n\nRECENT EPISODES:\n${recent || "(no episodes yet)"}\n\nLANGUAGE: ${season.series.project.language}`,
-      { temperature: 0.9, maxTokens: 2000 },
+      { temperature: 0.9, maxTokens: 2000, entityType: "SEASON_OPENING", entityId: season.id, description: `Opening · style suggestions` },
     ));
 
     const styles = Array.isArray(result?.styles) ? result.styles.filter((s): s is { key: string; name: string; vibe: string; samplePrompt: string } => !!s?.key && !!s?.name && !!s?.samplePrompt) : [];
     if (styles.length === 0) {
       throw Object.assign(new Error("AI returned no valid styles"), { statusCode: 502 });
     }
-    return ok({ styles: styles.slice(0, 4) });
+    // Always include a guaranteed character-showcase option as the first/default
+    // style — user explicitly asked for this: "אחד מהם יהיה דיפולט עם הדמויות
+    // והשמות שלהם כפתיח". The build-prompt route respects the key so this one
+    // always forces character reveals + on-screen name cards.
+    const characterShowcase = {
+      key: "character-showcase",
+      name: "היכרות עם הדמויות",
+      vibe: "כל דמות בסצנת סיגנצ'ר קצרה, שם שלה נחשף על המסך בכרטיסיית טיפוגרפיה — פתיח קלאסי של סדרה.",
+      samplePrompt: `Title-sequence reveal: cut through signature character beats — each recurring cast member gets a 1-2 second dramatic close-up in character, mid-action, followed by a clean sans-serif name card over a tonal color wash. Close-ups shot 50mm wide-open, cinematic key light with practical fill, matching the show's genre. The series title card lands last in a confident typographic beat.`,
+      isDefault: true as const,
+    };
+    // AI provides the other styles (up to 3 more) to keep total at 4.
+    const aiStyles = styles.filter((s) => s.key !== "character-showcase").slice(0, 3);
+    return ok({ styles: [characterShowcase, ...aiStyles] });
   } catch (e) {
     const err = e as { message?: string; statusCode?: number };
     if (!err.message?.startsWith("[")) err.message = `[${stage}] ${err.message ?? "unknown"}`;

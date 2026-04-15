@@ -41,7 +41,9 @@ export default function SeasonPage() {
   const [costs, setCosts] = useState<Record<string, number>>({});
   const [tab, setTab] = useState<"episodes" | "characters" | "logs" | "opening">("episodes");
   type Opening = { id: string; status: string; videoUrl: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; versions: { id: string; prompt: string; createdAt: string }[] };
+  type OpeningCostBreakdown = { text: number; video: number; total: number; calls: number };
   const [opening, setOpening] = useState<Opening | null>(null);
+  const [openingCosts, setOpeningCosts] = useState<OpeningCostBreakdown | null>(null);
   const [openingWizardOpen, setOpeningWizardOpen] = useState(false);
   const [openingEditing, setOpeningEditing] = useState(false);
   const [openingPromptDraft, setOpeningPromptDraft] = useState("");
@@ -80,7 +82,10 @@ export default function SeasonPage() {
 
   useEffect(() => {
     if (!season || tab !== "opening") return;
-    api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`).then((r) => setOpening(r.opening)).catch(() => setOpening(null));
+    api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`).then((r) => {
+      setOpening(r.opening);
+      setOpeningCosts(r.costBreakdown);
+    }).catch(() => { setOpening(null); setOpeningCosts(null); });
   }, [season?.id, tab]);
 
   useEffect(() => {
@@ -598,21 +603,42 @@ export default function SeasonPage() {
                 <span className="bg-bg-main rounded-full px-3 py-1 text-xs">{opening.styleLabel ?? opening.status}</span>
                 <span className="bg-bg-main rounded-full px-3 py-1 text-xs">{opening.model} · {opening.duration}s · {opening.aspectRatio}</span>
                 {opening.isSeriesDefault && <span className="bg-status-okBg text-status-okText rounded-full px-3 py-1 text-xs font-semibold">⭐ {lang === "he" ? "פתיחה ראשית לסדרה" : "Series default"}</span>}
-                {opening.cost != null && <span className="bg-bg-main rounded-full px-3 py-1 text-xs num">${opening.cost.toFixed(2)}</span>}
               </div>
+              {openingCosts && openingCosts.total > 0 && (
+                <div className="rounded-card border border-bg-main bg-bg-card px-4 py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-semibold">💰 {lang === "he" ? "עלות AI של הפתיחה" : "Opening AI cost"}</div>
+                    <div className="text-lg font-bold num text-accent">${openingCosts.total.toFixed(4)}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="bg-bg-main rounded-full px-2 py-1">
+                      <span className="text-text-secondary">✍ {lang === "he" ? "טקסט AI" : "Text AI"}</span>
+                      <span className="num font-semibold ms-2">${openingCosts.text.toFixed(4)}</span>
+                    </span>
+                    <span className="bg-bg-main rounded-full px-2 py-1">
+                      <span className="text-text-secondary">🎬 {lang === "he" ? "ייצור וידאו" : "Video"}</span>
+                      <span className="num font-semibold ms-2">${openingCosts.video.toFixed(4)}</span>
+                    </span>
+                    <span className="bg-bg-main rounded-full px-2 py-1 text-text-muted">{openingCosts.calls} {lang === "he" ? "פעולות" : "ops"}</span>
+                  </div>
+                  <div className="text-[10px] text-text-muted mt-2">
+                    {lang === "he" ? "מצטבר גם בלשונית כספי הסדרה" : "Also aggregated in Project Finance"}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => { setOpeningEditing(true); setOpeningPromptDraft(opening.currentPrompt); }} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">✏ {lang === "he" ? "ערוך פרומט" : "Edit prompt"}</button>
                 <button onClick={async () => {
                   await api(`/api/v1/seasons/${season.id}/opening/generate`, { method: "POST", body: {} });
-                  const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
-                  setOpening(r.opening);
+                  const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
+                  setOpening(r.opening); setOpeningCosts(r.costBreakdown);
                   alert(lang === "he" ? "יצירה החלה — fal מייצר ~60-90 שניות" : "Generation started");
                 }} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold">🎬 {lang === "he" ? "צור מחדש" : "Regenerate"}</button>
                 <button onClick={async () => {
                   const next = !opening.isSeriesDefault;
                   await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { isSeriesDefault: next } });
-                  const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
-                  setOpening(r.opening);
+                  const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
+                  setOpening(r.opening); setOpeningCosts(r.costBreakdown);
                 }} className="px-3 py-1.5 rounded-lg border border-bg-main text-text-secondary text-sm">{opening.isSeriesDefault ? (lang === "he" ? "הסר סימון 'ראשית'" : "Unset series default") : (lang === "he" ? "⭐ סמן כפתיחה הראשית" : "⭐ Mark as series default")}</button>
                 <button onClick={() => setOpeningWizardOpen(true)} className="px-3 py-1.5 rounded-lg border border-bg-main text-text-secondary text-sm">🔄 {lang === "he" ? "בנה מחדש באשף" : "Rebuild in wizard"}</button>
                 <button onClick={async () => {
@@ -629,8 +655,8 @@ export default function SeasonPage() {
                     <button onClick={() => setOpeningEditing(false)} className="px-3 py-1.5 rounded-lg border border-bg-card text-sm">{lang === "he" ? "ביטול" : "Cancel"}</button>
                     <button onClick={async () => {
                       await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { prompt: openingPromptDraft } });
-                      const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
-                      setOpening(r.opening);
+                      const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
+                      setOpening(r.opening); setOpeningCosts(r.costBreakdown);
                       setOpeningEditing(false);
                     }} className="px-4 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold">{lang === "he" ? "שמור גרסה" : "Save version"}</button>
                   </div>
@@ -647,8 +673,8 @@ export default function SeasonPage() {
                         <span className="text-[10px] text-text-muted">{new Date(v.createdAt).toLocaleString(lang === "he" ? "he-IL" : undefined)}</span>
                         <button onClick={async () => {
                           await api(`/api/v1/seasons/${season.id}/opening/restore/${v.id}`, { method: "POST" });
-                          const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
-                          setOpening(r.opening);
+                          const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
+                          setOpening(r.opening); setOpeningCosts(r.costBreakdown);
                         }} className="text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">🔁 {lang === "he" ? "שחזר" : "Restore"}</button>
                       </div>
                     </li>
@@ -669,8 +695,8 @@ export default function SeasonPage() {
           onCancel={() => setOpeningWizardOpen(false)}
           onFinished={async () => {
             setOpeningWizardOpen(false);
-            const r = await api<{ opening: Opening | null }>(`/api/v1/seasons/${season.id}/opening`);
-            setOpening(r.opening);
+            const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown }>(`/api/v1/seasons/${season.id}/opening`);
+            setOpening(r.opening); setOpeningCosts(r.costBreakdown);
           }}
         />
       )}

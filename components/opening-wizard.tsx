@@ -11,7 +11,7 @@ const MODEL_INFO = {
 type ModelKey = keyof typeof MODEL_INFO;
 
 type Character = { id: string; name: string; roleType?: string | null; media: { fileUrl: string }[] };
-type Style = { key: string; name: string; vibe: string; samplePrompt: string };
+type Style = { key: string; name: string; vibe: string; samplePrompt: string; isDefault?: boolean };
 
 export function OpeningWizard({
   seasonId, characters, he, onCancel, onFinished,
@@ -54,6 +54,9 @@ export function OpeningWizard({
       try {
         const r = await api<{ styles: Style[] }>(`/api/v1/seasons/${seasonId}/opening/suggest-styles`, { method: "POST", body: {} });
         setStyles(r.styles);
+        // Auto-pick the default style (character-showcase) so the user can advance without clicking
+        const def = r.styles.find((s) => s.isDefault) ?? r.styles[0];
+        if (def) setPickedStyle(def);
       } catch (e) { setStylesErr((e as Error).message); }
       finally { setStylesBusy(false); }
     })();
@@ -145,7 +148,10 @@ export function OpeningWizard({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {styles.map((s) => (
                     <button key={s.key} onClick={() => setPickedStyle(s)} className={`text-start rounded-lg border-2 p-3 transition-colors ${pickedStyle?.key === s.key ? "border-accent bg-accent/5" : "border-bg-main hover:border-accent/50"}`}>
-                      <div className="font-bold">{s.name}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="font-bold flex-1">{s.name}</div>
+                        {s.isDefault && <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-white font-semibold">⭐ {he ? "ברירת מחדל" : "default"}</span>}
+                      </div>
                       <div className="text-xs text-text-muted mt-1">{s.vibe}</div>
                       <details className="mt-2"><summary className="text-[11px] text-accent cursor-pointer">{he ? "דוגמת פרומט" : "Sample prompt"}</summary><div className="text-[11px] mt-1 text-text-secondary">{s.samplePrompt}</div></details>
                     </button>

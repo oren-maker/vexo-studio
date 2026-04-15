@@ -20,6 +20,11 @@ interface AiOptions {
   projectId?: string;
   organizationId?: string;
   description?: string;
+  /** Override the default entityType/entityId written to CostEntry. Lets callers
+   * attribute text AI spend to a specific Scene / SeasonOpening / etc instead
+   * of the generic project-level AI_TEXT bucket. */
+  entityType?: string;
+  entityId?: string;
 }
 
 export function hasGroq(): boolean {
@@ -102,8 +107,8 @@ async function callGemini(messages: ChatMessage[], opts: AiOptions): Promise<str
           const charge = chargeUsd({
             organizationId: orgId,
             projectId: opts.projectId ?? actor?.projectId ?? null,
-            entityType: "AI_TEXT",
-            entityId: opts.projectId ?? actor?.projectId ?? "global",
+            entityType: opts.entityType ?? "AI_TEXT",
+            entityId: opts.entityId ?? opts.projectId ?? actor?.projectId ?? "global",
             providerName: "Google Gemini",
             category: "TOKEN",
             description: opts.description ?? `Gemini direct · in:${inputTokens} out:${outputTokens}`,

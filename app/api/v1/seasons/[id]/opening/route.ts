@@ -28,7 +28,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       where: { seasonId: params.id },
       include: { versions: { orderBy: { createdAt: "desc" }, take: 30 } },
     });
-    return ok({ opening });
+    // Aggregate every CostEntry attributed to this season's opening (text AI +
+    // video generation). Both are tagged entityType=SEASON_OPENING + entityId=seasonId.
+    const costs = await prisma.costEntry.findMany({
+      where: { entityType: "SEASON_OPENING", entityId: params.id },
+      orderBy: { createdAt: "desc" },
+    });
+    let textCost = 0, videoCost = 0;
+    for (const c of costs) {
+      if (c.costCategory === "TOKEN") textCost += c.totalCost;
+      else if (c.costCategory === "GENERATION") videoCost += c.totalCost;
+    }
+    return ok({
+      opening,
+      costBreakdown: {
+        text: +textCost.toFixed(6),
+        video: +videoCost.toFixed(6),
+        total: +(textCost + videoCost).toFixed(6),
+        calls: costs.length,
+        entries: costs.map((c) => ({ id: c.id, category: c.costCategory, description: c.description, cost: c.totalCost, at: c.createdAt })),
+      },
+    });
   } catch (e) { return handleError(e); }
 }
 

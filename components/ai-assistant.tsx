@@ -32,10 +32,18 @@ export function AiAssistant() {
       const sys = he
         ? "אתה 'המוח' של vexo-studio — עוזר חכם וקצר לבמאי AI שמייצר סדרות. ענה בעברית, תכליתי, עם המלצות מעשיות. אם אתה לא בטוח — שאל. אל תנפח."
         : "You are vexo-studio's 'Brain' — a sharp short assistant for an AI series director. Answer briefly with concrete recommendations. If unsure, ask. Don't pad.";
-      const r = await api<{ content: string }>("/api/v1/ai/generate", {
-        method: "POST",
-        body: { prompt: `${sys}\n\nשיחה עד עכשיו:\n${ctx}\n\nתשובת המוח:` },
-      });
+      // Hard 55s client-side timeout so the UI never gets stuck on "thinking…"
+      // even if the function silently dies upstream.
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 55_000);
+      let r: { content: string };
+      try {
+        r = await api<{ content: string }>("/api/v1/ai/generate", {
+          method: "POST",
+          body: { prompt: `${sys}\n\nשיחה עד עכשיו:\n${ctx}\n\nתשובת המוח:`, maxTokens: 1200 },
+          signal: ctrl.signal,
+        });
+      } finally { clearTimeout(t); }
       setMessages((m) => [...m, { id: `b-${Date.now()}`, role: "brain", content: r.content.trim() }]);
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }

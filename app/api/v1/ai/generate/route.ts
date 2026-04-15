@@ -4,7 +4,7 @@ import { authenticate, isAuthResponse } from "@/lib/auth";
 import { Assistant } from "@/lib/services";
 import { handleError, ok } from "@/lib/route-utils";
 
-export const runtime = "nodejs"; export const dynamic = "force-dynamic";
+export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
 const Body = z.object({
   prompt: z.string().min(1).max(8000),

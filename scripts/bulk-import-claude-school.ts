@@ -109,15 +109,36 @@ function renderBlock(html: string): { text: string; images: string[] } {
 async function fetchAndParse(slug: string): Promise<{ title: string; description: string | null; coverImageUrl: string | null; stages: { title: string; content: string; images: string[] }[] }> {
   const res = await fetch(`${BASE}/guides/${slug}`, { headers: { "User-Agent": UA, Accept: "text/html" }, signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new Error(`fetch ${res.status} for ${slug}`);
-  const html = await res.text();
+  let html = await res.text();
+
+  // Strip <script>, <style>, <noscript>, and Next.js bootstrap before anything else
+  html = html.replace(/<script[\s\S]*?<\/script>/gi, "");
+  html = html.replace(/<style[\s\S]*?<\/style>/gi, "");
+  html = html.replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
 
   const title = decodeEntities(html.match(/<meta\s+property="og:title"\s+content="([^"]*)"/i)?.[1] || html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || "").replace(/<[^>]+>/g, "").trim();
   const description = decodeEntities(html.match(/<meta\s+property="og:description"\s+content="([^"]*)"/i)?.[1] || "").trim() || null;
   const coverImageUrl = html.match(/<meta\s+property="og:image"\s+content="([^"]*)"/i)?.[1] || null;
 
-  // Split by <h2>, capture section htmls
+  // Narrow to the <main>…</main> region; fall back to <article>; fall back to body-minus-footer
+  let body = html;
+  const mainMatch = body.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  if (mainMatch) body = mainMatch[1];
+  else {
+    const articleMatch = body.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    if (articleMatch) body = articleMatch[1];
+  }
+  // Cut at footer if still present
+  body = body.replace(/<footer[\s\S]*$/i, "");
+  // Cut at any residual Next.js chunk markers (defensive)
+  const nextIdx = body.indexOf("self.__next_f");
+  if (nextIdx > 0) body = body.slice(0, nextIdx);
+  const copyrightIdx = body.search(/©\s*Claude School/i);
+  if (copyrightIdx > 0) body = body.slice(0, copyrightIdx);
+
+  // Split by <h2>, capture section htmls within the narrowed body
   const h2Re = /<h2[^>]*>([\s\S]*?)<\/h2>/gi;
-  const matches = Array.from(html.matchAll(h2Re));
+  const matches = Array.from(body.matchAll(h2Re));
   const stages: { title: string; content: string; images: string[] }[] = [];
   for (let i = 0; i < matches.length; i++) {
     const m = matches[i];
@@ -125,10 +146,16 @@ async function fetchAndParse(slug: string): Promise<{ title: string; description
     if (!stageTitle || stageTitle.length < 2) continue;
     if (/תוכן עניינים|table of contents/i.test(stageTitle)) continue;
     const start = m.index! + m[0].length;
-    const end = i + 1 < matches.length ? matches[i + 1].index! : Math.min(start + 12000, html.length);
-    const sectionHtml = html.slice(start, end);
+    const end = i + 1 < matches.length ? matches[i + 1].index! : body.length;
+    const sectionHtml = body.slice(start, end);
     const { text, images } = renderBlock(sectionHtml);
-    if (text.length > 10 || images.length > 0) stages.push({ title: stageTitle, content: text, images });
+    // Drop residual nav/footer noise tokens if they leaked through
+    const clean = text
+      .replace(/self\.__next_f[\s\S]*/g, "")
+      .replace(/©\s*Claude School[\s\S]*/i, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    if (clean.length > 10 || images.length > 0) stages.push({ title: stageTitle, content: clean, images });
   }
 
   return { title, description, coverImageUrl, stages };
@@ -136,8 +163,10 @@ async function fetchAndParse(slug: string): Promise<{ title: string; description
 
 async function upsertGuide(g: Guide) {
   const existing = await prisma.guide.findUnique({ where: { slug: g.slug }, include: { stages: true } });
-  if (existing && existing.stages.length >= 3) {
-    return { slug: g.slug, status: "skipped (already has content)" };
+  // Always rebuild claude-school-imported guides (fixes the Next.js JS leakage bug in prior parser).
+  // Keep other sources (authored, ai-generated) intact if they already have content.
+  if (existing && existing.source !== "claude-school-import" && existing.stages.length >= 3) {
+    return { slug: g.slug, status: "skipped (non-import source, already has content)" };
   }
   if (existing) {
     await prisma.guide.delete({ where: { id: existing.id } });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { composeAction, saveComposedAction } from "./actions";
 
@@ -14,12 +14,56 @@ export default function ComposePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [progressPct, setProgressPct] = useState(0);
+  const [progressStage, setProgressStage] = useState("");
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => () => { if (progressTimerRef.current) clearInterval(progressTimerRef.current); }, []);
+
+  function startFakeProgress() {
+    if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    const stages: Array<{ pct: number; label: string; delayMs: number }> = [
+      { pct: 15, label: "🔍 מושך 5 פרומפטים דומים מהמאגר…", delayMs: 400 },
+      { pct: 35, label: "🧠 Gemini מנתח את הסגנון והטון…", delayMs: 1200 },
+      { pct: 60, label: "✍️ מרכיב Visual Style + Lighting + Audio…", delayMs: 3000 },
+      { pct: 80, label: "🎬 כותב Timeline + Character + Quality…", delayMs: 6000 },
+      { pct: 92, label: "📋 מסיים הגיון ופורמט סופי…", delayMs: 9000 },
+    ];
+    const t0 = Date.now();
+    setProgressPct(5);
+    setProgressStage("🚀 מפעיל את המחולל…");
+    progressTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - t0;
+      const next = [...stages].reverse().find((s) => elapsed >= s.delayMs);
+      if (next) { setProgressPct(next.pct); setProgressStage(next.label); }
+    }, 300);
+  }
+
+  function stopFakeProgress(final: boolean) {
+    if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    progressTimerRef.current = null;
+    if (final) {
+      setProgressPct(100);
+      setProgressStage("✅ הסתיים!");
+      setTimeout(() => { setProgressPct(0); setProgressStage(""); }, 1200);
+    } else {
+      setProgressPct(0);
+      setProgressStage("");
+    }
+  }
 
   function generate() {
     setErr(""); setResult(null); setSaved(null); setCopied(false);
+    startFakeProgress();
     startTransition(async () => {
-      const r = await composeAction(brief);
-      if (!r.ok) setErr(r.error); else setResult(r);
+      try {
+        const r = await composeAction(brief);
+        if (!r.ok) { setErr(r.error); stopFakeProgress(false); }
+        else { setResult(r); stopFakeProgress(true); }
+      } catch (e: any) {
+        setErr(String(e?.message || e));
+        stopFakeProgress(false);
+      }
     });
   }
 
@@ -88,6 +132,20 @@ export default function ComposePage() {
             {pending ? "מחולל..." : "✨ חולל פרומפט"}
           </button>
         </div>
+
+        {/* Progress bar */}
+        {pending && progressStage && (
+          <div className="mt-4 bg-slate-800/60 border border-cyan-500/30 rounded-xl p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-200">{progressStage}</span>
+              <span className="text-cyan-300 font-bold">{progressPct}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+              <div className="h-full bg-gradient-to-l from-cyan-500 to-purple-500 transition-all duration-500" style={{ width: `${progressPct}%` }} />
+            </div>
+            <div className="text-[11px] text-slate-500">בדרך כלל 8-15 שניות · ממתין לתשובה של Gemini</div>
+          </div>
+        )}
       </div>
 
       {err && (
@@ -121,9 +179,27 @@ export default function ComposePage() {
               {result.prompt}
             </div>
             {saved && (
-              <Link href={`/learn/sources/${saved}`} className="inline-block mt-3 text-xs text-cyan-400 hover:underline">
-                פתח את המקור ←
-              </Link>
+              <div className="mt-4 flex flex-wrap items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                <span className="text-sm text-emerald-300 font-semibold">✓ הפרומפט נשמר בזיכרון</span>
+                <Link
+                  href={`/learn/sources/${saved}`}
+                  className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm"
+                >
+                  👁 צפה בפרומפט
+                </Link>
+                <Link
+                  href="/learn/sources"
+                  className="text-xs text-slate-300 hover:text-white underline"
+                >
+                  לכל הזיכרון →
+                </Link>
+                <button
+                  onClick={() => { setResult(null); setSaved(null); setBrief(""); }}
+                  className="mr-auto text-xs text-slate-400 hover:text-slate-200"
+                >
+                  🔄 חולל חדש
+                </button>
+              </div>
             )}
           </div>
 

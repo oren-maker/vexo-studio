@@ -121,6 +121,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         },
       }).catch(() => {});
     }
+    // Scene activity log entry so the "פעילות" tab captures the remix.
+    await (prisma as any).sceneLog.create({
+      data: {
+        sceneId: scene.id,
+        action: "video_remix",
+        actor: `user:${ctx.user.id}`,
+        actorName: ctx.user.fullName ?? ctx.user.email,
+        details: {
+          sourceAssetId: asset.id,
+          jobId: submitted.id,
+          model: submitted.model,
+          seconds: sec,
+          estimateUsd: cost,
+          promptPreview: body.prompt.slice(0, 300),
+        },
+      },
+    }).catch(() => {});
 
     return ok({ jobId: submitted.id, model: submitted.model, seconds: sec, estimateUsd: cost, sourceAssetId: asset.id });
   } catch (e) { return handleError(e); }

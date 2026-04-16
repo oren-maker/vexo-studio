@@ -11,7 +11,6 @@ const MODEL_INFO = {
   "google-veo-3.1-generate-preview":      { emoji: "💫", name: "VEO 3.1 Pro (Google ישיר)",   maxDuration: 8, pricePerSec: 0.50, audio: true, maxSubjects: 3 },
   "google-veo-3.1-lite-generate-preview": { emoji: "🌟", name: "VEO 3.1 Lite (Google ישיר)",  maxDuration: 8, pricePerSec: 0.20, audio: true, maxSubjects: 3 },
   "sora-2":     { emoji: "🎭", name: "Sora 2 (OpenAI ישיר)",      maxDuration: 20, pricePerSec: 0.10, audio: true, maxSubjects: 1 },
-  "sora-2-pro": { emoji: "🏆", name: "Sora 2 Pro (OpenAI ישיר)",  maxDuration: 20, pricePerSec: 0.30, audio: true, maxSubjects: 1 },
   "vidu-q1":    { emoji: "🧩", name: "Vidu Q1 (fal)",            maxDuration: 8,  pricePerSec: 0.08, audio: true, maxSubjects: 7 },
 } as const;
 type ModelKey = keyof typeof MODEL_INFO;

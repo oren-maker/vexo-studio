@@ -18,7 +18,7 @@ export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export 
 const Body = z.object({
   videoModel: z.enum([
     "seedance", "kling", "veo3-pro", "veo3-fast", "vidu-q1",
-    "sora-2", "sora-2-pro",
+    "sora-2",
     "google-veo-3.1-fast-generate-preview",
     "google-veo-3.1-generate-preview",
     "google-veo-3.1-lite-generate-preview",
@@ -346,6 +346,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       await prisma.scene.update({ where: { id: scene.id }, data: { status: "STORYBOARD_REVIEW" } }).catch(() => {});
       throw Object.assign(new Error(`${provider! ?? "provider"} submit failed: ${(submitErr as Error).message}`), { statusCode: 502 });
     }
+
+    // Record scene activity log so the "פעילות" tab shows this submission.
+    await (prisma as any).sceneLog.create({
+      data: {
+        sceneId: scene.id,
+        action: "video_generated",
+        actor: `user:${ctx.user.id}`,
+        actorName: ctx.user.fullName ?? ctx.user.email,
+        details: { provider, model: displayModel, durationSeconds: duration, aspectRatio: body.aspectRatio, jobId, estimateUsd: estimate ?? null },
+      },
+    }).catch(() => {});
 
     // Mirror to ApiUsage so /admin/wallets unified spend + /learn/tokens
     // can include scene-side video generations (otherwise they show only on

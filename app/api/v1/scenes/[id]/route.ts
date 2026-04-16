@@ -80,6 +80,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           });
           const { pendingVideoJob: _p, ...rest } = memRaw;
           await prisma.scene.update({ where: { id: scene.id }, data: { status: "VIDEO_REVIEW", memoryContext: rest as object } });
+          await (prisma as any).sceneLog.create({
+            data: {
+              sceneId: scene.id,
+              action: "video_ready",
+              actor: "system:poll",
+              actorName: pending.provider === "openai" ? "Sora 2" : "Google VEO",
+              details: { provider: pending.provider, model: pending.model, durationSeconds: pending.durationSeconds, jobId: pending.jobId },
+            },
+          }).catch(() => {});
           scene = await prisma.scene.findUnique({
             where: { id: params.id },
             include: { frames: { orderBy: { orderIndex: "asc" } }, criticReviews: true, comments: true },

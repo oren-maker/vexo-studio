@@ -225,7 +225,7 @@ const Patch = z.object({
   model: z.enum([
     "seedance", "kling", "veo3-fast", "veo3-pro",
     "google-veo-3.1-fast-generate-preview", "google-veo-3.1-generate-preview", "google-veo-3.1-lite-generate-preview",
-    "sora-2", "sora-2-pro",
+    "sora-2",
     "vidu-q1",
   ]).optional(),
   isSeriesDefault: z.boolean().optional(),

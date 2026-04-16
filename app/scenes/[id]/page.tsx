@@ -68,9 +68,9 @@ export default function ScenePage() {
   const [remixBusy, setRemixBusy] = useState<"suggest" | "submit" | null>(null);
 
   // Curated shortlist — one best-in-class option per use case, no dupes.
-  // Sora 2 is the default (good audio + 12s + cheap).
+  // Sora 2 is the default (good audio + 20s + cheap).
   type AllVideoModel =
-    | "sora-2" | "sora-2-pro" | "veo3-pro" | "seedance" | "vidu-q1";
+    | "sora-2" | "veo3-pro" | "seedance" | "vidu-q1";
   const [videoModel, setVideoModel] = useState<AllVideoModel>("sora-2");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
@@ -79,14 +79,13 @@ export default function ScenePage() {
   const [veoDuration, setVeoDuration] = useState(20);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
   const RATES: Record<AllVideoModel, number> = {
-    "sora-2": 0.10, "sora-2-pro": 0.30, "veo3-pro": 0.75, seedance: 0.124, "vidu-q1": 0.08,
+    "sora-2": 0.10, "veo3-pro": 0.75, seedance: 0.124, "vidu-q1": 0.08,
   };
   const MAX_DURATION: Record<AllVideoModel, number> = {
-    "sora-2": 20, "sora-2-pro": 20, "veo3-pro": 8, seedance: 12, "vidu-q1": 5,
+    "sora-2": 20, "veo3-pro": 8, seedance: 12, "vidu-q1": 5,
   };
   const MODEL_LABEL: Record<AllVideoModel, { emoji: string; name: string; price: string; audio: boolean; note?: string }> = {
     "sora-2":     { emoji: "🟢", name: "Sora 2",      price: "$0.10/sec", audio: true,  note: "ברירת מחדל" },
-    "sora-2-pro": { emoji: "💚", name: "Sora 2 Pro",  price: "$0.30/sec", audio: true,  note: "פרימיום" },
     "veo3-pro":   { emoji: "💎", name: "VEO 3 Pro",   price: "$0.75/sec", audio: true,  note: "איכות גבוהה" },
     seedance:     { emoji: "⚡", name: "SeeDance 2",  price: "$0.124/sec", audio: false, note: "ארוך וזול" },
     "vidu-q1":    { emoji: "👥", name: "Vidu Q1",     price: "$0.08/sec",  audio: false, note: "עד 7 דמויות" },

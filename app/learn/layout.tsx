@@ -62,9 +62,11 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
       </div>
-      {/* Page content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {children}
+      {/* Page content — dark bg matching vexo-learn's original design */}
+      <div className="bg-slate-950 text-slate-100 min-h-[calc(100vh-100px)]">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          {children}
+        </div>
       </div>
     </div>
   );

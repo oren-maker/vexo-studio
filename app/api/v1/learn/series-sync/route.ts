@@ -118,7 +118,7 @@ End with:
 Be specific with numbers. Reference actual episode/scene counts. Give dollar amounts. Be critical but constructive.`,
       },
       { role: "user", content: `Production data as of ${new Date().toISOString().split("T")[0]}:\n\n${dataBlock}` },
-    ], { temperature: 0.5, maxTokens: 2000, description: "Series sync · daily analysis" });
+    ], { temperature: 0.5, maxTokens: 1000, description: "Series sync · daily analysis" });
 
     // 5. Store as InsightsSnapshot (kind=series_analysis). The brain reads
     // these during daily refresh. DailyBrainCache has required fields that

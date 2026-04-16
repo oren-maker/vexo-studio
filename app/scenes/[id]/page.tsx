@@ -68,7 +68,7 @@ export default function ScenePage() {
   const [remixBusy, setRemixBusy] = useState<"suggest" | "submit" | null>(null);
 
   type AllVideoModel =
-    | "sora-2" | "higgs-kling" | "higgs-seedance" | "higgsfield" | "veo3-pro" | "seedance" | "vidu-q1";
+    | "sora-2" | "higgs-kling" | "higgs-seedance" | "higgsfield";
   const [videoModel, setVideoModel] = useState<AllVideoModel>("sora-2");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
@@ -77,19 +77,16 @@ export default function ScenePage() {
   const [veoDuration, setVeoDuration] = useState(20);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
   const RATES: Record<AllVideoModel, number> = {
-    "sora-2": 0.10, "higgs-kling": 0.06, "higgs-seedance": 0.05, higgsfield: 0.05, "veo3-pro": 0.75, seedance: 0.124, "vidu-q1": 0.08,
+    "sora-2": 0.10, "higgs-kling": 0.06, "higgs-seedance": 0.05, higgsfield: 0.05,
   };
   const MAX_DURATION: Record<AllVideoModel, number> = {
-    "sora-2": 20, "higgs-kling": 15, "higgs-seedance": 12, higgsfield: 60, "veo3-pro": 8, seedance: 12, "vidu-q1": 5,
+    "sora-2": 20, "higgs-kling": 15, "higgs-seedance": 12, higgsfield: 60,
   };
   const MODEL_LABEL: Record<AllVideoModel, { emoji: string; name: string; price: string; audio: boolean; note?: string }> = {
     "sora-2":         { emoji: "🟢", name: "Sora 2",            price: "$0.10/s", audio: true,  note: "ברירת מחדל" },
     "higgs-kling":    { emoji: "🎬", name: "Kling 3.0",         price: "$0.06/s", audio: true,  note: "via Higgsfield" },
     "higgs-seedance": { emoji: "⚡", name: "Seedance 1.5",      price: "$0.05/s", audio: true,  note: "via Higgsfield" },
     higgsfield:       { emoji: "🎞", name: "Soul Standard",     price: "$0.05/s", audio: true,  note: "עד 60s!" },
-    "veo3-pro":       { emoji: "💎", name: "VEO 3 Pro",         price: "$0.75/s", audio: true,  note: "איכות גבוהה" },
-    seedance:         { emoji: "⚡", name: "SeeDance 2 (fal)",  price: "$0.124/s", audio: false, note: "via fal" },
-    "vidu-q1":        { emoji: "👥", name: "Vidu Q1",           price: "$0.08/s",  audio: false, note: "עד 7 דמויות" },
   };
   const maxDurForModel = MAX_DURATION[veoModel];
   const veoRate = RATES[veoModel];

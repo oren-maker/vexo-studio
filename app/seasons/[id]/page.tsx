@@ -583,38 +583,52 @@ export default function SeasonPage() {
                   <div className="flex justify-between items-start gap-2">
                     <Link href={`/characters/${c.id}`} className="flex-1 min-w-0 hover:underline">
                       <div className="font-semibold">{c.name}</div>
-                      <div className="text-[11px] text-text-muted">{[c.roleType, c.gender, c.ageRange].filter(Boolean).join(" · ")}</div>
+                      <div className="text-[11px] text-text-muted" data-no-translate>{[c.roleType, c.gender, c.ageRange].filter(Boolean).join(" · ")}</div>
                     </Link>
                     <div className="flex flex-col gap-1 items-end">
                       {c.media.length === 0 ? (
                         <button disabled={charBusy === c.id} onClick={() => generateOneGallery(c.id, "one")} className="text-[11px] px-2 py-1 rounded-lg bg-accent text-white disabled:opacity-50">
-                          {charBusy === c.id ? "…" : (lang === "he" ? "✨ תמונה ראשונה" : "✨ First image")}
+                          {charBusy === c.id ? "…" : (lang === "he" ? "✨ בנה גיליון דמות" : "✨ Build sheet")}
                         </button>
-                      ) : c.media.length < 5 ? (
-                        <button disabled={charBusy === c.id} onClick={() => generateOneGallery(c.id, "rest")} className="text-[11px] px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50">
-                          {charBusy === c.id ? "…" : (lang === "he" ? `✨ השאר (${5 - c.media.length})` : `✨ Rest (${5 - c.media.length})`)}
+                      ) : !c.media.some((m) => m.metadata?.angle === "sheet") ? (
+                        <button disabled={charBusy === c.id} onClick={() => generateOneGallery(c.id, "rest")} className="text-[11px] px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50" title={lang === "he" ? "מעבר לפורמט תמונה יחידה" : "Migrate to single-image sheet"}>
+                          {charBusy === c.id ? "…" : (lang === "he" ? "🔄 צור גיליון" : "🔄 Build sheet")}
                         </button>
                       ) : null}
                       <span className="text-[10px] text-text-muted num">${c.media.reduce((s, m) => s + (m.cost ?? 0), 0).toFixed(3)}</span>
                     </div>
                   </div>
                   {c.appearance && <div className="text-[11px] text-text-secondary line-clamp-2">{c.appearance}</div>}
-                  <div className="grid grid-cols-5 gap-1">
-                    {c.media.slice(0, 5).map((m, i) => (
-                      <button key={m.id} onClick={() => setLightbox({ character: c, index: i })} className="relative aspect-square rounded overflow-hidden bg-bg-card group">
-                        <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5 num opacity-0 group-hover:opacity-100">${(m.cost ?? 0).toFixed(3)}</span>
-                      </button>
-                    ))}
-                    {Array.from({ length: Math.max(0, 5 - c.media.length) }).map((_, i) => (
-                      <div key={`empty-${i}`} className="aspect-square rounded bg-bg-card/50" />
-                    ))}
-                  </div>
+                  {(() => {
+                    // Sheet-first display. Legacy 5-cell grid removed entirely — no empty cells.
+                    const sheet = c.media.find((m) => m.metadata?.angle === "sheet");
+                    if (sheet) {
+                      return (
+                        <button onClick={() => setLightbox({ character: c, index: c.media.indexOf(sheet) })} className="block w-full rounded overflow-hidden bg-bg-card group">
+                          <img src={sheet.fileUrl} alt={`${c.name} sheet`} className="w-full h-auto object-contain group-hover:scale-[1.01] transition-transform" />
+                        </button>
+                      );
+                    }
+                    // Legacy multi-angle media — show them inline so nothing is lost, but
+                    // don't fill missing slots with empty cells.
+                    if (c.media.length > 0) {
+                      return (
+                        <div className="grid grid-cols-5 gap-1">
+                          {c.media.slice(0, 5).map((m, i) => (
+                            <button key={m.id} onClick={() => setLightbox({ character: c, index: i })} className="relative aspect-square rounded overflow-hidden bg-bg-card group">
+                              <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                   {apps.length > 0 && (
                     <div className="flex flex-wrap gap-1 pt-1 border-t border-bg-card">
                       <span className="text-[10px] text-text-muted">{lang === "he" ? "בעונה זו:" : "This season:"}</span>
                       {apps.map((ep) => (
-                        <Link key={ep.id} href={`/episodes/${ep.id}`} className="text-[10px] px-1.5 py-0.5 rounded bg-bg-card hover:bg-accent/20">EP{String(ep.episodeNumber).padStart(2, "0")}</Link>
+                        <Link key={ep.id} href={`/episodes/${ep.id}`} className="text-[10px] px-1.5 py-0.5 rounded bg-bg-card hover:bg-accent/20" data-no-translate>EP{String(ep.episodeNumber).padStart(2, "0")}</Link>
                       ))}
                     </div>
                   )}

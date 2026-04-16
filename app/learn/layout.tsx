@@ -17,9 +17,8 @@ const groups = [
     title: "פרומפט",
     icon: "✨",
     items: [
-      { href: "/learn/my-prompts", label: "שלי", icon: "📁" },
+      { href: "/learn/my-prompts", label: "פרומפט בAI", icon: "📁" },
       { href: "/learn/compose", label: "חולל", icon: "✨" },
-      { href: "/learn/improve", label: "שפר", icon: "🎯" },
     ],
   },
   {

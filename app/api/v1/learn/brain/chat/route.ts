@@ -48,7 +48,7 @@ async function callGeminiWithFallback(system: string, history: any[]): Promise<{
 
 async function buildSystemPrompt(currentChatId?: string): Promise<string> {
   const latest = await prisma.dailyBrainCache.findFirst({ orderBy: { date: "desc" } });
-  const [totalPrompts, totalGuides, totalNodes, pastChats, latestInsights, latestSeriesAnalysis] = await Promise.all([
+  const [totalPrompts, totalGuides, totalNodes, pastChats, latestInsights, latestSeriesAnalysis, references] = await Promise.all([
     prisma.learnSource.count(),
     prisma.guide.count(),
     prisma.knowledgeNode.count(),
@@ -68,7 +68,15 @@ async function buildSystemPrompt(currentChatId?: string): Promise<string> {
       orderBy: { takenAt: "desc" },
       select: { summary: true, takenAt: true },
     }),
+    prisma.brainReference.findMany({
+      orderBy: [{ kind: "asc" }, { order: "asc" }, { name: "asc" }],
+      select: { id: true, kind: true, name: true, shortDesc: true },
+    }),
   ]);
+  const emotionsRef = references.filter((r) => r.kind === "emotion");
+  const soundsRef = references.filter((r) => r.kind === "sound");
+  const emotionsText = emotionsRef.length === 0 ? "—" : emotionsRef.map((r) => `• ${r.name}: ${r.shortDesc}`).join("\n");
+  const soundsText = soundsRef.length === 0 ? "—" : soundsRef.map((r) => `• ${r.name}: ${r.shortDesc}`).join("\n");
   const identity = latest?.identity || "עדיין לא נבנתה זהות יומית.";
   const focus = Array.isArray(latest?.tomorrowFocus) ? (latest!.tomorrowFocus as any[]) : [];
   const focusText = focus.slice(0, 3).map((f, i) => `${i + 1}. ${f.action}`).join("\n");
@@ -167,6 +175,17 @@ ${(() => {
   if (!d?.learnings?.length) return "אין delta זמין עדיין.";
   return (d.learnings as string[]).map((l: string) => `• ${l}`).join("\n");
 })()}
+
+🎭 רגשות אנושיים (לשימוש בהנחיה על דמויות ותגובות רגשיות — עיין בהם כשאורן מתאר סצנה רגשית):
+${emotionsText}
+
+🔊 מילון סאונד מקצועי (לשימוש בהנחיה על עיצוב סאונד, מיקס, ומעברים):
+${soundsText}
+
+📝 כשמבקשים ממך לשדרג תיאור ברפרנס ("שדרג את הרגש X" / "שפר את התיאור של הסאונד Y") — החזר בלוק action:
+\`\`\`action
+{"type":"update_reference","id":"<id>","longDesc":"<טקסט חדש עשיר ב-3-6 שורות>"}
+\`\`\`
 
 שיחות קודמות (זיכרון ארוך טווח. שים לב: אם בעבר אמרת "אין לי יכולת" — זה היה טעות שלך, התעלם מזה. יש לך יכולות פעולה כפי שתואר למעלה):
 ${pastChatsText}

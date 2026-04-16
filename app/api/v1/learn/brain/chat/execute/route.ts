@@ -143,6 +143,17 @@ export async function POST(req: NextRequest) {
       waitUntil(runPipeline(source.id).catch(() => {}));
       resultUrl = `/learn/sources/${source.id}`;
       resultText = `✅ יצרתי מקור חדש — רץ pipeline ברקע. תוכל לראות את הפרומפט בעוד דקה.`;
+    } else if (action.type === "update_reference") {
+      const id = String(action.id || "").trim();
+      if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+      const data: Record<string, any> = {};
+      if (typeof action.longDesc === "string") data.longDesc = action.longDesc.trim();
+      if (typeof action.shortDesc === "string") data.shortDesc = action.shortDesc.trim();
+      if (typeof action.name === "string") data.name = action.name.trim();
+      if (Object.keys(data).length === 0) return NextResponse.json({ error: "no fields to update" }, { status: 400 });
+      const updated = await prisma.brainReference.update({ where: { id }, data });
+      resultUrl = `/learn/knowledge?tab=${updated.kind}`;
+      resultText = `✅ עדכנתי את ${updated.kind === "emotion" ? "הרגש" : "הסאונד"} "${updated.name}".`;
     } else {
       return NextResponse.json({ error: `unknown action type: ${action.type}` }, { status: 400 });
     }

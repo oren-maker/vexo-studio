@@ -1,0 +1,395 @@
+[
+  {
+    "id": "cmny2j2z60015u7yrxcqpr8bh",
+    "parentType": "EPISODE",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 1,
+    "title": "A Glimpse of Doubt",
+    "summary": "Mira Chen experiences her first memory lapse",
+    "scriptText": "1. **Visual Style** — Surreal Cinematic Minimalist Noir in 8K photoreal quality. This sequence blends the high-end architectural aesthetics of a 'glass house' with the unsettling, dream-like atmosphere of a psychological thriller. The render utilizes advanced physics-based simulations for the heavy, swirling indigo fog and the complex light refraction through a hairline fracture in structural glass. The visual language is defined by sharp, clean geometric lines of the villa juxtaposed against the chaotic, organic textures of the jagged, obsidian-colored cliffside. Every frame is designed to feel like a high-budget cinematic opening, prioritizing sharp textures, realistic glass reflections, and a somber, brooding mood that evokes a sense of isolation and metaphysical dread.\n\n2. **Film Stock & Lens** — Shot on Arri Alexa LF with Panavision Ultra 70 anamorphic lenses. The sequence begins with a wide f/8.0 for deep focus on the landscape, transitioning into an extreme macro f/1.4 aperture as the camera pushes through the glass crack, creating an intense, shallow depth of field that blurs the world into abstract bokeh. The grain is fine and organic, reminiscent of 65mm film stock, adding a tangible, cinematic weight to the indigo atmosphere.\n\n3. **Color Palette & Grade** — A palette dominated by monochromatic Indigo and Midnight Blue, punctuated by stark, high-contrast silver highlights. The grade is cold and desaturated, emphasizing 'Prussian blue' shadows and 'electric cyan' mid-tones. The interior mirror maze features a 'spectral' color grade where the reflections have a slight chromatic aberration, making them feel physically distinct from the reality of the room.\n\n4. **Lighting & Atmosphere** — Extreme Chiaroscuro lighting. The primary light source is a dim, diffused twilight filtered through a dense indigo fog, creating a volumetric 'soup' of light. Inside the villa, hidden recessed LED strips provide sharp, clinical rim lighting on the mirror edges. The atmosphere is heavy with micro-particles of dust and moisture that catch the light as the camera moves, providing a sense of physical space and depth.\n\n5. **Character / Subject** — The protagonist is a male in his late 30s with a lean, athletic build and a sharp, angular jawline. He wears a heavy, charcoal-grey silk robe with a visible weave texture that reacts realistically to his movements. His skin shows micro-pores and fine beads of sweat under the high-contrast lighting. His expression is one of frozen realization. A critical consistency note: the character's physical form remains stable, but his reflections in the maze are programmed to 'drift'—while he stands still, his reflection might slightly turn its head or blink out of sync. Face and clothing textures are hyper-detailed and remain consistent throughout the camera's continuous movement.\n\n6. **Audio / Sound Design** — A complex, layered soundscape. Foreground: The 'clink-clink' of vibrating glass shards within the crack, sounding like delicate ice. Ambient Bed: A low-frequency, 30Hz sub-bass drone that vibrates the listener's chest, layered with the distant, muffled roar of waves crashing against the cliff. Impact: A sharp, sudden intake of breath ('gasp') from the protagonist that echoes and repeats with a decaying delay, synchronized with the moment the camera captures the desynchronized reflection. Diegetic: The soft rustle of silk as he moves.\n\n7. **Timeline — timecoded beats** — \n- [0-3s]: EXTREME WIDE SHOT. A slow, hypnotic drone push-in towards the villa perched on the jagged cliff. Massive indigo fog banks roll over the glass structure. Sound: The low-frequency drone begins to swell.\n- [3-6s]: MACRO TRACKING SHOT. The camera arrives at the window, focusing on a tiny, crystalline hairline crack. The camera seamlessly 'glides' through the microscopic gap in the glass. Sound: High-pitched glass rattling and crystalline friction.\n- [6-9s]: WIDE TO MEDIUM ORBIT. The camera emerges inside the mirror maze. The protagonist is centered. The camera orbits him slowly. We see dozens of reflections. Sound: The drone drops in pitch, becoming more ominous.\n- [9-12s]: CLOSE-UP. The camera settles on the protagonist's face near a mirror. While his real face is motionless, his reflection slowly narrows its eyes and smiles. The protagonist lets out a sharp, audible gasp. Sound: The sharp intake of breath and the echo of the gasp.\n\n8. **Quality Boosters** — Photorealistic 8K, ultra-detailed textures, perfect motion blur, high dynamic range, no artifacts, coherent motion, consistent character identity, ray-traced reflections, volumetric fog, anamorphic lens flares.",
+    "scriptSource": "brain-compose",
+    "dialogueJson": null,
+    "targetDurationSeconds": 120,
+    "status": "VIDEO_GENERATING",
+    "plannedBudget": 600,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "mood": "uneasy",
+      "location": "Mira's Apartment",
+      "characters": [
+        "Mira Chen",
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא מינימליסטית, עם צלילי פסנתר, צ'לו וסינתיסייזר תת-בס, בקצב 90-100 BPM. המוזיקה נכנסת בדקה 0:05, כאשר מירה מתבוננת במראה, ובונה לאט לאורך הסצנה, כשהיא מנסה להיזכר בילדותה. המוזיקה מעבירה תחושת חרדה ואי-ודאות, ומואצת בדקה 0:30, כאשר הטלפון מצלצל.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX):\n* 0:00 - רשרוש של בגדים כאשר מירה מתבוננת במראה\n* 0:10 - נשימה עמוקה של מירה\n* 0:20 - רשרוש של ידיים על המראה\n* 0:30 - צלצול חד של הטלפון\n* 0:35 - קול הטלפון הנענה\n\n🌫 אמביינס/רעש סביבה: \n* רחוק: רעש תנועה ברחוב, 20% מהווליום, פאנינג לשמאל\n* קרוב: זון פלואורסצנט, 10% מהווליום, פאנינג למרכז\n* רחוק: רעש מזגן, 15% מהווליום, פאנינג לימין\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync):\n* מירה → \"מה קורה לי?\" → לחוץ, שפתיים סגורות, סינכרון צמוד\n* מירה → \"הלו?\" → קול רם, שפתיים פתוחות, סינכרון צמוד\n* מאיה (V.O) → \"היי, מירה, צריכים לדבר על תיק וילסון\" → קול רך, שפתיים סגורות, סינכרון רחוק\n\n🎚 מעברי סאונד וצמצומים (Mix moves):\n* 0:30 - המוזיקה דוחה את הדיאלוג, כאשר הטלפון מצלצל\n* 0:35 - האמביינס יורדת, כדי להדגיש את הדיאלוג\n\n⚡ רגעים מיוחדים:\n* 0:30 - צלצול הטלפון, המפריע לשקט, עם תזמון מדויק לדקה 0:30.",
+      "directorSheet": {
+        "audio": "Ominous, pulsing ambiance, with a minimalist music score, emphasizing Mira's growing anxiety, and a sharp, jarring phone ring, shattering the silence",
+        "scene": "Mira's apartment, dimly lit, with a mix of soft natural light and harsh shadows, emphasizing her confusion and disconnection",
+        "shots": "00:00-00:05 Establishing: Mira's reflection in the mirror / 00:05-00:10 Build: Close-up of Mira's face, as she tries to recall her childhood / 00:10-00:15 Payoff: Mira's phone rings, breaking the silence",
+        "style": "Dark, muted palette, with a shallow depth of field, creating a sense of unease and disorientation, reflecting Mira's fragile mental state",
+        "camera": "Handheld, with a mix of static and dynamic movements, creating a sense of intimacy and immediacy, drawing the viewer into Mira's world",
+        "effects": "Subtle, unsettling sound design, with a hint of distortion, underscoring Mira's growing unease and disorientation",
+        "character": "Mira Chen, with subtle, nuanced facial expressions, conveying her growing unease and self-doubt, as she struggles to recall her memories",
+        "technical": "2.39:1 aspect ratio, 15 seconds, 24fps, with a consistent color palette and camera movement, maintaining the scene's tense, unsettling atmosphere",
+        "generatedAt": "2026-04-14T13:08:53.699Z"
+      },
+      "pendingVideoJob": {
+        "jobId": "video_69e0f4e8b02881919457abbd3af2e6b209892112c745c06b",
+        "model": "sora-2",
+        "provider": "openai",
+        "submittedAt": "2026-04-16T14:40:41.054Z",
+        "durationSeconds": 20
+      }
+    },
+    "styleConstraints": {
+      "prompt": "Cinematic neon-noir lighting, teal & amber color grade, anamorphic lens flare, shallow depth of field, modern surveillance-state set design."
+    },
+    "createdAt": "2026-04-14T03:35:03.219Z",
+    "updatedAt": "2026-04-16T14:40:41.056Z"
+  },
+  {
+    "id": "cmny2ke66001iu7yrilk6r2w9",
+    "parentType": "EPISODE",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 2,
+    "title": "Seeking Answers",
+    "summary": "Mira confides in Maya about her memory lapses",
+    "scriptText": "INT. NEWSROOM - DAY\nMira approaches Maya's desk, looking concerned.\nMIRA\nMaya, can I talk to you about something?\nMAYA\nOf course, what's up?\nMIRA\nI've been experiencing these... memory lapses. I don't know what's real and what's not.\nMAYA\nThat sounds serious. Have you seen a doctor?",
+    "scriptSource": "AI_GENERATED",
+    "dialogueJson": null,
+    "targetDurationSeconds": 90,
+    "status": "VIDEO_GENERATING",
+    "plannedBudget": 600,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "mood": "concerned",
+      "location": "Newsroom",
+      "characters": [
+        "Mira Chen",
+        "Maya Ellis"
+      ],
+      "soundNotes": "להלן דף הערות הסאונד המפורט עבור הסצנה, מיועד לעיבוד במודל וידאו/סאונד:\n\n🎵 **מוזיקה:**\nהז'אנר הוא מותחן פסיכולוגי קר ומנוכר. המוזיקה נכנסת בטיימקוד שבו מירה אומרת \"memory lapses\". מדובר בסינתיסייזר סאב-בס (Sub-bass synth) בתדר נמוך מאוד (30-40Hz) שמתחיל כנהמה חרישית ומטפס בווליום. אליו מצטרף צ'לו בודד המנגן תו ארוך ודיסוננטי (Dissonant) ופסנתר \"קר\" עם הרבה Reverb המנגן שני תווים בודדים במרווח של אוקטבה. הקצב איטי מאוד, סביב 60 BPM, ונועד להעביר תחושת חוסר התמצאות ואימה זוחלת. המוזיקה מתגברת ככל שמירה מתארת את חוסר היכולת להבחין במציאות.\n\n🔊 **אפקטים מקדמת התמונה (Foley/SFX):**\n*   **צעדים (מירה):** צליל עקבים רכים על שטיח משרדי דק, קצב מהסס (0:01).\n*   **רשרוש בגד:** חיכוך בד המעיל של מירה כשהיא עוצרת ליד השולחן.\n*   **מקלדת (מאיה):** צליל הקשות מהירות על מקלדת מכנית שנעצרות בבת אחת כשמירה מתחילה לדבר.\n*   **כיסא משרדי:** חריקה קלה של גלגלי הכיסא של מאיה כשהיא מסתובבת לעבר מירה.\n*   **נשימה:** שאיפת אוויר חדה ורועדת של מירה לפני המשפט הראשון.\n*   **דף נייר:** מאיה מניחה דף על השולחן, צליל חיכוך נייר עמום (0:05).\n\n🌫 **אמביינס/רעש סביבה:**\nחלל המערכת (Newsroom) מורכב משכבות:\n*   **שכבה 1:** זמזום מזגן תעשייתי קבוע בתדר 60Hz בסטריאו רחב.\n*   **שכבה 2:** רעש \"Walla\" מרוחק של עיתונאים אחרים מדברים, ללא מילים ברורות, ממוקם רחוק במיקס (Low-pass filter).\n*   **שכבה 3:** צלצול טלפון קווי מרוחק בצד ימין (Panned right).\n*   **שכבה 4:** תקתוק מקלדות רנדומלי מכל עברי החדר בווליום נמוך.\n\n🎙 **דיאלוג ול",
+      "directorSheet": {
+        "audio": "Foreground dialogue between Mira and Maya. Mid-ground newsroom hum of typing and distant phones. A cold, dissonant synth drone enters precisely when Mira says 'memory lapses' per sound notes.",
+        "scene": "INT. NEWSROOM - DAY. A high-tech, sterile office environment with rows of workstations and glowing monitors. Fluorescent overhead lighting creates a cold atmosphere, with blurred background activity contrasting Mira’s stillness.",
+        "shots": "[00:00-00:03] — Mira walks through the newsroom, approaching Maya's desk with a hesitant gait. [00:03-00:06] — Medium shot of Mira leaning in, her hands gripping the desk edge as she speaks. [00:06-00:09] — Close-up on Maya as she looks up, her expression shifting to intense focus. [00:09-00:12] — Extreme close-up on Mira’s face, capturing her distress as she mentions her memory lapses.",
+        "style": "Neo-noir visual signature with a clinical, paranoiac edge. Palette favors cold teals and sterile whites with high-contrast shadows. Shallow depth of field isolates Mira from the bustling newsroom to emphasize her internal isolation.",
+        "camera": "A slow, creeping push-in on Mira’s close-up to heighten the psychological tension. Handheld micro-tremors during her confession reflect her internal instability.",
+        "effects": "Subtle digital glitch or flicker in the background fluorescent lights coinciding with Mira mentioning her memory lapses to visualize her fractured reality.",
+        "character": "Mira Chen: Black hair, dark eyes, wearing a sharp grey blazer; she appears visibly shaken and hyper-vigilant. Maya: Professional colleague with warm features and glasses, dressed in a soft knit sweater; she transitions from focused work to deep, empathetic concern.",
+        "technical": "2.39:1 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for Mira and Maya across all shots — no face drift.",
+        "generatedAt": "2026-04-14T17:31:03.872Z"
+      },
+      "pendingVideoJob": {
+        "jobId": "video_69dfc3563ee08191bd162b574292e7060bfc6d175970a414",
+        "model": "sora-2",
+        "provider": "openai",
+        "submittedAt": "2026-04-15T16:56:55.040Z",
+        "durationSeconds": 12
+      }
+    },
+    "styleConstraints": {
+      "prompt": "Cinematic neon-noir lighting, teal & amber color grade, anamorphic lens flare, shallow depth of field, modern surveillance-state set design."
+    },
+    "createdAt": "2026-04-14T03:36:04.542Z",
+    "updatedAt": "2026-04-15T16:56:55.041Z"
+  },
+  {
+    "id": "cmny2lom3001vu7yrqg1njco6",
+    "parentType": "EPISODE",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 3,
+    "title": "Investigation Begins",
+    "summary": "Mira and Maya start investigating Mira's past",
+    "scriptText": "INT. NEWSROOM - DAY\nMaya and Mira sit at a computer, researching.\nMAYA\nLet's start with your childhood. What do you remember?\nMIRA\nNot much. My parents died in a car accident when I was young.\nMAYA\nI'm sorry. But what if that's not true?\nMIRA\nWhat are you saying?",
+    "scriptSource": "AI_GENERATED",
+    "dialogueJson": null,
+    "targetDurationSeconds": 100,
+    "status": "VIDEO_GENERATING",
+    "plannedBudget": 600,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "mood": "determined",
+      "location": "Newsroom",
+      "characters": [
+        "Mira Chen",
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: \nהמוזיקה היא מוזיקת פסיכולוגית מתוחה, עם פסנתר, צ'לו וסינתיסייזר בס. ה-BPM הוא 90-100, והמוזיקה נכנסת ב-00:05, כאשר מירה ומאיה מתחילות לחקור. המוזיקה בונה ב-00:15, כאשר מירה מספרת על מות הוריה, ומעבירה רגשות של עצב וחרדה. המוזיקה מתרחקת ב-00:30, כאשר מאיה שואלת \"מה אם זה לא נכון?\".\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 00:00 - צליל קלידים על המחשב\n* 00:05 - צליל נשיפה של מירה\n* 00:10 - צליל עכבר המחשב\n* 00:15 - צליל נייר מתוח\n* 00:20 - צליל קלידים על המחשב (שוב)\n* 00:25 - צליל קול מאיה, רך\n* 00:30 - צליל פתיחת דלת (רקע)\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע של חדר עריכה: מקלדות, קולות רכים, רעש מערכת האוורור\n* רעש רקע של מחשבים: רעש ויברטורי, רעש קולי\n* רעש רקע של טלוויזיה: רעש קולי, רחוק\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* מאיה → \"תראי, בואו נתחיל עם ילדותך. מה אתה זוכר?\" → רגוע → סנכרון פה צמוד\n* מירה → \"לא הרבה. הוריי מתו בתאונת דרכים כשהייתי צעיר\" → עצוב → סנכרון פה צמוד, עם נשיפה\n* מאיה → \"מצטערת. אבל מה אם זה לא נכון?\" → חשדנית → סנכרון פה צמוד, עם הפסקה קצרה\n\n🎚 מעברי סאונד וצמצומים (Mix moves): \n* 00:15 - המוזיקה מתרחקת, והדיאלוג של מירה עולה\n* 00:25 - הרעש הרקעי של החדר יורד, כדי להדגיש את הדיאלוג\n\n⚡ רגעים מיוחדים: \n* 00:30 - צליל פתיחת דלת, המסמל את פתיחת חקירת העבר של מירה\n* 00:35 - רגע של שתיקה, המודגש על ידי הפסקת המוזיקה והרעש הרקעי.",
+      "directorSheet": {
+        "audio": "Ambient newsroom hum of typing and distant chatter; tense psychological score with piano, cello, and bass synth enters at 00:05, building at 00:15. Dialogue: Maya asks about childhood, Mira mentions the accident, Maya challenges the truth.",
+        "scene": "A modern, high-tech newsroom during the day. Fluorescent overheads fight with blue-tinted monitor glow; the foreground features a cluttered desk with the midground occupied by Mira and Maya huddled over a terminal.",
+        "shots": "[00:00-00:03] — Wide shot of Maya and Mira illuminated by the blue light of the computer screen. [00:03-00:06] — Medium close-up on Mira as she looks down, recounting the car accident. [00:06-00:09] — Tight shot on Maya leaning in, her expression shifting to one of intense doubt. [00:09-00:12] — Extreme close-up on Mira's eyes as they widen in realization and fear.",
+        "style": "Clinical and paranoid visual signature with a cold, desaturated palette of steel blues and office greys. High-contrast lighting with shallow depth of field emphasizes the isolation of the two women within the busy newsroom.",
+        "camera": "Slow, creeping push-in on Mira's face to heighten the psychological tension, using a 50mm lens to create a sense of intimacy and entrapment.",
+        "effects": "Subtle digital flicker from the computer monitors reflecting in the characters' eyes to reinforce the theme of digital manipulation.",
+        "character": "Mira Chen (black hair, dark eyes, sleep-deprived, wearing a professional blazer) looks guarded and weary. Maya (sharp features, inquisitive gaze, business casual) appears focused and skeptical as she probes Mira's history.",
+        "technical": "16:9 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-15T14:58:45.520Z"
+      },
+      "pendingVideoJob": {
+        "jobId": "video_69dfc3560b5c8190abc0ad65ed8fbea0016d409818a37ae5",
+        "model": "sora-2",
+        "provider": "openai",
+        "submittedAt": "2026-04-15T16:56:54.183Z",
+        "durationSeconds": 12
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-14T03:37:04.732Z",
+    "updatedAt": "2026-04-15T16:56:54.184Z"
+  },
+  {
+    "id": "cmny2n0yd0028u7yr6nfe28mx",
+    "parentType": "EPISODE",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 4,
+    "title": "A Cryptic Warning",
+    "summary": "Mira receives a mysterious warning from an unknown source",
+    "scriptText": "INT. MIRA'S APARTMENT - NIGHT\nMira receives a mysterious package with no return address.\nMIRA\n(whispering) What is this?\nShe opens the package, revealing a note that reads: 'Stop digging. They're watching.'\nMIRA\n(aloud) Who is this?\nSuddenly, her phone rings. It's an unknown number.",
+    "scriptSource": "AI_GENERATED",
+    "dialogueJson": null,
+    "targetDurationSeconds": 110,
+    "status": "VIDEO_REVIEW",
+    "plannedBudget": 600,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "mood": "ominous",
+      "location": "Mira's Apartment",
+      "characters": [
+        "Mira Chen"
+      ],
+      "soundNotes": "🎵 מוזיקה: \nבסצנה זו, המוזיקה היא מינורית ומטרידה, עם פסנתר, צ'לו וסינתיסייזר תת-בס. ה-BPM הוא 80-100, והמוזיקה נכנסת בחדות כאשר מירה פותחת את החבילה. המוזיקה בונה ומתהדרת כאשר מירה קוראת את ההודעה, ומעבירה תחושת אי-נוחות וחרדה. המוזיקה מתרככת קמעה כאשר הטלפון מצלצל.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 00:05 - צליל פתיחת חבילה\n* 00:10 - צליל נייר מתקפל\n* 00:15 - צליל נשימה של מירה\n* 00:20 - צליל טלפון מצלצל (טון טלפון אנונימי)\n* 00:25 - צליל ידית טלפון נוחתת על שולחן\n\n🌫 אמביינס/רעש סביבה: \nברקע, ניתן לשמוע את רחוב העיר השקט, עם רמת קול נמוכה. כמו כן, ניתן לשמוע את הזום החלש של מערכת החשמל בדירה, ואת הרוח הנכנסת דרך החלון. הקולות האלו מעורבבים ברמת קול נמוכה, כדי ליצור אווירה שקטה ומתוחה.\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* מירה → \"מה זה?\" → לחוש בטרידה → סינכרון פה צמוד\n* מירה → \"מי זה?\" → בקול רם → סינכרון פה צמוד, עם הדגשה על המילה \"מי\"\n* (פאוזה) \n* מירה → (לא מדובר, רק נשימה) → נשימה עמוקה → סינכרון פה צמוד\n\n🎚 מעברי סאונד וצמצומים (Mix moves): \nכאשר מירה פותחת את החבילה, המוזיקה נכנסת בחדות, והדיאלוג של מירה דוחף את המוזיקה לרקע. כאשר הטלפון מצלצל, המוזיקה נעצרת, והדיאלוג של מירה נהיה הדבר העיקרי.\n\n⚡ רגעים מיוחדים: \n* 00:20 - הטלפון מצלצל, והדבר גורם למירה להיבהל. הצליל הוא חד ובולט, והוא שובר את השקט.",
+      "directorSheet": {
+        "audio": "Ambient low-frequency hum; sharp paper-tearing SFX; minor-key piano and cello enter sharply at 00:03, building with sub-bass synths (80-100 BPM). Mira whispers 'What is this?' and 'Who is this?' followed by the piercing, rhythmic vibration of the phone.",
+        "scene": "Mira's cramped apartment at night. Foreground features the textured cardboard of the package; midground shows Mira's workspace with glowing screens; background is shrouded in deep, ink-black shadows.",
+        "shots": "[00:00-00:03] — Mira's trembling hands receive and set down the plain, unmarked package on a wooden table. [00:03-00:06] — Close-up of Mira's face as she tears the tape, her expression hardening. [00:06-00:09] — Extreme close-up of the handwritten note: 'Stop digging. They're watching.' [00:09-00:12] — Mira looks up in panic as her smartphone screen illuminates her face, vibrating violently with an 'Unknown' caller ID.",
+        "style": "A cold, clinical palette dominated by teal and steel-grey shadows, emphasizing Mira's isolation. High-contrast lighting with shallow depth of field creates a claustrophobic, paranoid atmosphere reflective of the psychological thriller tone.",
+        "camera": "Handheld and slightly unstable to mirror Mira's rising pulse, tightening from a medium shot to an extreme close-up on her eyes during the phone ring.",
+        "effects": "Subtle digital jitter on the phone screen light; dust motes dancing in the harsh desk lamp beam to enhance the clinical feel.",
+        "character": "Mira Chen: Mid-30s, sharp-eyed but visibly sleep-deprived with dark circles under her eyes, messy dark hair, wearing a grey oversized hoodie. She transitions from cautious curiosity to sharp, breathless anxiety as she realizes she is being monitored.",
+        "technical": "16:9 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for Mira Chen across all shots — no face drift.",
+        "generatedAt": "2026-04-15T15:52:52.450Z"
+      }
+    },
+    "styleConstraints": {
+      "prompt": "Cinematic neon-noir lighting, teal & amber color grade, anamorphic lens flare, shallow depth of field, modern surveillance-state set design."
+    },
+    "createdAt": "2026-04-14T03:38:07.381Z",
+    "updatedAt": "2026-04-15T17:01:09.355Z"
+  },
+  {
+    "id": "cmo07ps7v0001jcv5069iq10f",
+    "parentType": "EPISODE",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 5,
+    "title": "The Disappearing Archive",
+    "summary": "Mira returns to the newsroom to verify her old articles, only to find the digital database has been altered to remove her byline from key investigations.",
+    "scriptText": "MIRA: It’s gone, Maya. The entire series on the Neuro-Link trials. It says 'Author: Staff Writer'.\nMAYA: Maybe it’s a server migration error? Systems have been glitchy all week.\nMIRA: Look at the metadata. The upload date changed to yesterday. Someone is scrubbing me.",
+    "scriptSource": "AI_GENERATED",
+    "dialogueJson": null,
+    "targetDurationSeconds": 60,
+    "status": "VIDEO_REVIEW",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "mood": "Paranoid and frantic",
+      "location": "The Newsroom - Night",
+      "characters": [
+        "Mira Chen",
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא מישור פסיכולוגי-מתוח, המורכב מפסנתר, צ'לו וסינתיסייזר בס. ה-BPM נע בין 80-100, והמוזיקה נכנסת בדקה 0:05, כאשר מירה נכנסת לחדר החדשות. המוזיקה בונה לקראת הרגע שבו מירה מגלה שהכתבות שלה הוסרו, ומשם היא מתחילה לדעוך, תוך שהיא מותירה את הצופה עם תחושת אי-נוחות.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX):\n* 0:00 - צעדים על הרצפה (מירה נכנסת לחדר החדשות)\n* 0:02 - קליקים על מקלדת (מירה מתחילה לחפש במחשב)\n* 0:05 - דלת נפתחת (מאיה נכנסת לחדר)\n* 0:10 - המקלדת של מאיה (מאיה מתחילה לחפש במחשב)\n* 0:15 - נייר מרוסק (מירה מרים דף נייר)\n\n🌫 אמביינס/רעש סביבה: \n* רקע של מחשבים עובדים (40dB, פאנינג למרכז)\n* רעש של טלוויזיות ברקע (30dB, פאנינג לימין)\n* רעש של דואר אלקטרוני (20dB, פאנינג לשמאל)\n* רעש של אנשים מדברים ברקע (25dB, פאנינג לאחור)\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync):\n* מירה: \"זה נעלם, מאיה. הסדרה השלמה על הניסויים של Neuro-Link. זה אומר 'מחבר: כתב'\" (דיבור מתוח, ליפ-סינק צמוד)\n* מאיה: \"אולי זה שגיאת הגירה של השרת? המערכות היו מלאות בתקלות השבוע\" (דיבור רגוע, ליפ-סינק רגיל)\n* מירה: \"תביטי במטא-דאטה. תאריך ההעלאה השתנה לאתמול. מישהו מוחק אותי\" (דיבור מתוח, ליפ-סינק צמוד)\n\n🎚 מעברי סאונד וצמצומים (Mix moves):\n* 0:10 - המוזיקה דועכת כאשר מירה מגלה שהכתבות שלה הוסרו\n* 0:15 - האמביינס יורדת כאשר מירה ומאיה מתחילות לדבר\n\n⚡ רגעים מיוחדים:\n* 0:12 - רגע של שתיקה, כאשר מירה מגלה שהכתבות שלה הוסרו\n* 0:18 - רגע של הדגשה, כאשר מירה אומרת \"מישהו מוחק אותי\"",
+      "directorSheet": {
+        "audio": "Foreground dialogue between Mira and Maya; mid-range hum of server fans. Psychological score enters at 0:05 with tense piano, cello, and synth bass (80-100 BPM) building as Mira realizes she is being scrubbed.",
+        "scene": "The newsroom is a claustrophobic maze of workstations with flickering fluorescent overheads. The foreground features Mira's cluttered desk, the midground holds the glowing, deceptive monitor, and the background is a blur of busy, indifferent journalists.",
+        "shots": "[00:00-00:03] — Mira stares in disbelief at her computer screen while Maya stands behind her in the dimly lit newsroom. [00:03-00:06] — Close-up of the monitor showing the 'Author: Staff Writer' tag and manipulated metadata. [00:06-00:09] — Mira frantically points at the screen as Maya leans in, both women looking anxious as the truth sinks in.",
+        "style": "Clinical and paranoid visual signature with a cold, desaturated palette dominated by office blues and sterile whites. High-contrast lighting emphasizes the deep shadows under Mira's eyes, reflecting the psychological thriller tone and her sleep-deprived state.",
+        "camera": "A slow, creeping zoom into the monitor during the metadata reveal, followed by a shaky handheld close-up on Mira to heighten the feeling of technological gaslighting.",
+        "effects": "Subtle digital jitter on the monitor screen to suggest the fluidity of the data; a slight motion blur on the background newsroom staff to isolate Mira's panic.",
+        "character": "Mira Chen (sharp-eyed, sleep-deprived, black hair, wearing a dark blazer) is in a state of frantic disbelief. Maya (professional attire, neutral expression, ponytail) appears skeptical then concerned as she leans into the digital evidence.",
+        "technical": "16:9 aspect ratio, 9 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-15T15:52:56.374Z"
+      }
+    },
+    "styleConstraints": {
+      "prompt": "Cinematic neon-noir lighting, teal & amber color grade, anamorphic lens flare, shallow depth of field, modern surveillance-state set design."
+    },
+    "createdAt": "2026-04-15T15:35:46.459Z",
+    "updatedAt": "2026-04-15T17:01:10.030Z"
+  },
+  {
+    "id": "cmo07ps8v0003jcv500vflo6g",
+    "parentType": "EPISODE",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 6,
+    "title": "Dr. Kim’s Consultation",
+    "summary": "Seeking medical advice for her blackouts, Mira visits Dr. Ethan Kim, a specialist recommended by an anonymous tip.",
+    "scriptText": "DR. KIM: Memory is a fragile construct, Mira. Stress can cause the mind to 'edit' uncomfortable truths.\nMIRA: I’m not stressed, Doctor. I’m being erased. There’s a difference.\nDR. KIM: Let’s run a cortical scan. If there’s an external interference, the synapses won’t lie.",
+    "scriptSource": "AI_GENERATED",
+    "dialogueJson": null,
+    "targetDurationSeconds": 60,
+    "status": "VIDEO_REVIEW",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "mood": "Clinical and unsettling",
+      "location": "Dr. Kim’s Private Clinic",
+      "characters": [
+        "Mira Chen",
+        "Dr. Ethan Kim"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא מוזיקת פסיכולוגית מתוחה, המורכבת מפסנתר, צ'לו וסינתיסייזר תת-בס. ה-BPM נע בין 80-100, והמוזיקה נכנסת בזמן 00:05, כאשר מירה נכנסת למשרדו של ד\"ר קים. המוזיקה בונה בהדרגה עד 00:20, כאשר ד\"ר קים מדבר על הזיכרון כבניין רגיש. המוזיקה מעבירה רגש של חרדה ואי-ודאות.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX):\n* 00:00 - צעדים על שטיח, כאשר מירה נכנסת למשרד\n* 00:05 - דלת נפתחת, עם קול רך\n* 00:10 - מירה נושאת כיסא, עם קול רך\n* 00:15 - ד\"ר קים כותב על נייר, עם קול עט\n* 00:25 - מירה משרבטת ידיה, עם קול עצבני\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע עמום של מערכות אוורור, בעוצמה נמוכה, 20dB\n* רעש רקע של מחשבים, בעוצמה נמוכה, 15dB\n* רעש רקע של טלוויזיה מרוחקת, בעוצמה נמוכה, 10dB\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync):\n* ד\"ר קים → \"Memory is a fragile construct, Mira. Stress can cause the mind to 'edit' uncomfortable truths.\" → רגוע, עם לחץ שפתיים קל → סינכרון הדוק\n* מירה → \"I’m not stressed, Doctor. I’m being erased. There’s a difference.\" → מתוח, עם לחץ שפתיים חזק → סינכרון הדוק\n* ד\"ר קים → \"Let’s run a cortical scan. If there’s an external interference, the synapses won’t lie.\" → רגוע, עם לחץ שפתיים קל → סינכרון הדוק\n\n🎚 מעברי סאונד וצמצומים (Mix moves):\n* 00:20 - המוזיקה דועכת, כאשר ד\"ר קים מדבר על הסריקה הקורטיקלית\n* 00:30 - הרעש הרקעי יורד, כאשר מירה מדברת על המחיקה\n\n⚡ רגעים מיוחדים:\n* 00:10 - קול פתיחת הדלת, המושך את תשומת הלב\n* 00:25 - קול העט של ד\"ר קים, המושם דגש על הרשימות שלו",
+      "directorSheet": {
+        "audio": "Tense psychological score with piano, cello, and sub-bass synth (80-100 BPM) swelling at 00:05. Dialogue: Dr. Kim's calm, measured voice contrasted against Mira's sharp, desperate tone; low-frequency hum from the scanner.",
+        "scene": "Dr. Kim's high-tech consultation room. Foreground features sleek medical interfaces; midground holds the desk where the confrontation occurs; background is a blurred wall of glowing server racks.",
+        "shots": "[00:00-00:03] — Frame 1: Dr. Kim leans forward over his desk, his face partially shadowed as he speaks about memory being a fragile construct. [00:03-00:06] — Frame 2: Close-up on Mira Chen as she stares back defiantly, delivering her line about being erased. [00:06-00:09] — Frame 3: Dr. Kim stands to prepare the cortical scan machine, the device humming with an ominous blue light.",
+        "style": "Clinical and cold visual signature with a desaturated palette of steel blues and sterile whites. High-contrast lighting creates sharp shadows, emphasizing the claustrophobic and paranoid mood of the psychological thriller.",
+        "camera": "Slow, creeping push-ins on close-ups to heighten the tension. The camera remains static and rigid during Dr. Kim's lines to reflect his clinical control, shifting to a slight handheld tremor for Mira.",
+        "effects": "Subtle digital distortion or 'glitch' particles visible only in the shallow depth of field around the cortical scan machine to suggest technological interference.",
+        "character": "Mira Chen: mid-30s, sharp-eyed, sleep-deprived, wearing a dark blazer, visibly defiant yet fearful. Dr. Ethan Kim: 40s, precise features, wearing a crisp white lab coat, maintaining a calm but unsettling clinical detachment.",
+        "technical": "16:9 aspect ratio, 9 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-15T15:53:00.387Z"
+      }
+    },
+    "styleConstraints": {
+      "prompt": "Cinematic neon-noir lighting, teal & amber color grade, anamorphic lens flare, shallow depth of field, modern surveillance-state set design."
+    },
+    "createdAt": "2026-04-15T15:35:46.460Z",
+    "updatedAt": "2026-04-15T17:00:43.104Z"
+  },
+  {
+    "id": "cmo07ps9e0007jcv547dph10f",
+    "parentType": "EPISODE",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 7,
+    "title": "The Tail in the Lobby",
+    "summary": "As Mira leaves the clinic, she is intercepted by Agent Rachel Morse, who introduces herself under the guise of a corporate security audit.",
+    "scriptText": "MORSE: Ms. Chen? I’m Rachel Morse. We’re concerned about a potential data breach in your department.\nMIRA: I don’t handle sensitive data. I’m a lifestyle journalist now.\nMORSE: We both know that’s a lie. You’re a seeker. And sometimes, seekers find things they weren't meant to remember.",
+    "scriptSource": "AI_GENERATED",
+    "dialogueJson": null,
+    "targetDurationSeconds": 60,
+    "status": "VIDEO_GENERATING",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "mood": "Intimidating and cold",
+      "location": "Clinic Lobby",
+      "characters": [
+        "Mira Chen",
+        "Agent Rachel Morse"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא מוזיקת פסיכולוגית מתוחה, המורכבת מפסנתר, צ'לו וסינתיסייזר בס. ה-BPM הוא בין 80-100, והמוזיקה נכנסת בזמן 00:05, כאשר מירה יוצאת מהקליניקה. המוזיקה בונה הדרגתית עד 00:15, כאשר רייצ'ל מורס מתקרבת למירה. המוזיקה מעבירה תחושת מתח וחשד.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX):\n* 00:00 - צעדי מירה על הרצפה\n* 00:03 - דלת הקליניקה נסגרת\n* 00:05 - צעדי רייצ'ל מורס על הרצפה\n* 00:10 - מירה מסתובבת כדי להתבונן ברייצ'ל\n* 00:12 - רייצ'ל מורס מושכת את תיקה\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע של מעבר אנשים בלובי\n* רעש של מכונות קפה ברקע\n* רעש רחוק של תנועה ברחוב\n* הרעשים הם ברמת עוצמה נמוכה, אך מעניקים תחושת סביבה.\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync):\n* MORSE: Ms. Chen? (00:08, רייצ'ל מדברת בקול רגוע, lip-sync צמוד)\n* MIRA: I don’t handle sensitive data. (00:12, מירה מדברת בקול רגוע, lip-sync צמוד)\n* MORSE: We both know that’s a lie. (00:15, רייצ'ל מדברת בקול מתוח, lip-sync צמוד)\n* MIRA: I’m a lifestyle journalist now. (00:18, מירה מדברת בקול רגוע, lip-sync צמוד)\n* MORSE: You’re a seeker. (00:20, רייצ'ל מדברת בקול מתוח, lip-sync צמוד)\n* MIRA: (שתיקה, 00:22)\n* MORSE: And sometimes, seekers find things they weren't meant to remember. (00:25, רייצ'ל מדברת בקול מתוח, lip-sync צמוד)\n\n🎚 מעברי סאונד וצמצומים (Mix moves):\n* 00:10 - המוזיקה דועכת קלות כדי לאפשר לדיאלוג להישמע בבירור\n* 00:20 - הרעש הרקעי דועך קלות כדי להדגיש את הדיאלוג\n\n⚡ רגעים מיוחדים:\n* 00:08 - רייצ'ל מורס נגעה בזרועה של מירה, מה שגורם למירה להסתובב ולהתבונן ברייצ'ל\n* 00:25 - רייצ'ל מורס מסיימת את הדיאלוג שלה, והמוזיקה דועכת קלות, מה שיוצר תחושת מתח.",
+      "directorSheet": {
+        "audio": "Foreground dialogue between Morse and Mira; mid-ground hum of clinic machinery. Tense psychological score (piano, cello, bass synth) enters at 00:05 at 90 BPM, building intensity as Morse reveals she knows Mira is a 'seeker'.",
+        "scene": "A sterile, expansive clinic lobby with floor-to-ceiling glass and harsh overhead fluorescent lighting. Foreground features a sleek reception desk; background shows blurred figures in lab coats, creating a sense of constant surveillance.",
+        "shots": "[00:00-00:03] — Frame 1: Morse approaches Mira in the sterile lobby, her silhouette cutting across the frame to establish dominance. [00:03-00:06] — Frame 2: Tight close-up on Morse’s icy face as she delivers the line 'We both know that’s a lie.' [00:06-00:09] — Frame 3: Mira’s reaction shot, her eyes darting as she tries to maintain her cover while looking cornered.",
+        "style": "Clinical and paranoid visual signature with a desaturated, cold-teal palette and shallow depth of field. High-contrast lighting emphasizes the sharp, metallic textures of the clinic, reflecting the series' theme of technological gaslighting.",
+        "camera": "A slow, predatory push-in on Morse during her accusation, followed by a shaky, handheld close-up on Mira to heighten the claustrophobic tension of the encounter.",
+        "effects": "Subtle digital chromatic aberration on the edges of the frame to suggest Mira's fracturing perception of reality.",
+        "character": "Mira Chen (30s, sharp-eyed, sleep-deprived, messy dark hair, tan trench coat) looks visibly rattled and defensive. Agent Rachel Morse (40s, icy blue eyes, blonde hair pulled into a tight bun, sharp grey suit) maintains a predatory, composed posture as she intercepts Mira.",
+        "technical": "2.39:1 aspect ratio, 9 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-15T15:53:04.349Z"
+      },
+      "pendingVideoJob": {
+        "jobId": "video_69dfc478c6d4819184994b97f4dd43e202a48c991c872ad8",
+        "model": "sora-2",
+        "provider": "openai",
+        "submittedAt": "2026-04-15T17:01:45.380Z",
+        "durationSeconds": 12
+      }
+    },
+    "styleConstraints": {
+      "prompt": "Cinematic neon-noir lighting, teal & amber color grade, anamorphic lens flare, shallow depth of field, modern surveillance-state set design."
+    },
+    "createdAt": "2026-04-15T15:35:46.460Z",
+    "updatedAt": "2026-04-15T17:01:45.381Z"
+  },
+  {
+    "id": "cmo07ps940005jcv54fhvsl7o",
+    "parentType": "EPISODE",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 8,
+    "title": "The First Anchor",
+    "summary": "Mira meets Lena Lee in a dimly lit bar. Lena shows Mira her tattoos, explaining they are the only things the 'editors' can't change.",
+    "scriptText": "LENA: Ink is permanent. They can rewrite your brain, but they can't rewrite your skin.\nMIRA: You’re saying they do this to people? Every night?\nLENA: While you sleep, the scalpel is digital. Look at your wrist, Mira. Did you always have that scar?",
+    "scriptSource": "AI_GENERATED",
+    "dialogueJson": null,
+    "targetDurationSeconds": 60,
+    "status": "VIDEO_REVIEW",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "mood": "Atmospheric and grim",
+      "location": "The Neon Underground Bar",
+      "characters": [
+        "Mira Chen",
+        "Lena Lee"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא מוזיקת ג'אז אינטימית, עם פסנתר, צ'לו וסינתיסייזר תת-בס, בקצב 90-100 BPM. המוזיקה נכנסת בדקה 0:05, כאשר מירה ולנה נפגשות, ובונה אווירה של מתח וסקרנות. המוזיקה מתגברת בדקה 0:20, כאשר לנה מראה למירה את הקעקועים שלה, ומעבירה את הרגש של חשיפה ותובנה.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX):\n* 0:00 - צליל דלת הבר נפתחת\n* 0:02 - צליל כוסות זכוכית נגעים\n* 0:05 - צליל מירה ולנה נוגעות ידיים\n* 0:10 - צליל לנה מראה למירה את הקעקועים שלה\n* 0:20 - צליל מירה מסתכלת על פרק ידה\n* 0:25 - צליל לנה מדברת, עם צליל שפתיים ונשימה\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע של בר, עם דיבורים רחוקים וצלילי כוסות זכוכית, בעוצמה 20-30%\n* צליל אורות הבר, עם זרם חשמלי קל, בעוצמה 10-20%\n* צליל הרוח מחוץ לבר, עם רעש עלים, בעוצמה 5-10%\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync):\n* לנה: \"Ink is permanent. They can rewrite your brain, but they can't rewrite your skin.\" - דיבור רגיל, עם לחץ שפתיים קל\n* מירה: \"You’re saying they do this to people? Every night?\" - דיבור מהיר, עם לחץ שפתיים חזק\n* לנה: \"While you sleep, the scalpel is digital. Look at your wrist, Mira. Did you always have that scar?\" - דיבור רגיל, עם לחץ שפתיים קל, ונשימה עמוקה\n\n🎚 מעברי סאונד וצמצומים (Mix moves):\n* 0:10 - המוזיקה מתגברת, והדיאלוג של לנה נשמע יותר בולט\n* 0:20 - האמביינס מופחת, והדיאלוג של מירה נשמע יותר בולט\n* 0:25 - המוזיקה מופחתת, והדיאלוג של לנה נשמע יותר רגיל\n\n⚡ רגעים מיוחדים:\n* 0:20 - צליל הקעקועים של לנה, עם צליל ייחודי ומרשים\n* 0:25 - צליל מירה מסתכלת על פרק ידה, עם צליל נשימה עמוקה ומרשים",
+      "directorSheet": {
+        "audio": "Intimate jazz with piano and cello over a 90-100 BPM sub-bass synth; Lena's voice is a low whisper, 'Ink is permanent,' followed by Mira's sharp intake of breath as the music swells.",
+        "scene": "A dimly lit, smoky underground bar with neon accents. The foreground features a low-lit table with empty glasses, while the background is a blur of hazy silhouettes and shifting green light.",
+        "shots": "[00:00-00:03] — Lena leans in close to Mira across the smoky neon table, her expression intense as she speaks about ink. [00:03-00:06] — Mira looks down at her wrist in shock, her face bathed in flickering green light. [00:06-00:09] — Extreme close-up of Mira’s wrist revealing a faint, jagged surgical scar glowing under the neon.",
+        "style": "A clinical yet paranoid visual signature with a high-contrast noir palette, heavy on deep shadows and flickering neon greens. The lens uses a shallow depth of field to isolate the characters, emphasizing the claustrophobic atmosphere of the psychological thriller.",
+        "camera": "Slow, creeping push-in on Lena during her dialogue, transitioning to a shaky handheld close-up on Mira to mirror her rising panic and internal instability.",
+        "effects": "Subtle digital jitter on the neon lights to suggest technological instability; the scar on Mira's wrist has a slight iridescent sheen under the green light.",
+        "character": "Mira Chen (30s, sharp-eyed, sleep-deprived, dark hair) appears visibly shaken and suspicious. Lena Lee (30s, edgy, tattoos visible on arms, intense gaze) leans in with a predatory yet protective posture, her expression intimate and knowing.",
+        "technical": "2.39:1 aspect ratio, 9 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-15T15:53:08.341Z"
+      }
+    },
+    "styleConstraints": {
+      "prompt": "Cinematic neon-noir lighting, teal & amber color grade, anamorphic lens flare, shallow depth of field, modern surveillance-state set design."
+    },
+    "createdAt": "2026-04-15T15:35:46.460Z",
+    "updatedAt": "2026-04-15T17:00:43.663Z"
+  }
+]

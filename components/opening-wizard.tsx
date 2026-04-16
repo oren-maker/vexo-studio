@@ -39,8 +39,8 @@ export function OpeningWizard({
   const [includeChars, setIncludeChars] = useState(true);
   const [charIds, setCharIds] = useState<string[]>(() => characters.slice(0, 4).map((c) => c.id));
 
-  const [model, setModel] = useState<ModelKey>("seedance");
-  const [duration, setDuration] = useState(12);
+  const [model, setModel] = useState<ModelKey>("sora-2");
+  const [duration, setDuration] = useState(20);
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
 
   const [prompt, setPrompt] = useState("");

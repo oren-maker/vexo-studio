@@ -71,20 +71,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (styles.length === 0) {
       throw Object.assign(new Error("AI returned no valid styles"), { statusCode: 502 });
     }
-    // Always include a guaranteed character-showcase option as the first/default
-    // style — user explicitly asked for this: "אחד מהם יהיה דיפולט עם הדמויות
-    // והשמות שלהם כפתיח". The build-prompt route respects the key so this one
-    // always forces character reveals + on-screen name cards.
+    // NEW DEFAULT — hybrid: artistic cinematic montage + character reveals.
+    // Combines the two most-used categories into one polished opening that
+    // lands on 20s with Sora 2 native audio.
+    const characterArtisticHybrid = {
+      key: "character-artistic-hybrid",
+      name: "היכרות + קטע אומנותי",
+      vibe: "פתיח דו-חלקי: 8 שניות סדרה אמנותית של מטאפורות חזותיות בסגנון הסדרה, ואז חשיפה דרמטית של כל דמות עם כרטיסיית שם, עד כותרת הסדרה.",
+      samplePrompt: `20-second two-act title sequence. ACT ONE (0-8s): artistic symbolic montage — a slow orchestrated series of cinematic vignettes that visually encode the series' core themes (use real tactile objects — letters igniting, water rippling over glass, light through a doorway — never abstract animation). Shot on 35mm film, anamorphic, natural color grade matching the genre. ACT TWO (8-18s): dramatic character reveals — each recurring cast member lands in a 1.5-2s signature hero shot in character, mid-meaningful-action, followed by a LARGE sans-serif name card that holds ≥1.5s. ACT THREE (18-20s): series title drops as a confident typographic beat, then a clean 1.5s fade-to-black for continuity. Continuous cinematic score ties everything together, a warm narrator reads each character's name aloud as their card lands, and the final title on the last beat.`,
+      isDefault: true as const,
+    };
     const characterShowcase = {
       key: "character-showcase",
       name: "היכרות עם הדמויות",
       vibe: "כל דמות בסצנת סיגנצ'ר קצרה, שם שלה נחשף על המסך בכרטיסיית טיפוגרפיה — פתיח קלאסי של סדרה.",
       samplePrompt: `Title-sequence reveal: cut through signature character beats — each recurring cast member gets a 1-2 second dramatic close-up in character, mid-action, followed by a clean sans-serif name card over a tonal color wash. Close-ups shot 50mm wide-open, cinematic key light with practical fill, matching the show's genre. The series title card lands last in a confident typographic beat.`,
-      isDefault: true as const,
     };
-    // AI provides the other styles (up to 3 more) to keep total at 4.
-    const aiStyles = styles.filter((s) => s.key !== "character-showcase").slice(0, 3);
-    return ok({ styles: [characterShowcase, ...aiStyles] });
+    // AI provides the other styles (up to 2 more) to keep total at 4.
+    const aiStyles = styles.filter((s) => s.key !== "character-showcase" && s.key !== "character-artistic-hybrid").slice(0, 2);
+    return ok({ styles: [characterArtisticHybrid, characterShowcase, ...aiStyles] });
   } catch (e) {
     const err = e as { message?: string; statusCode?: number };
     if (!err.message?.startsWith("[")) err.message = `[${stage}] ${err.message ?? "unknown"}`;

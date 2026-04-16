@@ -43,10 +43,24 @@ function actorLabel(actor: string, name: string | null): string {
   return name || "⚙ מערכת";
 }
 
-function formatCost(details: any): string | null {
-  if (!details) return null;
+const SORA_RATE: Record<string, number> = { "sora-2": 0.10, "sora-2-pro": 0.30 };
+const GROQ_ACTIONS = new Set(["critic_review", "sound_notes_generated", "remix_suggest", "director_sheet_generated", "breakdown_generated", "dialogue_generated", "lipsync_generated", "music_generated"]);
+
+function formatCost(action: string, details: any): string | null {
+  if (!details) {
+    if (GROQ_ACTIONS.has(action)) return "$0.003";
+    return null;
+  }
   const usd = details.estimateUsd ?? details.costUsd ?? details.unitCost ?? null;
   if (typeof usd === "number" && usd > 0) return `$${usd.toFixed(usd >= 0.01 ? 2 : 4)}`;
+  // Infer from model + duration for video entries
+  if (details.model && details.durationSeconds) {
+    const rate = SORA_RATE[details.model as string] ?? 0.10;
+    const cost = rate * Number(details.durationSeconds);
+    if (cost > 0) return `$${cost.toFixed(2)}`;
+  }
+  // Groq text-AI calls have no explicit cost in details — use flat estimate
+  if (GROQ_ACTIONS.has(action)) return "$0.003";
   return null;
 }
 
@@ -85,7 +99,7 @@ export default function SceneActivityLog({ sceneId }: { sceneId: string }) {
       <div className="space-y-2 max-h-[60vh] overflow-y-auto pe-1">
         {logs.map((log) => {
           const d = log.details || {};
-          const cost = formatCost(d);
+          const cost = formatCost(log.action, d);
           const detail = formatDetails(log.action, d);
           return (
             <div key={log.id} className="bg-bg-card border border-bg-main rounded-lg px-3 py-2 text-xs">

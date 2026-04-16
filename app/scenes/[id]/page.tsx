@@ -539,18 +539,39 @@ export default function ScenePage() {
                         <span>{m.durationSeconds ? `${m.durationSeconds}s` : ""}</span>
                         <span>{new Date(v.createdAt).toLocaleString()}</span>
                       </div>
-                      {!isPrimary && (
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {!isPrimary && (
+                          <button onClick={async () => {
+                            try {
+                              await api(`/api/v1/scenes/${scene.id}/set-active-video`, { method: "POST", body: { assetId: v.id } });
+                              location.reload();
+                            } catch (e) { alert((e as Error).message); }
+                          }} className="flex-1 text-[11px] px-2 py-1.5 rounded bg-accent text-white font-semibold">⭐ {he ? "ראשי" : "Main"}</button>
+                        )}
+                        {(m.provider === "openai" || /sora/i.test(m.model ?? "")) && (
+                          <button onClick={() => setRemixModal({ assetId: v.id, model: m.model ?? "sora-2" })}
+                            className="flex-1 text-[11px] px-2 py-1.5 rounded border border-status-warnText text-status-warnText font-semibold">✨ Remix</button>
+                        )}
                         <button onClick={async () => {
                           try {
-                            await api(`/api/v1/scenes/${scene.id}/set-active-video`, { method: "POST", body: { assetId: v.id } });
-                            location.reload();
-                          } catch (e) { alert((e as Error).message); }
-                        }} className="mt-2 w-full text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">⭐ {he ? "קבע כראשי" : "Set as main"}</button>
-                      )}
-                      {(m.provider === "openai" || /sora/i.test(m.model ?? "")) && (
-                        <button onClick={() => setRemixModal({ assetId: v.id, model: m.model ?? "sora-2" })}
-                          className="mt-1 w-full text-[11px] px-2 py-1 rounded border border-status-warnText text-status-warnText font-semibold">✨ {he ? "Remix (שמירת זהות)" : "Remix (keep identity)"}</button>
-                      )}
+                            const res = await fetch(v.fileUrl);
+                            const blob = await res.blob();
+                            const a = document.createElement("a");
+                            a.href = URL.createObjectURL(blob);
+                            a.download = `scene-${scene.sceneNumber}-${v.id.slice(-6)}.mp4`;
+                            a.click();
+                            URL.revokeObjectURL(a.href);
+                          } catch { window.open(v.fileUrl, "_blank"); }
+                        }} className="flex-1 text-[11px] px-2 py-1.5 rounded border border-bg-main text-text-muted font-semibold hover:bg-bg-main">⬇ {he ? "הורד" : "DL"}</button>
+                        <button onClick={() => {
+                          const url = `${window.location.origin}${v.fileUrl}`;
+                          navigator.clipboard.writeText(url).then(() => {
+                            const btn = document.activeElement as HTMLButtonElement;
+                            const orig = btn?.textContent ?? "";
+                            if (btn) { btn.textContent = he ? "✓ הועתק" : "✓ Copied"; setTimeout(() => { btn.textContent = orig; }, 1500); }
+                          });
+                        }} className="flex-1 text-[11px] px-2 py-1.5 rounded border border-bg-main text-text-muted font-semibold hover:bg-bg-main">🔗 {he ? "קישור" : "Link"}</button>
+                      </div>
                     </div>
                   </div>
                 );

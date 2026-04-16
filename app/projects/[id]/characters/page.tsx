@@ -207,7 +207,7 @@ export default function CharactersPage() {
                 <div className="flex justify-between items-start gap-2">
                   <Link href={`/characters/${c.id}`} className="flex-1 min-w-0 hover:underline">
                     <div className="font-semibold">{c.name}</div>
-                    <div className="text-xs text-text-muted">{[c.roleType, c.gender, c.ageRange].filter(Boolean).join(" · ")}</div>
+                    <div className="text-xs text-text-muted" data-no-translate>{[c.roleType, c.gender, c.ageRange].filter(Boolean).join(" · ")}</div>
                   </Link>
                   <div className="flex gap-1">
                     <button onClick={() => setEditing(c)} className="text-xs px-2 py-1 rounded border border-bg-card">{lang === "he" ? "ערוך" : "Edit"}</button>
@@ -300,44 +300,24 @@ export default function CharactersPage() {
                         </div>
                       );
                     }
-                    // No composite yet — show a CTA + the legacy 5-cell grid below.
+                    // Legacy data (old 5-angle sets with no sheet / no composite) — show
+                    // a single CTA to regenerate into the new single-sheet format.
+                    // No more 5-cell grid renders.
                     return (
-                      <div className="bg-[#121216] rounded-lg p-3 space-y-2">
+                      <div className="bg-[#121216] rounded-lg p-4 text-center">
+                        <div className="text-4xl mb-2">🎭</div>
+                        <div className="text-xs text-text-muted mb-3">
+                          {lang === "he"
+                            ? "לדמות הזו יש תמונות בפורמט הישן (זוויות נפרדות). לחץ למטה כדי לעבור לגיליון דמות יחיד בתמונה אחת."
+                            : "This character has images in the legacy format (separate angles). Click below to migrate to a single-image character sheet."}
+                        </div>
                         <button
-                          onClick={() => buildComposite(c.id)}
+                          onClick={() => regenerateAll(c.id, c.name)}
                           disabled={genBusy === c.id}
-                          className="w-full py-2 rounded bg-accent/10 hover:bg-accent/20 border border-accent/40 text-accent text-xs font-semibold disabled:opacity-50"
+                          className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-semibold disabled:opacity-50"
                         >
-                          {genBusy === c.id ? "🔄 בונה…" : (lang === "he" ? "🎨 בנה תמונת רפרנס מאוחדת (לסורה/VEO)" : "🎨 Build composite reference (for Sora/VEO)")}
+                          {genBusy === c.id ? "🔄 בונה…" : (lang === "he" ? "🎨 צור גיליון דמות חדש (~$0.04)" : "🎨 Build new character sheet (~$0.04)")}
                         </button>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {["front","three-quarter","profile"].map((angle) => {
-                            const m = c.media.find((x) => x.metadata?.angle === angle);
-                            const idx = m ? c.media.indexOf(m) : -1;
-                            return m ? (
-                              <button key={angle} onClick={() => setLightbox({ character: c, index: idx })} className="relative aspect-[3/4] rounded overflow-hidden bg-bg-card group">
-                                <img src={m.fileUrl} alt={angle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] py-0.5 text-center">{angle === "front" ? "Front" : angle === "three-quarter" ? "3/4" : "Profile"}</span>
-                              </button>
-                            ) : <div key={angle} className="aspect-[3/4] rounded bg-bg-card/50 grid place-items-center text-text-muted text-[10px]">{angle}</div>;
-                          })}
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {["back","action"].map((angle) => {
-                            const m = c.media.find((x) => x.metadata?.angle === angle);
-                            const idx = m ? c.media.indexOf(m) : -1;
-                            return m ? (
-                              <button key={angle} onClick={() => setLightbox({ character: c, index: idx })} className="relative aspect-video rounded overflow-hidden bg-bg-card group">
-                                <img src={m.fileUrl} alt={angle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] py-0.5 text-center">{angle === "back" ? "Back View" : "Action"}</span>
-                              </button>
-                            ) : <div key={angle} className="aspect-video rounded bg-bg-card/50 grid place-items-center text-text-muted text-[10px]">{angle}</div>;
-                          })}
-                        </div>
-                        <div className="text-center">
-                          <span className="text-accent text-sm font-bold">{c.name}</span>
-                          {c.roleType && <span className="text-text-muted text-xs ms-2">— {c.roleType}</span>}
-                        </div>
                       </div>
                     );
                   })()}

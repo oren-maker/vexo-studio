@@ -5,6 +5,7 @@
 import { put } from "@vercel/blob";
 import { prisma } from "./db";
 import { logUsage } from "./usage-tracker";
+import { generateImageFromPrompt } from "./gemini-image";
 import { submitSoraVideo, pollSoraVideo, downloadSoraVideo, SORA_PRICING, type SoraModel, type SoraSeconds, type SoraSize } from "@/lib/providers/openai-sora";
 
 async function updateProgress(videoId: string, data: {

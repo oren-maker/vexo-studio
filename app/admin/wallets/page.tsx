@@ -185,6 +185,7 @@ export default function BudgetsTokensPage() {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {learning.byEngine
+                    .filter((e) => e.engine && e.engine !== "unknown" && e.engine !== "other") // never show "לא ידוע"
                     .sort((a, b) => b.usdCost - a.usdCost)
                     .map((e) => (
                       <div key={e.engine} className="bg-white rounded p-2 border border-bg-main">

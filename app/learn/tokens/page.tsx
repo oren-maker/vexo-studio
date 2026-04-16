@@ -123,7 +123,9 @@ export default async function TokensPage() {
           {/* By engine */}
           <Section title="לפי מנוע">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {byEngine.map((e) => (
+              {byEngine
+                .filter((e) => e.engine && e.engine !== "unknown" && e.engine !== "other")
+                .map((e) => (
                 <div key={e.engine} className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-1">
                     <div className="text-white font-bold capitalize">{e.engine}</div>

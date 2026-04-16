@@ -125,6 +125,22 @@ export function calcCost(model: string, inputTokens: number, outputTokens: numbe
   return Math.round((inputCost + outputCost + imageCost + videoCost) * 1_000_000) / 1_000_000;
 }
 
+// Last-resort engine inference when the model isn't in PRICING.
+// Keeps brand-new models from polluting the dashboard with "unknown".
+function inferEngineFromModel(model: string): string {
+  const m = (model || "").toLowerCase();
+  if (m.includes("veo") || m.includes("imagen-video")) return "gemini-video";
+  if (m.includes("sora")) return "openai-video";
+  if (m.includes("image") || m.includes("nano-banana") || m.includes("imagen")) return "gemini-image";
+  if (m.includes("gemini") || m.includes("bison") || m.includes("flash")) return "gemini";
+  if (m.includes("claude") || m.includes("haiku") || m.includes("sonnet") || m.includes("opus")) return "claude";
+  if (m.includes("gpt") || m.includes("o1") || m.startsWith("text-")) return "openai";
+  if (m.includes("eleven")) return "elevenlabs";
+  if (m.includes("luma") || m.includes("ray")) return "luma";
+  if (m.includes("fal") || m.includes("seedance") || m.includes("kling") || m.includes("vidu")) return "fal";
+  return "other"; // last resort — never "unknown" again
+}
+
 export async function logUsage(params: {
   model: string;
   operation: Operation;
@@ -137,7 +153,7 @@ export async function logUsage(params: {
   meta?: Record<string, any>;
 }): Promise<void> {
   const pricing = (PRICING as any)[params.model];
-  const engine = pricing?.engine || "unknown";
+  const engine = pricing?.engine || inferEngineFromModel(params.model);
   const usdCost = calcCost(
     params.model,
     params.inputTokens || 0,

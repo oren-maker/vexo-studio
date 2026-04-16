@@ -15,8 +15,9 @@ export default function AddSource() {
 
   // Direct URL mode
   const [url, setUrl] = useState("");
-  const [prompt, setPrompt] = useState("");
+  const [urlKind, setUrlKind] = useState<"prompt" | "guide">("prompt");
   const [urlBusy, setUrlBusy] = useState(false);
+  const [urlStage, setUrlStage] = useState("");
   const [urlErr, setUrlErr] = useState("");
 
   // Instagram mode
@@ -28,19 +29,41 @@ export default function AddSource() {
   async function onUrlSubmit(e: React.FormEvent) {
     e.preventDefault();
     setUrlBusy(true); setUrlErr("");
-    const res = await learnFetch("/api/v1/learn/sources", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, prompt }),
-    });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      setUrlErr(j.error || "שגיאה");
+    try {
+      if (urlKind === "guide") {
+        setUrlStage("📖 מוריד את הדף ומחלץ שלבים…");
+        const res = await learnFetch("/api/v1/learn/guides/import-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, lang: "he" }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || "שגיאה");
+        }
+        const j = await res.json();
+        setUrlStage("✅ נוצר מדריך");
+        router.push(`/learn/guides/${j.guide.slug}/edit`);
+      } else {
+        setUrlStage("🎬 מוריד סרטון ומחלץ פרומפט…");
+        const res = await learnFetch("/api/v1/learn/sources", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || "שגיאה");
+        }
+        const j = await res.json();
+        setUrlStage("✅ נוצר מקור");
+        router.push(`/learn/sources/${j.id}`);
+      }
+    } catch (err: any) {
+      setUrlErr(err?.message || "שגיאה");
+      setUrlStage("");
       setUrlBusy(false);
-      return;
     }
-    const j = await res.json();
-    router.push(`/learn/sources/${j.id}`);
   }
 
   function runInstagram() {
@@ -110,39 +133,65 @@ export default function AddSource() {
       {mode === "url" && (
         <form onSubmit={onUrlSubmit} className="bg-slate-900/60 border border-slate-800 rounded-xl p-6 flex flex-col gap-5">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">URL ישיר למקור וידאו *</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">URL של הדף / הוידאו *</label>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               required
               type="url"
               dir="ltr"
-              placeholder="https://videos.pexels.com/.../video.mp4"
+              placeholder="https://example.com/article  או  https://videos.pexels.com/.../video.mp4"
               className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:border-cyan-500 focus:outline-none"
             />
             <div className="text-[11px] text-slate-500 mt-1">
-              Pexels, Pixabay, Vercel Blob, או MP4/webm ישיר. YouTube/Vimeo לא נתמכים כ-URL — השתמש בטאב Instagram או העלאה ידנית.
+              כל URL ציבורי נתמך. בוחרים מה לחלץ למטה — המערכת מחליטה בעצמה איך לקרוא את הדף.
             </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">הפרומפט של המדריך *</label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              required
-              rows={5}
-              className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:border-cyan-500 focus:outline-none"
-            />
+            <label className="block text-sm font-medium text-slate-300 mb-2">מה לחלץ מהקישור? *</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setUrlKind("prompt")}
+                className={`p-4 rounded-lg border-2 text-right transition ${
+                  urlKind === "prompt"
+                    ? "border-cyan-500 bg-cyan-500/10"
+                    : "border-slate-700 bg-slate-950/40 hover:border-slate-500"
+                }`}
+              >
+                <div className="text-lg font-bold mb-1">📝 פרומפט</div>
+                <div className="text-[11px] text-slate-400">מוריד את הסרטון, מנתח אותו ומחלץ פרומפט מוכן לשחזור</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setUrlKind("guide")}
+                className={`p-4 rounded-lg border-2 text-right transition ${
+                  urlKind === "guide"
+                    ? "border-cyan-500 bg-cyan-500/10"
+                    : "border-slate-700 bg-slate-950/40 hover:border-slate-500"
+                }`}
+              >
+                <div className="text-lg font-bold mb-1">📖 מדריך</div>
+                <div className="text-[11px] text-slate-400">שואב כותרת, תיאור ושלבים מהדף ויוצר מדריך מובנה לעריכה</div>
+              </button>
+            </div>
           </div>
+
+          {urlBusy && urlStage && (
+            <div className="bg-slate-800/60 border border-cyan-500/30 rounded-lg p-3 text-sm text-cyan-200">
+              {urlStage}
+            </div>
+          )}
 
           {urlErr && <div className="bg-red-500/10 border border-red-500/30 text-red-300 rounded-lg p-3 text-sm">{urlErr}</div>}
 
           <div className="flex gap-2">
             <button
-              disabled={urlBusy || !url || !prompt}
+              disabled={urlBusy || !url}
               className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-medium px-6 py-2.5 rounded-lg text-sm disabled:opacity-50"
             >
-              {urlBusy ? "שולח..." : "🚀 הפעל pipeline"}
+              {urlBusy ? "שולח..." : urlKind === "guide" ? "🚀 צור מדריך" : "🚀 צור פרומפט"}
             </button>
             <button type="button" onClick={() => router.back()} className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2.5 rounded-lg text-sm">
               ביטול

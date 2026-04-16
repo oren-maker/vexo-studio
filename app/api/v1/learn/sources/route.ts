@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   const { url, blobUrl, title, thumbnail, duration, prompt, sourceType, addedBy } = body;
 
   const videoUrl = blobUrl || url;
-  if (!videoUrl || !prompt) return NextResponse.json({ error: "url/blobUrl + prompt נדרשים" }, { status: 400 });
+  if (!videoUrl) return NextResponse.json({ error: "url/blobUrl נדרש" }, { status: 400 });
 
   const check = validateUrl(videoUrl);
   if (!check.ok) return NextResponse.json({ error: check.reason }, { status: 400 });
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       title: title || null,
       thumbnail: thumbnail || null,
       duration: duration || null,
-      prompt: String(prompt).trim(),
+      prompt: prompt ? String(prompt).trim() : "Extract the prompt that generated this video",
       addedBy: addedBy || null,
       status: "pending",
     },

@@ -120,19 +120,9 @@ Be specific with numbers. Reference actual episode/scene counts. Give dollar amo
       { role: "user", content: `Production data as of ${new Date().toISOString().split("T")[0]}:\n\n${dataBlock}` },
     ], { temperature: 0.5, maxTokens: 2000, description: "Series sync · daily analysis" });
 
-    // 5. Store in KnowledgeNode (persistent) + DailyBrainCache (for brain context)
+    // 5. Store in DailyBrainCache — the brain reads this for context.
+    // (KnowledgeNode requires a VideoAnalysis FK — skip for this use case.)
     const today = new Date().toISOString().split("T")[0];
-
-    await prisma.knowledgeNode.create({
-      data: {
-        type: "series_analysis",
-        title: `סקירת סדרות יומית — ${today}`,
-        content: analysis,
-        confidence: 0.95,
-        sourceType: "auto_sync",
-        sourceId: "series-sync",
-      },
-    });
 
     await prisma.dailyBrainCache.upsert({
       where: { date: today },

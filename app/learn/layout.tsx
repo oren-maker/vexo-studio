@@ -28,6 +28,7 @@ const groups = [
     items: [
       { href: "/learn/brain/chat", label: "שיחה עם הבמאי", icon: "🗣" },
       { href: "/learn/brain", label: "הבמאי", icon: "🎬" },
+      { href: "/learn/brain/upgrades", label: "שדרוגים", icon: "⬆️" },
       { href: "/learn/insights", label: "תובנות", icon: "📊" },
       { href: "/learn/consciousness", label: "תודעה", icon: "👁" },
       { href: "/learn", label: "Feed", icon: "📚" },

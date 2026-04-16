@@ -21,9 +21,9 @@ const Body = z.object({
     "google-veo-3.1-fast-generate-preview",
     "google-veo-3.1-generate-preview",
     "google-veo-3.1-lite-generate-preview",
-  ]).default("veo3-fast"),
+  ]).default("sora-2"),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).default("16:9"),
-  durationSeconds: z.number().int().min(1).max(20).optional(),
+  durationSeconds: z.number().int().min(1).max(20).default(20),
 }).partial();
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -219,7 +219,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const refQuery = [scene.title, scene.summary].filter(Boolean).join(" ");
     const refs = await fetchReferencePrompts(refQuery, 3);
     const referenceCtx = buildReferenceContext(refs);
-    const prompt = referenceCtx ? `${basePrompt}${referenceCtx}` : basePrompt;
+    // Every scene ends with a gentle fade-out to black — smoother transitions
+    // when clips are later merged into a full episode.
+    const fadeDirective = "END OF SCENE: in the last 1.5 seconds, gradually fade to black.";
+    const prompt = [basePrompt, referenceCtx, fadeDirective].filter(Boolean).join("\n\n");
 
     // Build webhook URL pointing back at us
     const duration = body.durationSeconds ?? 5;

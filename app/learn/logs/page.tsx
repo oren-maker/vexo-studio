@@ -172,13 +172,24 @@ function SnapshotsTable({ rows }: { rows: any[] }) {
     <table className="w-full text-sm">
       <thead className="bg-slate-800/60">
         <tr>
-          <Th>זמן</Th><Th>Sources</Th><Th>Nodes</Th><Th>ממוצע טכ׳</Th><Th>% timecodes</Th><Th>סיכום שינוי</Th>
+          <Th>זמן</Th><Th>איזור</Th><Th>Sources</Th><Th>Nodes</Th><Th>ממוצע טכ׳</Th><Th>% timecodes</Th><Th>סיכום שינוי</Th>
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-800">
         {rows.map((r) => (
           <tr key={r.id} className="hover:bg-slate-800/30">
             <Td className="font-mono text-slate-500">{fmt(r.takenAt)}</Td>
+            <Td><span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+              r.kind === "series_analysis" ? "bg-purple-500/20 text-purple-300" :
+              r.kind === "daily-consciousness" ? "bg-pink-500/20 text-pink-300" :
+              r.kind === "daily-report" ? "bg-blue-500/20 text-blue-300" :
+              "bg-slate-700 text-slate-300"
+            }`}>{
+              r.kind === "series_analysis" ? "📊 סדרות" :
+              r.kind === "daily-consciousness" ? "👁 תודעה" :
+              r.kind === "daily-report" ? "📋 דוח" :
+              r.kind === "hourly" ? "🕐 שעתי" : r.kind ?? "—"
+            }</span></Td>
             <Td>{r.sourcesCount}</Td>
             <Td>{r.nodesCount}</Td>
             <Td className="font-mono">{r.avgTechniques}</Td>

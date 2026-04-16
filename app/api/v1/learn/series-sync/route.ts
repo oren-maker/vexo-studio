@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     return ok({
       synced: summaries.length,
       projects: summaries.map((s) => ({ name: s.name, episodes: s.episodes, scenes: s.scenes, cost: s.totalCostUsd })),
-      analysisLength: analysis.length,
+      summaryLength: summary.length,
       date: today,
     });
   } catch (e) { return handleError(e); }

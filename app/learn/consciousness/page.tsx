@@ -97,6 +97,7 @@ export default async function ConsciousnessPage() {
                 <thead>
                   <tr className="bg-slate-800/60 text-right text-[10px] text-slate-400 uppercase">
                     <th className="px-3 py-2">זמן</th>
+                    <th className="px-3 py-2">איזור</th>
                     <th className="px-3 py-2">מקורות</th>
                     <th className="px-3 py-2">Nodes</th>
                     <th className="px-3 py-2">ממוצע טכניקות</th>
@@ -110,6 +111,19 @@ export default async function ConsciousnessPage() {
                       <tr key={s.id} className="hover:bg-slate-800/30">
                         <td className="px-3 py-2 text-slate-500 font-mono whitespace-nowrap">
                           {new Date(s.takenAt).toLocaleString("he-IL", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                            s.kind === "series_analysis" ? "bg-purple-500/20 text-purple-300" :
+                            s.kind === "daily-consciousness" ? "bg-pink-500/20 text-pink-300" :
+                            s.kind === "daily-report" ? "bg-blue-500/20 text-blue-300" :
+                            "bg-slate-700 text-slate-300"
+                          }`}>{
+                            s.kind === "series_analysis" ? "📊 סדרות" :
+                            s.kind === "daily-consciousness" ? "👁 תודעה" :
+                            s.kind === "daily-report" ? "📋 דוח יומי" :
+                            s.kind === "hourly" ? "🕐 שעתי" : s.kind
+                          }</span>
                         </td>
                         <td className="px-3 py-2 text-white">
                           {s.sourcesCount}

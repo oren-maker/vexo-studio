@@ -105,9 +105,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         } else {
           skipped.push(character.name);
         }
-        const epIds = (c.appearsInEpisodes ?? [])
-          .map((n) => epByNumber.get(n)?.id)
-          .filter((x): x is string => !!x);
+        // Recurring-role characters (Protagonist/Antagonist/Mentor/Supporting/Friend/Teacher)
+        // are auto-linked to EVERY episode in the project, not just ones the AI flagged.
+        // The AI sometimes misses recurring cast when a specific episode's script is short.
+        const RECURRING_ROLES = new Set(["Protagonist", "Antagonist", "Mentor Figure", "Supporting Character", "Friend", "Teacher"]);
+        const epIds = RECURRING_ROLES.has(c.roleType ?? "")
+          ? allEpisodes.map((e) => e.id)
+          : (c.appearsInEpisodes ?? []).map((n) => epByNumber.get(n)?.id).filter((x): x is string => !!x);
         if (epIds.length > 0) {
           await prisma.episodeCharacter.createMany({
             data: epIds.map((epId) => ({ episodeId: epId, characterId: character!.id })),

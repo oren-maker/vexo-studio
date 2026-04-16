@@ -232,7 +232,20 @@ export default function SeasonPage() {
   async function generateOneGallery(cid: string, mode: "one" | "rest" = "one") {
     setCharBusy(cid);
     try {
-      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: mode === "rest" ? { count: "rest" } : { count: 1 } });
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: {} });
+      const updated = await api<ProjectCharacter[]>(`/api/v1/projects/${season!.series.project.id}/characters`);
+      setCharacters(updated);
+    } catch (e) { alert((e as Error).message); }
+    finally { setCharBusy(null); }
+  }
+
+  async function regenerateCharacter(cid: string, name: string) {
+    if (!confirm(lang === "he"
+      ? `למחוק את הגיליון של ${name} וליצור חדש? (~$0.04)`
+      : `Wipe ${name}'s sheet and generate a fresh one? (~$0.04)`)) return;
+    setCharBusy(cid);
+    try {
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: { regenerate: true } });
       const updated = await api<ProjectCharacter[]>(`/api/v1/projects/${season!.series.project.id}/characters`);
       setCharacters(updated);
     } catch (e) { alert((e as Error).message); }
@@ -594,7 +607,13 @@ export default function SeasonPage() {
                         <button disabled={charBusy === c.id} onClick={() => generateOneGallery(c.id, "rest")} className="text-[11px] px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50" title={lang === "he" ? "מעבר לפורמט תמונה יחידה" : "Migrate to single-image sheet"}>
                           {charBusy === c.id ? "…" : (lang === "he" ? "🔄 צור גיליון" : "🔄 Build sheet")}
                         </button>
-                      ) : null}
+                      ) : (
+                        // Sheet exists → offer rebuild. Fire the regenerate flow which
+                        // wipes and generates a fresh sheet in one call (~$0.04).
+                        <button disabled={charBusy === c.id} onClick={() => regenerateCharacter(c.id, c.name)} className="text-[11px] px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50" title={lang === "he" ? "מוחק ומייצר גיליון חדש (~$0.04)" : "Wipe and generate a fresh sheet (~$0.04)"}>
+                          {charBusy === c.id ? "…" : (lang === "he" ? "🔄 ייצר מחדש" : "🔄 Regenerate")}
+                        </button>
+                      )}
                       <span className="text-[10px] text-text-muted num">${c.media.reduce((s, m) => s + (m.cost ?? 0), 0).toFixed(3)}</span>
                     </div>
                   </div>

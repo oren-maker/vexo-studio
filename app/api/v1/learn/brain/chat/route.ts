@@ -226,7 +226,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
 
 ⚠️ **\`type\` חייב להיות EXACTLY אחד מהשמות באנגלית למטה.** אסור עברית, אסור "כן"/"לא"/"בצע", אסור שם שהמצאת. אם אתה לא בטוח איזו פעולה צריך — אל תחזיר action בכלל ושאל את אורן.
 
-7 סוגי פעולות שאתה יכול לבצע:
+11 סוגי פעולות שאתה יכול לבצע:
 1. \`compose_prompt\` — יצירת **פרומפט וידאו** מתיאור/נושא.
    פרמטרים: \`brief\` (תיאור הנושא, חובה) · \`sceneId\` (אופציונלי — אם הפרומפט הוא לסצנה ספציפית בהפקה)
    📌 **כלל קריטי לעבודה על פרקים/סצנות:**
@@ -238,6 +238,17 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
 4. \`ai_guide\` — יצירת **מדריך** מנושא (לא פרומפט!). פרמטרים: topic, lang
 5. \`import_instagram_guide\` — Instagram/Reel → מדריך. פרמטרים: url, lang
 6. \`import_source\` — Instagram/TikTok → LearnSource (פרומפט אוטומטי מפוסט קיים). פרמטרים: url
+7. \`update_reference\` — עדכון רפרנס ידע (רגש/סאונד/צילום/יכולת). פרמטרים: id, longDesc
+8. \`create_episode\` — יצירת **פרק חדש** בעונה. פרמטרים: \`seasonId\` (חובה — או יילקח מ-page context אם אתה בעמוד עונה), \`title\` (חובה, שם הפרק), \`synopsis\` (אופציונלי, תקציר 2-4 משפטים), \`targetDurationSeconds\` (אופציונלי).
+   מספר הפרק נבחר אוטומטית (הבא בתור).
+9. \`update_episode\` — עדכון פרק קיים. פרמטרים: \`episodeId\` (חובה — או מ-page context), \`title\`/\`synopsis\`/\`status\`/\`targetDurationSeconds\` (לפחות אחד). סטטוסים: DRAFT, READY, IN_PROGRESS, DONE.
+10. \`create_scene\` — יצירת **סצנה חדשה** בפרק. פרמטרים: \`episodeId\` (חובה — או מ-page context של פרק/סצנה), \`title\` (אופציונלי), \`summary\` (אופציונלי — תיאור חזותי קצר של הסצנה), \`scriptText\` (אופציונלי — פרומפט וידאו מלא אם יש לך). מספר הסצנה נבחר אוטומטית.
+11. \`update_scene\` — עדכון סצנה קיימת. פרמטרים: \`sceneId\` (חובה — או מ-page context), \`title\`/\`summary\`/\`scriptText\`/\`status\`/\`targetDurationSeconds\` (לפחות אחד).
+
+🎬 **זרימת עבודה לייצור אוטונומי של פרק שלם** (כש-אורן אומר "תייצר פרק חדש על X"):
+א. החזר \`create_episode\` עם title+synopsis. חכה לאישור.
+ב. אחרי אישור — המשתמש יחזיר לך את episodeId. אז החזר \`create_scene\` אחד בלבד (סצנה 1) עם summary. חכה לאישור.
+ג. המשך אחת-אחת עד סיום (2-6 סצנות בד"כ). **לעולם אל תיצור יותר מפעולה אחת בתשובה.**
 
 📦 שמירה — כל פעולה שומרת אוטומטית ב-DB: פרומפט → LearnSource · מדריך → Guide · סרטון → GeneratedVideo. אין צורך לבקש שמירה.
 

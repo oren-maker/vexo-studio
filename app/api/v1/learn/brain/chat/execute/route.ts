@@ -267,6 +267,90 @@ export async function POST(req: NextRequest) {
       const updated = await prisma.brainReference.update({ where: { id }, data });
       resultUrl = `/learn/knowledge?tab=${updated.kind}`;
       resultText = `✅ עדכנתי את ${updated.kind === "emotion" ? "הרגש" : "הסאונד"} "${updated.name}".`;
+    } else if (action.type === "create_episode") {
+      // Autonomous episode creation. seasonId explicit or from page ctx.
+      const seasonId = String(action.seasonId || "").trim() || (ctxKind === "season" ? ctxId : null);
+      if (!seasonId) return NextResponse.json({ error: "seasonId חסר — פתח עמוד עונה או שלח seasonId במפורש" }, { status: 400 });
+      const title = String(action.title || "").trim();
+      if (!title) return NextResponse.json({ error: "title required" }, { status: 400 });
+      const synopsis = typeof action.synopsis === "string" ? action.synopsis.trim() : null;
+      const targetDurationSeconds = typeof action.targetDurationSeconds === "number" ? action.targetDurationSeconds : null;
+      // Auto-pick next episodeNumber
+      const last: any = await (prisma as any).episode?.findFirst({
+        where: { seasonId },
+        orderBy: { episodeNumber: "desc" },
+        select: { episodeNumber: true },
+      });
+      const nextNumber = (last?.episodeNumber ?? 0) + 1;
+      const ep: any = await (prisma as any).episode.create({
+        data: { seasonId, episodeNumber: nextNumber, title, synopsis, targetDurationSeconds, status: "DRAFT" },
+      });
+      resultUrl = `/seasons/${seasonId}/episodes/${ep.id}`;
+      resultText = `✅ יצרתי פרק חדש: פרק ${nextNumber} — "${title}"${synopsis ? ` · ${synopsis.slice(0, 120)}` : ""}.`;
+    } else if (action.type === "update_episode") {
+      const episodeId = String(action.episodeId || "").trim() || (ctxKind === "episode" ? ctxId : null);
+      if (!episodeId) return NextResponse.json({ error: "episodeId חסר" }, { status: 400 });
+      const data: Record<string, any> = {};
+      if (typeof action.title === "string") data.title = action.title.trim();
+      if (typeof action.synopsis === "string") data.synopsis = action.synopsis.trim();
+      if (typeof action.status === "string") data.status = action.status;
+      if (typeof action.targetDurationSeconds === "number") data.targetDurationSeconds = action.targetDurationSeconds;
+      if (Object.keys(data).length === 0) return NextResponse.json({ error: "no fields to update" }, { status: 400 });
+      const ep: any = await (prisma as any).episode.update({ where: { id: episodeId }, data });
+      resultUrl = `/seasons/${ep.seasonId}/episodes/${ep.id}`;
+      resultText = `✅ עדכנתי פרק ${ep.episodeNumber}: "${ep.title}".`;
+    } else if (action.type === "create_scene") {
+      // episodeId explicit or from page ctx (episode/scene)
+      let episodeId = String(action.episodeId || "").trim();
+      if (!episodeId && ctxKind === "episode") episodeId = ctxId || "";
+      if (!episodeId && ctxKind === "scene" && ctxId) {
+        const parentScene: any = await (prisma as any).scene?.findUnique({ where: { id: ctxId }, select: { episodeId: true } });
+        if (parentScene?.episodeId) episodeId = parentScene.episodeId;
+      }
+      if (!episodeId) return NextResponse.json({ error: "episodeId חסר — פתח עמוד פרק או שלח episodeId במפורש" }, { status: 400 });
+      const title = typeof action.title === "string" ? action.title.trim() : null;
+      const summary = typeof action.summary === "string" ? action.summary.trim() : null;
+      const scriptText = typeof action.scriptText === "string" ? action.scriptText.trim() : null;
+      // Auto-pick next sceneNumber for this episode
+      const lastScene: any = await (prisma as any).scene?.findFirst({
+        where: { episodeId },
+        orderBy: { sceneNumber: "desc" },
+        select: { sceneNumber: true },
+      });
+      const nextNumber = (lastScene?.sceneNumber ?? 0) + 1;
+      const ep: any = await (prisma as any).episode?.findUnique({ where: { id: episodeId }, select: { seasonId: true } });
+      const scene: any = await (prisma as any).scene.create({
+        data: {
+          parentType: "episode",
+          parentId: episodeId,
+          episodeId,
+          sceneNumber: nextNumber,
+          title,
+          summary,
+          scriptText,
+          scriptSource: scriptText ? "brain-create" : null,
+          status: "DRAFT",
+        },
+      });
+      resultUrl = ep ? `/seasons/${ep.seasonId}/episodes/${episodeId}/scenes/${scene.id}` : `/scenes/${scene.id}`;
+      resultText = `✅ יצרתי סצנה חדשה: סצנה ${nextNumber}${title ? ` — "${title}"` : ""}${summary ? ` · ${summary.slice(0, 120)}` : ""}.`;
+    } else if (action.type === "update_scene") {
+      const sceneId = String(action.sceneId || "").trim() || (ctxKind === "scene" ? ctxId : null);
+      if (!sceneId) return NextResponse.json({ error: "sceneId חסר" }, { status: 400 });
+      const data: Record<string, any> = {};
+      if (typeof action.title === "string") data.title = action.title.trim();
+      if (typeof action.summary === "string") data.summary = action.summary.trim();
+      if (typeof action.scriptText === "string") { data.scriptText = action.scriptText.trim(); data.scriptSource = "brain-update"; }
+      if (typeof action.status === "string") data.status = action.status;
+      if (typeof action.targetDurationSeconds === "number") data.targetDurationSeconds = action.targetDurationSeconds;
+      if (Object.keys(data).length === 0) return NextResponse.json({ error: "no fields to update" }, { status: 400 });
+      const scene: any = await (prisma as any).scene.update({
+        where: { id: sceneId },
+        data,
+        include: { episode: { select: { id: true, seasonId: true, episodeNumber: true } } },
+      });
+      resultUrl = scene.episode ? `/seasons/${scene.episode.seasonId}/episodes/${scene.episodeId}/scenes/${scene.id}` : `/scenes/${scene.id}`;
+      resultText = `✅ עדכנתי סצנה ${scene.sceneNumber ?? "?"}${scene.title ? ` — "${scene.title}"` : ""}.`;
     } else {
       return NextResponse.json({ error: `unknown action type: ${action.type}` }, { status: 400 });
     }

@@ -278,12 +278,29 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     try {
       if (isSora) {
-        // Bucket onto the Sora API enum (4/8/12/16/20). Anything over 20s
-        // would need Storyboard chaining, which is Web-only — we cap here.
+        // Bucket onto the Sora API enum (4/8/12/16/20).
         const sec: SoraSeconds = duration <= 5 ? "4" : duration <= 9 ? "8" : duration <= 13 ? "12" : duration <= 17 ? "16" : "20";
         const size = body.aspectRatio === "9:16" ? "720x1280" : "1280x720";
-        const soraSeed = compositeSheetUrl ?? sheetCast[0]?.portraitUrl ?? characterRefImgs[0] ?? firstFrameImg ?? undefined;
-        const soraPrompt = identityClause ? `${identityClause}\n\n${prompt}` : prompt;
+
+        // Sora specifics (diverges from fal/VEO):
+        //   1. The input image becomes the LITERAL first frame — if we pass
+        //      the character sheet composite, Sora shows the grid of
+        //      portraits at t=0 before fading into the scene. Oren reported
+        //      this. Never pass the composite sheet as Sora seed.
+        //   2. Prefer a storyboard first-frame (a scene still) as seed when
+        //      one exists — it gives a continuity lock on the opening shot.
+        //   3. Else pass a SINGLE character portrait (not the grid). The
+        //      other cast members are described inline in the prompt.
+        //   4. For identityClause: when we're NOT using the sheet, drop the
+        //      "reference image is a CHARACTER SHEET" phrasing (it would
+        //      confuse Sora) and instead inject per-character descriptions.
+        const useStoryboard = firstFrameImg && /^https?:/.test(firstFrameImg);
+        const soraSeed = useStoryboard ? firstFrameImg : (sheetCast[0]?.portraitUrl ?? characterRefImgs[0] ?? undefined);
+        // Inline cast descriptions for Sora — no grid reference.
+        const castBlock = sheetCast.length > 0
+          ? `CAST (render each character from these exact descriptions — do NOT show any reference grid or portrait side-by-side layout):\n${sheetCast.map((c) => `- ${c.name}`).join("\n")}\n\n`
+          : "";
+        const soraPrompt = `${castBlock}${prompt}`;
         const s = await submitSoraVideo({
           prompt: soraPrompt, model: modelKey as SoraModel, seconds: sec, size,
           imageUrl: soraSeed,

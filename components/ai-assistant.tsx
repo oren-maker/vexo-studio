@@ -276,7 +276,10 @@ function ExecuteActionButton({
         onResult(r.text || "", r.url);
       }
     } catch (e: any) {
-      onError(String(e?.message || e));
+      // Try multiple fields — vexo api wrapper populates .message/.error/.statusCode
+      const msg = e?.error || e?.message || e?.statusText || String(e);
+      const status = e?.statusCode ? ` [${e.statusCode}]` : "";
+      onError(msg + status);
     } finally {
       setBusy(false);
     }

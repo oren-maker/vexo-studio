@@ -1365,6 +1365,20 @@ model KnowledgeNode {
   @@index([type])
 }
 
+model BrainReference {
+  id        String   @id @default(cuid())
+  kind      String // "emotion" | "sound"
+  name      String
+  shortDesc String
+  longDesc  String
+  tags      String[] @default([])
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kind, order])
+}
+
 model SubscriberPrompt {
   id        String      @id @default(cuid())
   userId    String

@@ -10,6 +10,7 @@ export default function StageRenderer({
   images,
   type,
   transitionToNext,
+  anchorId,
 }: {
   index: number;
   total: number;
@@ -18,6 +19,7 @@ export default function StageRenderer({
   images: Array<{ id: string; blobUrl: string; caption: string | null }>;
   type: string;
   transitionToNext: string;
+  anchorId?: string;
 }) {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function StageRenderer({
     { bg: "bg-cyan-500/15 text-cyan-300 border-cyan-500/40", label: "שלב" };
 
   return (
-    <section className={`bg-slate-900/60 border border-slate-800 rounded-xl p-6 ${transitionClass} ${initial}`}>
+    <section id={anchorId} className={`bg-slate-900/60 border border-slate-800 rounded-xl p-6 scroll-mt-24 ${transitionClass} ${initial}`}>
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <span className={`text-[10px] uppercase font-bold border px-2 py-0.5 rounded ${typeBadge.bg}`}>

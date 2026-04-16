@@ -12,6 +12,8 @@ export default function SeriesPage() {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [syncStage, setSyncStage] = useState("");
+  const [syncPct, setSyncPct] = useState(0);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -30,17 +32,35 @@ export default function SeriesPage() {
   }
 
   async function runSync() {
-    setSyncing(true); setErr(null);
+    setSyncing(true); setErr(null); setSyncPct(0);
+    setSyncStage("🔌 מתחבר ל-DB…");
     try {
+      setSyncPct(10); setSyncStage("📊 מושך פרויקטים, סדרות, עונות…");
+      await new Promise((r) => setTimeout(r, 300));
+      setSyncPct(20); setSyncStage("📺 מושך פרקים וסצנות…");
+      await new Promise((r) => setTimeout(r, 300));
+      setSyncPct(30); setSyncStage("🎭 מושך דמויות וגלריות…");
+      await new Promise((r) => setTimeout(r, 300));
+      setSyncPct(40); setSyncStage("💰 מאגד עלויות…");
+      await new Promise((r) => setTimeout(r, 200));
+      setSyncPct(50); setSyncStage("🧠 שולח ל-Gemini לניתוח מקצועי…");
+
       const r = await learnFetch("/api/v1/learn/series-sync", { method: "POST" }).then((r) => r.json());
       if (r.error) throw new Error(r.error);
+
+      setSyncPct(85); setSyncStage("💾 שומר ב-KnowledgeNode + DailyBrainCache…");
+      await new Promise((r) => setTimeout(r, 300));
+
       setProjects(r.projects ?? []);
       setLastSync(new Date().toISOString().split("T")[0]);
-      // Reload analysis
+
+      setSyncPct(95); setSyncStage("📋 טוען ניתוח…");
       await loadLatest();
-      // If loadLatest didn't get it yet, show a summary
-      if (!analysis) setAnalysis(`סונכרנו ${r.synced} פרויקטים. הניתוח נשמר ב-DailyBrainCache.`);
-    } catch (e) { setErr((e as Error).message); }
+      if (!analysis) setAnalysis(`סונכרנו ${r.synced} פרויקטים. הניתוח נשמר.`);
+
+      setSyncPct(100); setSyncStage("✅ הושלם!");
+      setTimeout(() => { setSyncPct(0); setSyncStage(""); }, 2000);
+    } catch (e) { setErr((e as Error).message); setSyncStage(""); setSyncPct(0); }
     finally { setSyncing(false); }
   }
 
@@ -62,6 +82,18 @@ export default function SeriesPage() {
           {syncing ? "🔄 מסנכרן ומנתח…" : "🔄 סנכרן עכשיו"}
         </button>
       </div>
+
+      {syncing && syncStage && (
+        <div className="bg-slate-800/60 border border-cyan-500/30 rounded-xl p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>{syncStage}</span>
+            <span className="text-cyan-300 font-bold">{syncPct}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+            <div className="h-full bg-cyan-500 transition-all duration-500" style={{ width: `${syncPct}%` }} />
+          </div>
+        </div>
+      )}
 
       {err && <div className="bg-red-500/10 border border-red-500/30 text-red-300 rounded-lg p-3 text-sm">{err}</div>}
 

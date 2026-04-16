@@ -228,7 +228,9 @@ Write ${SCENE_COUNT} scenes that dramatize "${ep.title}" beat-by-beat, each exac
         scriptText: s.scriptText,
         scriptSource: "brain-10-scene-autogen",
         targetDurationSeconds: SCENE_DURATION_SEC,
-        status: "DRAFT",
+        // Ready for direct video generation — scripts are fully-formed,
+        // no storyboard step needed. Scene.generate-video gates on this.
+        status: "STORYBOARD_APPROVED",
       },
     });
     created++;

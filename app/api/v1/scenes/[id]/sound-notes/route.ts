@@ -44,6 +44,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const merged = { ...(scene.memoryContext as object ?? {}), soundNotes: text };
     await prisma.scene.update({ where: { id: params.id }, data: { memoryContext: merged as object } });
+    await (prisma as any).sceneLog.create({
+      data: {
+        sceneId: params.id,
+        action: "sound_notes_generated",
+        actor: `user:${ctx.user.id}`,
+        actorName: ctx.user.fullName ?? ctx.user.email,
+        details: { wordCount: text.split(/\s+/).length, preview: text.slice(0, 200) },
+      },
+    }).catch(() => {});
     return ok({ sceneId: params.id, soundNotes: text });
   } catch (e) { return handleError(e); }
 }

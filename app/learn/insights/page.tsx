@@ -75,7 +75,7 @@ export default async function InsightsPage() {
       {/* Derived rules - THE learning */}
       <Section title="כללים שנגזרו מהנתונים" subtitle="מה המאגר מלמד אותנו על איך נראה פרומפט טוב">
         <ol className="space-y-3">
-          {insights.derivedRules.map((rule, i) => (
+          {insights.derivedRules ?? []).map((rule, i) => (
             <li key={i} className="flex gap-3 items-start bg-slate-900/60 border border-slate-800 rounded-lg p-4">
               <span className="text-cyan-400 font-bold text-lg shrink-0">#{i + 1}</span>
               <span className="text-slate-100 text-sm leading-relaxed">{rule}</span>
@@ -85,10 +85,10 @@ export default async function InsightsPage() {
       </Section>
 
       {/* Technique co-occurrence */}
-      {insights.cooccurrencePairs.length > 0 && (
+      {(insights.cooccurrencePairs ?? []).length > 0 && (
         <Section title="שילובי טכניקות מובילים" subtitle="זוגות שמופיעים יחד משמעותית יותר מהסיכוי האקראי (lift ≥ 1.2)">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {insights.cooccurrencePairs.map((p, i) => (
+            {insights.cooccurrencePairs ?? []).map((p, i) => (
               <div key={i} className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 flex items-center justify-between">
                 <div className="text-sm text-white">
                   <span className="text-cyan-300">{p.a}</span>
@@ -113,7 +113,7 @@ export default async function InsightsPage() {
       {/* Style profiles */}
       <Section title="פרופיל לכל סגנון" subtitle="מה מאפיין בפועל כל סגנון במאגר — signature phrases מופיעות בסגנון זה פי 1.8+ מבכלל המאגר">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {insights.styleProfiles.map((p) => (
+          {insights.styleProfiles ?? []).map((p) => (
             <div key={p.style} className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-bold text-white">{p.style}</h3>
@@ -145,10 +145,10 @@ export default async function InsightsPage() {
       </Section>
 
       {/* Gaps - where to invest */}
-      {insights.gaps.length > 0 && (
+      {(insights.gaps ?? []).length > 0 && (
         <Section title="פערים במאגר" subtitle="איפה VEXO Director יקבל context חלש — הוסף עוד פרומפטים שם">
           <ul className="space-y-2">
-            {insights.gaps.map((g, i) => (
+            {insights.gaps ?? []).map((g, i) => (
               <li key={i} className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 text-sm">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] uppercase bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded">{g.dimension}</span>
@@ -165,7 +165,7 @@ export default async function InsightsPage() {
       {/* Top performers */}
       <Section title="פרומפטים מובילים" subtitle="דורגו לפי richness score — כמות טכניקות + timecodes + אורך">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {insights.topPerformers.map((tp, i) => (
+          {insights.topPerformers ?? []).map((tp, i) => (
             <Link
               key={tp.sourceId}
               href={`/learn/sources/${tp.sourceId}`}
@@ -187,11 +187,11 @@ export default async function InsightsPage() {
       </Section>
 
       {/* Strategic insights from Gemini 2.5 Pro */}
-      {insights.strategicInsights && insights.strategicInsights.length > 0 && (
+      {insights.strategicInsights && (insights.strategicInsights ?? []).length > 0 && (
         <Section title="🧠 תובנות אסטרטגיות מ-Gemini 2.5 Pro" subtitle="ניתוח עומק מבוסס AI על בסיס כל הסטטיסטיקות מעלה — מה לעשות עכשיו">
           <div className="bg-gradient-to-br from-purple-500/10 to-cyan-500/5 border border-purple-500/30 rounded-xl p-5">
             <ol className="space-y-3">
-              {insights.strategicInsights.map((s, i) => (
+              {insights.strategicInsights ?? []).map((s, i) => (
                 <li key={i} className="flex gap-3 items-start">
                   <span className="text-purple-300 font-black text-lg shrink-0 leading-none">{i + 1}</span>
                   <span className="text-slate-100 text-sm leading-relaxed">{s}</span>

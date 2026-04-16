@@ -151,7 +151,11 @@ export function AiAssistant() {
       // wired into the full DailyBrainCache + KnowledgeNode + Guide context.
       // It maintains the conversation server-side via chatId.
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 55_000);
+      // Server maxDuration is 60s. Give client the full window so the browser
+      // abort never fires before the server times out — a server timeout returns
+      // a friendly 504 with JSON, an abort throws "signal is aborted without reason".
+      let timedOut = false;
+      const t = setTimeout(() => { timedOut = true; ctrl.abort(); }, 62_000);
       let r: { reply?: string; chatId?: string; content?: string };
       try {
         r = await api<{ reply?: string; chatId?: string; content?: string }>("/api/v1/learn/brain/chat", {
@@ -159,6 +163,11 @@ export function AiAssistant() {
           body: { message: text, chatId: chatId ?? undefined, pageContext: pageCtx },
           signal: ctrl.signal,
         });
+      } catch (e) {
+        if (timedOut) throw new Error(he
+          ? "הבקשה לקחה יותר מדי זמן (מעל דקה). נסה שאלה קצרה יותר, או פצל לשלבים."
+          : "Request took too long (>1min). Try a shorter question or break it into steps.");
+        throw e;
       } finally { clearTimeout(t); }
       if (r.chatId && r.chatId !== chatId) setChatId(r.chatId);
       const reply = (r.reply ?? r.content ?? "").trim();

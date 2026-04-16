@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
 
-type Message = { id: string; role: "user" | "director"; content: string };
+type Message = { id: string; role: "user" | "director"; content: string; action?: { type: string; [k: string]: unknown } | null };
 
 export function AiAssistant() {
   const lang = useLang(); const he = lang === "he";
@@ -40,7 +40,16 @@ export function AiAssistant() {
       } finally { clearTimeout(t); }
       if (r.chatId && r.chatId !== chatId) setChatId(r.chatId);
       const reply = (r.reply ?? r.content ?? "").trim();
-      setMessages((m) => [...m, { id: `b-${Date.now()}`, role: "director", content: reply || "(אין תגובה)" }]);
+      // Parse action blocks from the brain's reply (```action ... ```)
+      const actionMatch = reply.match(/```action\s*([\s\S]*?)```/);
+      let cleanReply = reply;
+      let action: { type: string; [k: string]: unknown } | null = null;
+      if (actionMatch) {
+        try { action = JSON.parse(actionMatch[1].trim()); } catch {}
+        cleanReply = reply.replace(/```action[\s\S]*?```/, "").trim();
+      }
+      const msgId = `b-${Date.now()}`;
+      setMessages((m) => [...m, { id: msgId, role: "director", content: cleanReply || "(אין תגובה)", action }]);
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -83,6 +92,23 @@ export function AiAssistant() {
                 <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-accent text-white" : "bg-bg-main text-text-primary"}`}>
                     {m.content}
+                    {m.action && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const r = await api<{ text?: string; url?: string }>("/api/v1/learn/brain/chat/execute", {
+                              method: "POST",
+                              body: { action: m.action, chatId },
+                            });
+                            const result = [r.text, r.url].filter(Boolean).join("\n🔗 ");
+                            setMessages((msgs) => [...msgs, { id: `exec-${Date.now()}`, role: "director", content: `✅ ${result || "בוצע"}` }]);
+                          } catch (e) { setErr((e as Error).message); }
+                        }}
+                        className="mt-2 w-full text-[11px] px-3 py-1.5 rounded-lg bg-status-okBg text-status-okText font-semibold border border-status-okText/30"
+                      >
+                        ✅ {he ? "אשר ובצע" : "Confirm & Execute"}: {m.action.type.replace(/_/g, " ")}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

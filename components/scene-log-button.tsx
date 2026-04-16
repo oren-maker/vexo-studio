@@ -66,20 +66,14 @@ function getDetail(d: any): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-export default function SceneLogButton({ sceneId }: { sceneId: string }) {
+export default function SceneLogButton({ sceneId, preloaded }: { sceneId: string; preloaded?: Log[] }) {
   const [open, setOpen] = useState(false);
-  const [logs, setLogs] = useState<Log[] | null>(null);
+  const [logs, setLogs] = useState<Log[] | null>(preloaded ?? null);
   const [err, setErr] = useState<string | null>(null);
 
-  async function openLog() {
+  function openLog() {
     setOpen(true);
-    if (logs) return; // already loaded — show instantly
-    try {
-      const d = await api<{ logs: Log[] }>(`/api/v1/scenes/${sceneId}/log`);
-      setLogs(d.logs);
-    } catch (e: any) {
-      setErr(e?.message || String(e));
-    }
+    // If preloaded or cached — show instantly, no fetch needed
   }
 
   return (

@@ -216,7 +216,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const scriptMentionsNotInCast = (scene as unknown as { _scriptMentionsNotInCast?: string[] })._scriptMentionsNotInCast ?? [];
-    return ok({ ...scene, frames: framesWithCost, sceneCharacters, videos, scriptMentionsNotInCast });
+    // Piggyback logs on the main GET so the log modal opens instantly
+    // (no second round-trip). Limited to last 50 entries.
+    const activityLogs = await (prisma as any).sceneLog.findMany({
+      where: { sceneId: scene.id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }).catch(() => []);
+    return ok({ ...scene, frames: framesWithCost, sceneCharacters, videos, scriptMentionsNotInCast, activityLogs });
   } catch (e) { return handleError(e); }
 }
 

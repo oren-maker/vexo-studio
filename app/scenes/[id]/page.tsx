@@ -323,7 +323,7 @@ export default function ScenePage() {
                   {scene.title ?? (he ? "סצנה ללא שם" : "Untitled scene")}
                   <span className="opacity-0 group-hover:opacity-50 text-base ms-2">✎</span>
                 </h1>
-                <SceneLogButton sceneId={scene.id} />
+                <SceneLogButton sceneId={scene.id} preloaded={scene.activityLogs} />
               </div>
             )}
             {editSummary ? (

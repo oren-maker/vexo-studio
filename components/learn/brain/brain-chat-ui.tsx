@@ -1,5 +1,5 @@
-import { learnFetch } from "@/lib/learn/fetch";
 "use client";
+import { learnFetch } from "@/lib/learn/fetch";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";

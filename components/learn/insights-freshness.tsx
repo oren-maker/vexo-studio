@@ -1,5 +1,5 @@
-import { learnFetch } from "@/lib/learn/fetch";
 "use client";
+import { learnFetch } from "@/lib/learn/fetch";
 
 import { adminHeaders } from "@/lib/learn/admin-key";
 import { useState, useEffect } from "react";

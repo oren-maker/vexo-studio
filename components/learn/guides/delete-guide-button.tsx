@@ -1,5 +1,5 @@
-import { learnFetch } from "@/lib/learn/fetch";
 "use client";
+import { learnFetch } from "@/lib/learn/fetch";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";

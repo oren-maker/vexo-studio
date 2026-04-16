@@ -157,8 +157,8 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 p-6 md:p-10 overflow-x-hidden">
+        {/* Main content — overflow-y-auto so long pages scroll independently of the sticky sidebar */}
+        <main className="flex-1 p-6 md:p-10 overflow-y-auto overflow-x-hidden" style={{ maxHeight: "100vh" }}>
           {children}
         </main>
       </div>

@@ -7,6 +7,13 @@ import { AuthGuard } from "@/components/auth-guard";
 
 const groups = [
   {
+    title: "סדרות",
+    icon: "🎬",
+    items: [
+      { href: "/learn/series", label: "ניתוח סדרות", icon: "📊" },
+    ],
+  },
+  {
     title: "פרומפט",
     icon: "✨",
     items: [

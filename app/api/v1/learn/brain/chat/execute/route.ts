@@ -131,30 +131,38 @@ export async function POST(req: NextRequest) {
       //   2) fallback: overwrite the first scene by number (previous script goes to PromptVersion)
       let overwriteMode = false;
       let previousScriptText: string | null = null;
-      if (ctxKind === "episode" && !targetSceneId && ctxId) {
+      // Resolve scene from episode or season context
+      async function pickSceneFromEpisode(episodeId: string): Promise<{ id: string; overwrite: boolean; prev: string | null } | null> {
         const firstEmpty = await prisma.scene.findFirst({
-          where: { episodeId: ctxId, OR: [{ scriptText: null }, { scriptText: "" }] },
+          where: { episodeId, OR: [{ scriptText: null }, { scriptText: "" }] },
           orderBy: { sceneNumber: "asc" },
-          select: { id: true, sceneNumber: true, episodeId: true },
+          select: { id: true },
         });
-        if (firstEmpty) {
-          (action as any).sceneId = firstEmpty.id;
-        } else {
-          // All scenes already have scriptText — overwrite first scene
-          const firstScene = await prisma.scene.findFirst({
-            where: { episodeId: ctxId },
-            orderBy: { sceneNumber: "asc" },
-            select: { id: true, sceneNumber: true, scriptText: true },
-          });
-          if (firstScene) {
-            (action as any).sceneId = firstScene.id;
-            overwriteMode = true;
-            previousScriptText = firstScene.scriptText;
-          }
+        if (firstEmpty) return { id: firstEmpty.id, overwrite: false, prev: null };
+        const firstScene = await prisma.scene.findFirst({
+          where: { episodeId },
+          orderBy: { sceneNumber: "asc" },
+          select: { id: true, scriptText: true },
+        });
+        return firstScene ? { id: firstScene.id, overwrite: true, prev: firstScene.scriptText } : null;
+      }
+      if (ctxKind === "episode" && !targetSceneId && ctxId) {
+        const picked = await pickSceneFromEpisode(ctxId);
+        if (picked) { (action as any).sceneId = picked.id; overwriteMode = picked.overwrite; previousScriptText = picked.prev; }
+      } else if (ctxKind === "season" && !targetSceneId && ctxId) {
+        // Find first episode of this season, then pick its first empty/first scene
+        const firstEp: any = await (prisma as any).episode?.findFirst({
+          where: { seasonId: ctxId },
+          orderBy: { episodeNumber: "asc" },
+          select: { id: true },
+        });
+        if (firstEp) {
+          const picked = await pickSceneFromEpisode(firstEp.id);
+          if (picked) { (action as any).sceneId = picked.id; overwriteMode = picked.overwrite; previousScriptText = picked.prev; }
         }
       }
       const targetSceneIdResolved: string | null = String((action as any).sceneId || "").trim() || targetSceneId;
-      const onProductionContext = ctxKind === "scene" || ctxKind === "episode";
+      const onProductionContext = ctxKind === "scene" || ctxKind === "episode" || ctxKind === "season";
       if (onProductionContext && !targetSceneIdResolved) {
         return NextResponse.json({
           error: "sceneId חסר — אין סצנות בפרק הזה. צור קודם סצנה.",

@@ -68,6 +68,45 @@ async function fetchImageAsBase64(url: string): Promise<{ bytesBase64: string; m
   return { bytesBase64: buf.toString("base64"), mimeType: contentType };
 }
 
+// When VEO blocks a prompt for safety, ask Gemini to rewrite it while preserving
+// the cinematic intent. Strips violence/weapons/real-people/adult themes.
+async function sanitizePromptForVeo(prompt: string): Promise<string> {
+  if (!API_KEY) return prompt;
+  const SYSTEM = `You rewrite cinematic video prompts to pass Google VEO safety filters. Preserve the visual style, mood, camera work, and scene structure — but:
+- Replace weapons with training tools, replica, or metaphor ("sword"→"bamboo staff", "gun"→"camera"/"wand")
+- Replace real people names with generic archetypes ("Elon Musk"→"a tech founder")
+- Remove blood/gore/injury; replace with "intense moment"/"dramatic action"
+- Remove anything involving children/minors — age up to "young adult"
+- Remove nudity / explicit themes — dress the subject, implied tension only
+- Remove brand names, logos, copyrighted characters
+
+Output ONLY the rewritten prompt as one flowing text, same language as input, same length. No prefix, no quotes, no commentary.`;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents: [{ role: "user", parts: [{ text: `Rewrite this prompt for VEO safety:\n\n${prompt.slice(0, 3000)}` }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 2048 },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) return prompt;
+    const j: any = await res.json();
+    const rewritten = j.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return rewritten && rewritten.length > 20 ? rewritten : prompt;
+  } catch {
+    return prompt;
+  }
+}
+
+function isSafetyBlockError(err: any): boolean {
+  const msg = String(err?.message || err).toLowerCase();
+  return /safety|conflicted|rai[_ ]?media|filtered|block|content polic/i.test(msg);
+}
+
 export async function runVideoGeneration(videoId: string, prompt: string): Promise<void> {
   if (!API_KEY) {
     await updateProgress(videoId, { status: "failed", error: "GEMINI_API_KEY חסר", progressMessage: "מפתח Gemini חסר", progressPct: 0 });
@@ -148,51 +187,55 @@ export async function runVideoGeneration(videoId: string, prompt: string): Promi
       }
     }
 
-    // VEO prompts: strip text that frequently triggers safety filters (explicit violence,
-    // minors, real public figures) while keeping cinematic language. Light touch only.
+    // Light word-level strip for obvious triggers
     generateParams.prompt = generateParams.prompt
       .replace(/\b(child|kid|minor|underage|baby|toddler|infant)\b/gi, "adult")
       .replace(/\b(gore|gory|blood splatter|dismember|decapitat|graphic violence)\b/gi, "intense action")
       .slice(0, 3000);
 
-    let operation: any = await client.models.generateVideos(generateParams);
-
-    await updateProgress(videoId, {
-      status: "rendering",
-      progressPct: 18,
-      progressMessage: refImageUrl ? "VEO 3 מנפיש את התמונה… (1-3 דק׳)" : "VEO 3 מרנדר… (1-3 דק׳)",
-      operationId: operation?.name || operation?.operation?.name || null,
-    });
-
-    const startTime = Date.now();
-    const deadline = startTime + 5 * 60 * 1000;
-    while (!operation.done) {
-      if (Date.now() > deadline) throw new Error("VEO polling timeout (5 min)");
-      await new Promise((r) => setTimeout(r, 6000));
-      operation = await client.operations.getVideosOperation({ operation });
-      const elapsed = (Date.now() - startTime) / 1000;
-      const pct = Math.min(85, 18 + Math.round((elapsed / 120) * 67));
+    // Attempt with retry: if VEO rejects for safety, Gemini rewrites the prompt and we try once more.
+    async function attemptGeneration(params: any, attemptLabel: string): Promise<any> {
+      let operation: any = await client.models.generateVideos(params);
       await updateProgress(videoId, {
         status: "rendering",
-        progressPct: pct,
-        progressMessage: `מרנדר… ${Math.round(elapsed)}s`,
+        progressPct: 18,
+        progressMessage: `${attemptLabel} · VEO 3 מרנדר… (1-3 דק׳)`,
+        operationId: operation?.name || operation?.operation?.name || null,
       });
+      const startTime = Date.now();
+      const deadline = startTime + 5 * 60 * 1000;
+      while (!operation.done) {
+        if (Date.now() > deadline) throw new Error("VEO polling timeout (5 min)");
+        await new Promise((r) => setTimeout(r, 6000));
+        operation = await client.operations.getVideosOperation({ operation });
+        const elapsed = (Date.now() - startTime) / 1000;
+        const pct = Math.min(85, 18 + Math.round((elapsed / 120) * 67));
+        await updateProgress(videoId, {
+          status: "rendering",
+          progressPct: pct,
+          progressMessage: `${attemptLabel} · מרנדר… ${Math.round(elapsed)}s`,
+        });
+      }
+      return operation;
     }
 
-    const response: any = operation.response || {};
-    const generated =
-      response.generatedVideos?.[0] ||
-      response.generated_videos?.[0] ||
-      response.videos?.[0] ||
-      response.candidates?.[0];
-    const videoRef =
-      generated?.video ||
-      generated?.generatedVideo ||
-      generated?.media ||
-      generated?.content;
+    function extractVideoRef(response: any) {
+      const generated =
+        response.generatedVideos?.[0] ||
+        response.generated_videos?.[0] ||
+        response.videos?.[0] ||
+        response.candidates?.[0];
+      return {
+        generated,
+        videoRef:
+          generated?.video ||
+          generated?.generatedVideo ||
+          generated?.media ||
+          generated?.content,
+      };
+    }
 
-    if (!videoRef) {
-      // VEO blocked the prompt or returned empty. Surface the reason.
+    function extractBlockReason(response: any, generated: any): { raiObj: any; reasonStr: string } {
       const rai =
         response.raiMediaFilteredReasons ||
         response.rai_media_filtered_reasons ||
@@ -204,8 +247,37 @@ export async function runVideoGeneration(videoId: string, prompt: string): Promi
       const reasonStr = rai
         ? (typeof rai === "string" ? rai : JSON.stringify(rai).slice(0, 400))
         : `keys=${Object.keys(response).join(",")}`;
-      console.error("[veo] no video in response", { videoId, response: JSON.stringify(response).slice(0, 2000) });
-      throw new Error(`VEO לא החזיר וידאו — ${rai ? "חסום ע״י סינון תוכן" : "תשובה ריקה"}: ${reasonStr}`);
+      return { raiObj: rai, reasonStr };
+    }
+
+    let operation: any = await attemptGeneration(generateParams, "ניסיון 1");
+    let response: any = operation.response || {};
+    let { generated, videoRef } = extractVideoRef(response);
+
+    if (!videoRef) {
+      const { raiObj, reasonStr } = extractBlockReason(response, generated);
+      console.error("[veo] attempt 1 blocked", { videoId, reasonStr: reasonStr.slice(0, 300) });
+
+      // If it's a safety block, auto-rewrite via Gemini and try once more.
+      if (raiObj) {
+        await updateProgress(videoId, {
+          status: "submitting",
+          progressPct: 14,
+          progressMessage: "VEO חסם בטיחות — Gemini משכתב את הפרומפט…",
+        });
+        const sanitized = await sanitizePromptForVeo(generateParams.prompt);
+        if (sanitized && sanitized !== generateParams.prompt) {
+          const retryParams = { ...generateParams, prompt: sanitized.slice(0, 3000) };
+          operation = await attemptGeneration(retryParams, "ניסיון 2 (פרומפט משוכתב)");
+          response = operation.response || {};
+          ({ generated, videoRef } = extractVideoRef(response));
+        }
+      }
+
+      if (!videoRef) {
+        const final = extractBlockReason(response, generated);
+        throw new Error(`VEO לא החזיר וידאו אחרי 2 ניסיונות — ${final.raiObj ? "חסום ע״י סינון תוכן של Google" : "תשובה ריקה"}. ${final.reasonStr.slice(0, 200)}`);
+      }
     }
 
     await updateProgress(videoId, { status: "downloading", progressPct: 88, progressMessage: "מוריד את הוידאו מ-VEO…" });

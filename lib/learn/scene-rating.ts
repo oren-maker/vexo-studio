@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { logUsage } from "./usage-tracker";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-flash-latest";
+const MODEL = "gemini-3-flash";
 
 const SYSTEM = `You are a video editor. You receive ONE thumbnail frame from a scene. Rate it 1-10 for visual interest, composition, emotional impact, and editing value.
 

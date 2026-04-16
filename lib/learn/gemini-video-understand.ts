@@ -7,7 +7,7 @@
 import { logUsage } from "./usage-tracker";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-2.5-flash"; // supports video input via fileData
+const MODEL = "gemini-3-flash"; // supports video input via fileData
 
 const SYSTEM = `You are a video editor analyzing a SINGLE video to identify its distinct scenes.
 

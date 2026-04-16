@@ -4,7 +4,7 @@
 import { logUsage } from "./usage-tracker";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-2.5-pro";
+const MODEL = "gemini-3-flash";
 
 const SYSTEM = `You are a senior AI video prompt strategist. You receive aggregated statistics about a corpus of AI video prompts (top techniques, styles, gaps, upgrade patterns) and produce 3-7 SHARP strategic insights in Hebrew that the user can ACT on.
 

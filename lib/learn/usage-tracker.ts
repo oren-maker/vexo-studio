@@ -5,13 +5,13 @@ import { prisma } from "./db";
 // Pricing (USD per million tokens, except images which are per-image)
 // Updated 2026-04. Adjust as providers change rates.
 export const PRICING = {
-  "gemini-flash-latest": {
+  "gemini-3-flash": {
     engine: "gemini" as const,
     inputPer1M: 0.075,
     outputPer1M: 0.30,
     imagePer: 0,
   },
-  "gemini-2.5-flash": {
+  "gemini-3-flash": {
     engine: "gemini" as const,
     inputPer1M: 0.30,
     outputPer1M: 2.50,

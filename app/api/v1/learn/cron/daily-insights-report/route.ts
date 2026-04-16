@@ -29,7 +29,7 @@ ${delta ? `- מאתמול: +${delta.sourcesAdded} פרומפטים, +${delta.nod
 החזר טקסט עברית בלבד, לא JSON, לא markdown.`;
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${API_KEY}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -40,7 +40,7 @@ ${delta ? `- מאתמול: +${delta.sourcesAdded} פרומפטים, +${delta.nod
     const data: any = await res.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
     await logUsage({
-      model: "gemini-flash-latest",
+      model: "gemini-3-flash",
       operation: "insights-snapshot" as any,
       inputTokens: data.usageMetadata?.promptTokenCount || 0,
       outputTokens: data.usageMetadata?.candidatesTokenCount || 0,

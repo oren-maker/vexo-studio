@@ -4,9 +4,9 @@
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
-// gemini-flash-latest is the working alias. 2.5-flash returns 503 'high demand'
+// gemini-3-flash is the working alias. 2.5-flash returns 503 'high demand'
 // globally and 1.5/2.0 are 404 in v1beta. Latest alias auto-routes to whatever's stable.
-const GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.5-flash"];
+const GEMINI_MODELS = ["gemini-3-flash"];
 const GEMINI_URL = (m: string) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -190,7 +190,7 @@ async function callGeminiViaFal(messages: ChatMessage[], opts: AiOptions): Promi
           unitCost: r.costUsd,
           quantity: 1,
           userId: actor?.userId,
-          meta: { inputTokens: r.inputTokens, outputTokens: r.outputTokens, model: "gemini-2.5-flash", source: "fal-any-llm" },
+          meta: { inputTokens: r.inputTokens, outputTokens: r.outputTokens, model: "gemini-3-flash", source: "fal-any-llm" },
         });
         await Promise.race([charge, new Promise((resolve) => setTimeout(resolve, 2000))]);
       }

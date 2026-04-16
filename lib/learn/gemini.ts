@@ -98,7 +98,7 @@ export async function analyzeVideoFromUrl(
   if (file.state !== FileState.ACTIVE) throw new Error(`Gemini file state: ${file.state}`);
 
   const genAI = new GoogleGenerativeAI(API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
   const result = await model.generateContent([
     { fileData: { mimeType: file.mimeType, fileUri: file.uri } },

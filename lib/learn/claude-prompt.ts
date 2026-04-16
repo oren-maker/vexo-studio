@@ -6,7 +6,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { logUsage } from "./usage-tracker";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-flash-latest";
+const MODEL = "gemini-3-flash";
 
 export type ClaudeResult = {
   title: string;

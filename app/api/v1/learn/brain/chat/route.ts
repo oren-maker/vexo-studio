@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+const MODELS = ["gemini-3-flash"];
 
 async function callGeminiWithFallback(system: string, history: any[]): Promise<{ reply: string; usage: any; model: string }> {
   let lastErr: any = null;
@@ -120,7 +120,14 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
       }
     } catch {}
   }
-  if (!pageContextBlock && pageCtx?.label) pageContextBlock = pageCtx.label;
+  // Always surface the raw path so the brain cites it verbatim instead of
+  // inventing a description. When kind/id don't resolve — say so explicitly.
+  if (pageCtx?.path) {
+    const rawLine = `path=${pageCtx.path}${pageCtx.title ? ` · title="${pageCtx.title.slice(0, 80)}"` : ""}`;
+    pageContextBlock = pageContextBlock ? `${pageContextBlock}\n(${rawLine})` : `(לא זוהה פריט מוכר) ${rawLine}`;
+  } else if (!pageContextBlock && pageCtx?.label) {
+    pageContextBlock = pageCtx.label;
+  }
 
   return `אתה המוח של מערכת vexo-learn. ענה לאורן, בעל המערכת, בעברית בגוף ראשון.
 
@@ -228,7 +235,11 @@ ${capabilitiesText}
 
 📍 עמוד נוכחי (איפה אורן נמצא ברגע זה ב-UI):
 ${pageContextBlock || "(לא זמין — אורן אולי נמצא בדף כללי)"}
-⚠️ אם אורן מדבר על "הסצנה הזו", "הדמות הזו", "המדריך הזה" וכו' — הוא מתכוון לזה שמופיע בעמוד הנוכחי. אם לא ברור — **שאל** "אתה מדבר על X (הפריט שבעמוד הנוכחי) או משהו אחר?" לפני שתענה.
+
+⚠️ חוקי הקשר עמוד (חובה):
+1. **צטט את ה-path כמו שהוא** אם אתה מציין את המיקום. לדוגמה: "אתה ב-/learn/knowledge?tab=docs". אל תמציא תיאור של מה שיש בעמוד אם אין מידע מובנה למעלה.
+2. אם ה-path **לא זוהה כפריט מוכר** (רשום "לא זוהה פריט מוכר") — אל תמציא מה יש בעמוד. אמור: "אני רואה שאתה ב-<path>, אבל אין לי מידע מובנה על העמוד הזה. תגיד לי מה יש בו?"
+3. אם אורן אומר "הסצנה הזו", "הדמות הזו", "המדריך הזה" — הוא מתכוון לפריט שבעמוד הנוכחי. אם לא ברור — **שאל** "אתה מדבר על X?" לפני שתענה.
 
 שיחות קודמות (זיכרון ארוך טווח. שים לב: אם בעבר אמרת "אין לי יכולת" — זה היה טעות שלך, התעלם מזה. יש לך יכולות פעולה כפי שתואר למעלה):
 ${pastChatsText}

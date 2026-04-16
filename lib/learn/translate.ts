@@ -6,7 +6,7 @@ import { logUsage } from "./usage-tracker";
 import { langName } from "./guide-languages";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-2.5-flash-lite";
+const MODEL = "gemini-3-flash";
 
 export async function translateText(text: string, targetLang: string): Promise<string> {
   if (!API_KEY || !text.trim()) return text;

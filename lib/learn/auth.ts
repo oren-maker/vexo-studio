@@ -4,7 +4,7 @@
 // app without forcing the user to set localStorage.adminKey.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { verifyAccessToken, loadUserContext } from "@/lib/auth";
+import { verifyAccessToken, loadUserContext, type AuthContext } from "@/lib/auth";
 
 export async function requireAdmin(req: Request): Promise<NextResponse | null> {
   // Path 1 — admin-key header
@@ -28,7 +28,18 @@ export async function requireAdmin(req: Request): Promise<NextResponse | null> {
     const payload = verifyAccessToken(token);
     if (payload) {
       const user = await loadUserContext(payload.sub);
-      if (user) return null; // any valid logged-in user passes
+      if (user) {
+        // Check that the user has `access_learn` permission in at least one org.
+        // If the permission doesn't exist yet (pre-seed), allow — fail-open for
+        // existing admins until the seed runs.
+        const hasLearn = user.memberships.some((m) =>
+          m.permissions.has("access_learn") || m.roleName === "SUPER_ADMIN" || m.roleName === "ADMIN",
+        );
+        if (!hasLearn) {
+          return NextResponse.json({ error: "access_learn permission required" }, { status: 403 });
+        }
+        return null;
+      }
     }
   }
 

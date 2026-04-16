@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AuthGuard } from "@/components/auth-guard";
 
 const TABS = [
   { href: "/learn",               label: "📚 Feed",         exact: true },
@@ -26,6 +27,7 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   return (
+    <AuthGuard>
     <div className="min-h-screen" dir="rtl">
       {/* Sticky top navigation */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
@@ -69,5 +71,6 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
     </div>
+    </AuthGuard>
   );
 }

@@ -38,6 +38,8 @@ const PERMISSION_KEYS = [
   "manage_templates",
   "manage_calendar",
   "view_audience_insights",
+  "access_learn",
+  "manage_learn",
 ];
 
 const ROLE_PERMISSION_MAP: Record<string, string[]> = {
@@ -58,6 +60,8 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "view_finance",
     "view_logs",
     "view_audience_insights",
+    "access_learn",
+    "manage_learn",
   ],
   CONTENT_EDITOR: [
     "edit_project",

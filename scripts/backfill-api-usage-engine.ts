@@ -16,7 +16,7 @@ function inferEngine(model: string): string {
 
 (async () => {
   const unknown = await p.apiUsage.findMany({
-    where: { OR: [{ engine: "unknown" }, { engine: null as any }, { engine: "" }] },
+    where: { OR: [{ engine: "unknown" }, { engine: "" }] },
     select: { id: true, model: true },
   });
   console.log(`Found ${unknown.length} rows with engine=unknown`);

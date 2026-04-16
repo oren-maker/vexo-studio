@@ -122,41 +122,57 @@ export default function BudgetsTokensPage() {
       {providers.length > 0 && (() => {
         const totalAdded = providers.reduce((s, p) => s + (p.wallet?.totalCreditsAdded ?? 0), 0);
         const totalAvail = providers.reduce((s, p) => s + (p.wallet?.availableCredits ?? 0), 0);
-        const totalSpent = providers.reduce((s, p) => s + (p.totalSpent ?? 0), 0);
+        const providersSpent = providers.reduce((s, p) => s + (p.totalSpent ?? 0), 0);
         const learningSpent = learning?.totals.usdCost ?? 0;
-        const unifiedTotal = totalSpent + learningSpent;
+        const unifiedSpent = providersSpent + learningSpent;
+        // Math identity: totalCapacity = availableCredits + everything spent
+        // initialSeed = totalCapacity - API topups (credits manually seeded, e.g. Google credit topup)
+        const totalCapacity = totalAvail + unifiedSpent;
+        const initialSeed = Math.max(0, totalCapacity - totalAdded);
+        // Available net of learning costs (since learning isn't deducted from any wallet today)
+        const availableNet = totalAvail - learningSpent;
         return (
           <>
-            {/* Unified system spend (providers + learning) */}
+            {/* Capacity row — the math now adds up: capacity = topups + initial seed; spent comes off that */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <div className="bg-bg-main rounded-lg p-3 text-center">
-                <div className="text-[11px] text-text-muted uppercase tracking-wider">{lang === "he" ? "סך הכל הוטען" : "Total topped up"}</div>
-                <div className="text-2xl font-bold num mt-1">${totalAdded.toFixed(2)}</div>
+                <div className="text-[11px] text-text-muted uppercase tracking-wider">{lang === "he" ? "סה״כ קרדיט במערכת" : "Total system credit"}</div>
+                <div className="text-2xl font-bold num mt-1 text-slate-900">${totalCapacity.toFixed(2)}</div>
+                <div className="text-[10px] text-text-muted mt-1">
+                  {lang === "he" ? "API topups" : "API topups"}: ${totalAdded.toFixed(2)}
+                  {initialSeed > 0 && <> · {lang === "he" ? "יתרה התחלתית" : "initial seed"}: ${initialSeed.toFixed(2)}</>}
+                </div>
               </div>
               <div className="bg-status-okBg rounded-lg p-3 text-center">
-                <div className="text-[11px] text-status-okText uppercase tracking-wider">{lang === "he" ? "נשאר זמין" : "Remaining available"}</div>
-                <div className="text-2xl font-bold num mt-1 text-status-okText">${totalAvail.toFixed(2)}</div>
+                <div className="text-[11px] text-status-okText uppercase tracking-wider">{lang === "he" ? "נשאר אחרי הכל" : "Net available"}</div>
+                <div className="text-2xl font-bold num mt-1 text-status-okText">${availableNet.toFixed(2)}</div>
+                <div className="text-[10px] text-text-muted mt-1">
+                  {lang === "he" ? "ארנק:" : "Wallet:"} ${totalAvail.toFixed(2)} − {lang === "he" ? "למידה:" : "learning:"} ${learningSpent.toFixed(2)}
+                </div>
               </div>
               <div className="bg-status-errBg rounded-lg p-3 text-center">
                 <div className="text-[11px] text-status-errText uppercase tracking-wider">{lang === "he" ? "ספקים — בוזבז" : "Providers — spent"}</div>
-                <div className="text-2xl font-bold num mt-1 text-status-errText">−${totalSpent.toFixed(4)}</div>
+                <div className="text-2xl font-bold num mt-1 text-status-errText">−${providersSpent.toFixed(4)}</div>
                 <div className="text-[10px] text-text-muted mt-1">{lang === "he" ? "וידאו · תמונות · TTS" : "video · image · TTS"}</div>
               </div>
               <div className="bg-purple-500/10 rounded-lg p-3 text-center border border-purple-500/30">
-                <div className="text-[11px] text-purple-300 uppercase tracking-wider">{lang === "he" ? "למידה — בוזבז" : "Learning — spent"}</div>
-                <div className="text-2xl font-bold num mt-1 text-purple-300">−${learningSpent.toFixed(4)}</div>
-                <div className="text-[10px] text-text-muted mt-1">{learning?.totals.callCount ?? 0} {lang === "he" ? "קריאות" : "calls"}</div>
+                <div className="text-[11px] text-purple-700 uppercase tracking-wider font-semibold">{lang === "he" ? "למידה — בוזבז" : "Learning — spent"}</div>
+                <div className="text-2xl font-bold num mt-1 text-purple-700">−${learningSpent.toFixed(4)}</div>
+                <div className="text-[10px] text-text-muted mt-1">{learning?.totals.callCount ?? 0} {lang === "he" ? "קריאות AI" : "AI calls"}</div>
               </div>
             </div>
 
-            {/* Unified total — single number for the whole system */}
-            <div className="bg-gradient-to-l from-cyan-500/10 to-purple-500/10 border border-cyan-500/30 rounded-lg p-4 mb-4 text-center">
-              <div className="text-[11px] text-cyan-300 uppercase tracking-wider font-semibold">{lang === "he" ? "סה״כ הוצאת מערכת מאוחדת (ספקים + למידה)" : "Unified system spend (providers + learning)"}</div>
-              <div className="text-4xl font-black num mt-2 text-white">−${unifiedTotal.toFixed(4)}</div>
-              <div className="text-xs text-text-muted mt-2">
-                {lang === "he" ? "ספקים" : "Providers"}: <span className="text-status-errText">${totalSpent.toFixed(4)}</span>
-                <span className="mx-2 text-slate-600">·</span>
-                {lang === "he" ? "למידה" : "Learning"}: <span className="text-purple-300">${learningSpent.toFixed(4)}</span>
+            {/* Unified total — single readable number */}
+            <div className="bg-slate-900 border border-cyan-500/40 rounded-lg p-5 mb-4 text-center">
+              <div className="text-[11px] text-cyan-300 uppercase tracking-wider font-semibold">{lang === "he" ? "סה״כ הוצאת מערכת (ספקים + למידה)" : "Unified system spend (providers + learning)"}</div>
+              <div className="text-5xl font-black num mt-2 text-white" style={{ textShadow: "0 0 18px rgba(34,211,238,0.35)" }}>−${unifiedSpent.toFixed(4)}</div>
+              <div className="text-sm text-slate-300 mt-3">
+                {lang === "he" ? "ספקים" : "Providers"}: <span className="text-rose-300 font-semibold">${providersSpent.toFixed(4)}</span>
+                <span className="mx-2 text-slate-600">+</span>
+                {lang === "he" ? "למידה" : "Learning"}: <span className="text-purple-300 font-semibold">${learningSpent.toFixed(4)}</span>
+              </div>
+              <div className="text-[11px] text-slate-500 mt-2">
+                {lang === "he" ? "מתוך קיבולת של" : "Of total capacity"} ${totalCapacity.toFixed(2)} · {Math.round((unifiedSpent / Math.max(totalCapacity, 0.0001)) * 100)}% {lang === "he" ? "נוצל" : "used"}
               </div>
             </div>
 

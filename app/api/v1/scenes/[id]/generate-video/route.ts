@@ -12,6 +12,8 @@ import { buildCharacterSheet, describeSheetLayout } from "@/lib/character-sheet"
 import { put as putBlob } from "@vercel/blob";
 import { handleError, ok } from "@/lib/route-utils";
 import { logUsage } from "@/lib/learn/usage-tracker";
+import { chargeUsd } from "@/lib/billing";
+import { priceSora, type SoraModel as SoraModelType } from "@/lib/providers/openai-sora";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
@@ -394,6 +396,29 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     const projectId = (await prisma.episode.findUniqueOrThrow({ where: { id: scene.episodeId! }, include: { season: { include: { series: true } } } })).season.series.projectId;
+
+    // Write CostEntry so the scene-page "עלות AI" card + /admin/wallets
+    // provider spend + project finance all show this video cost. Previously
+    // only ApiUsage was written — the UI reads CostEntry.
+    const videoCostUsd = isSora
+      ? priceSora(displayModel as SoraModelType, duration)
+      : 0; // fal/VEO cost is stamped via webhook; Sora has no webhook
+    if (videoCostUsd > 0) {
+      await chargeUsd({
+        organizationId: ctx.organizationId,
+        projectId,
+        entityType: "SCENE",
+        entityId: scene.id,
+        providerName: "OpenAI",
+        category: "GENERATION",
+        description: `Scene video · ${displayModel} · ${duration}s`,
+        unitCost: videoCostUsd,
+        quantity: 1,
+        userId: ctx.user.id,
+        meta: { sceneId: scene.id, episodeId: scene.episodeId, model: displayModel, durationSeconds: duration, jobId },
+      }).catch(() => {});
+    }
+
     if (isFal) {
       await prisma.lipSyncJob.create({
         data: { entityType: "SCENE", entityId: scene.id, sceneId: scene.id, status: "PENDING" },

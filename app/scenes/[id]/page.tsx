@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { useLang } from "@/lib/i18n";
 import SceneActivityLog from "@/components/scene-activity-log";
+import SceneLogButton from "@/components/scene-log-button";
 
 type Frame = { id: string; orderIndex: number; beatSummary: string | null; imagePrompt: string | null; status: string; generatedImageUrl: string | null; approvedImageUrl: string | null; cost?: number; model?: string; lastChargedAt?: string | null };
 type Comment = { id: string; body: string; resolved: boolean; createdAt: string; user: { id: string; fullName: string; email: string } };
@@ -313,10 +314,13 @@ export default function ScenePage() {
                 onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditTitle(false); }}
                 className="text-2xl font-bold bg-bg-main rounded-lg px-2 py-1 w-full" />
             ) : (
-              <h1 className="text-2xl font-bold group cursor-text" onClick={() => setEditTitle(true)} title={he ? "לחץ לעריכה" : "Click to edit"}>
-                {scene.title ?? (he ? "סצנה ללא שם" : "Untitled scene")}
-                <span className="opacity-0 group-hover:opacity-50 text-base ms-2">✎</span>
-              </h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl font-bold group cursor-text" onClick={() => setEditTitle(true)} title={he ? "לחץ לעריכה" : "Click to edit"}>
+                  {scene.title ?? (he ? "סצנה ללא שם" : "Untitled scene")}
+                  <span className="opacity-0 group-hover:opacity-50 text-base ms-2">✎</span>
+                </h1>
+                <SceneLogButton sceneId={scene.id} />
+              </div>
             )}
             {editSummary ? (
               <textarea autoFocus defaultValue={scene.summary ?? ""} rows={2}

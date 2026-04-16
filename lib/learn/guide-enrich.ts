@@ -1,23 +1,18 @@
 // Rebuilds an existing guide using Gemini with access to the original
 // title/description/category + the existing stage titles as a research outline.
 // Produces a richer 6-10 stage guide with markdown + fenced code blocks.
+// Uses direct v1beta fetch (same as lib/learn/brain/chat) — no SDK dep.
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { logUsage } from "./usage-tracker";
 import { langName } from "./guide-languages";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-flash-latest";
-
-function genAI() {
-  if (!API_KEY) throw new Error("GEMINI_API_KEY missing");
-  return new GoogleGenerativeAI(API_KEY);
-}
+const MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
 
 export type EnrichedStage = {
   type: "start" | "middle" | "end";
   title: string;
-  content: string; // markdown, may include ```lang``` fenced code
+  content: string;
 };
 
 export type EnrichedGuide = {
@@ -35,6 +30,44 @@ export type EnrichInput = {
   existingStageTitles: string[];
   lang?: string;
 };
+
+async function callGemini(system: string, user: string): Promise<{ text: string; usage: any; model: string }> {
+  if (!API_KEY) throw new Error("GEMINI_API_KEY missing");
+  let lastErr: any = null;
+  for (const model of MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: system }] },
+            contents: [{ role: "user", parts: [{ text: user }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: 8192 },
+          }),
+          signal: AbortSignal.timeout(90_000),
+        });
+        if (res.status === 503 || res.status === 429) {
+          lastErr = new Error(`${model} ${res.status}`);
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        if (!res.ok) {
+          const t = await res.text();
+          lastErr = new Error(`${model} ${res.status}: ${t.slice(0, 200)}`);
+          break;
+        }
+        const json: any = await res.json();
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        return { text, usage: json.usageMetadata, model };
+      } catch (e: any) {
+        lastErr = e;
+      }
+    }
+  }
+  throw lastErr || new Error("all models failed");
+}
 
 export async function enrichGuideWithResearch(input: EnrichInput): Promise<EnrichedGuide> {
   const lang = input.lang || "he";
@@ -75,25 +108,16 @@ ${existingOutline}
 
 Rebuild this guide from scratch with deep research. Keep the spirit of the original title/topic, but expand, clarify, and add concrete detail. Produce the JSON now.`;
 
-  const model = genAI().getGenerativeModel({
-    model: MODEL,
-    systemInstruction: SYSTEM,
-    generationConfig: {
-      responseMimeType: "application/json",
-      temperature: 0.7,
-      maxOutputTokens: 8192,
-    },
-  });
-  const result = await model.generateContent(userMsg);
-  const u = result.response.usageMetadata;
+  const { text, usage, model } = await callGemini(SYSTEM, userMsg);
   await logUsage({
-    model: MODEL,
+    model,
     operation: "compose",
-    inputTokens: u?.promptTokenCount || 0,
-    outputTokens: u?.candidatesTokenCount || 0,
+    inputTokens: usage?.promptTokenCount || 0,
+    outputTokens: usage?.candidatesTokenCount || 0,
     meta: { purpose: "guide-enrich", lang, title: input.title.slice(0, 60) },
   });
-  const raw = result.response.text().trim().replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+
+  const raw = text.trim().replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
   const parsed = JSON.parse(raw);
   if (!parsed.stages || !Array.isArray(parsed.stages)) throw new Error("invalid enrich output");
   return parsed as EnrichedGuide;

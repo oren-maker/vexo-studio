@@ -53,6 +53,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         details: { wordCount: text.split(/\s+/).length, preview: text.slice(0, 200) },
       },
     }).catch(() => {});
+    // CostEntry — Groq text-AI call, ~$0.003 estimated
+    if (project) {
+      const { chargeUsd } = await import("@/lib/billing");
+      const seriesRow = await prisma.series.findFirst({ where: { seasons: { some: { episodes: { some: { scenes: { some: { id: params.id } } } } } } }, select: { projectId: true } });
+      if (seriesRow?.projectId) {
+        await chargeUsd({
+          organizationId: ctx.organizationId, projectId: seriesRow.projectId,
+          entityType: "SCENE", entityId: params.id,
+          providerName: "Groq", category: "TOKEN",
+          description: `AI Sound Notes · scene ${scene.sceneNumber ?? "?"}`,
+          unitCost: 0.003, quantity: 1, userId: ctx.user.id,
+        }).catch(() => {});
+      }
+    }
     return ok({ sceneId: params.id, soundNotes: text });
   } catch (e) { return handleError(e); }
 }

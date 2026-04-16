@@ -100,6 +100,28 @@ Output in English (Sora prompt language). Be specific — no generic "cinematic 
       { temperature: 0.7, maxTokens: 800, description: `Remix suggest · SC${scene.sceneNumber}` },
     );
 
+    // SceneLog + CostEntry
+    await (prisma as any).sceneLog.create({
+      data: {
+        sceneId: scene.id,
+        action: "remix_suggest",
+        actor: `user:${ctx.user.id}`,
+        actorName: ctx.user.fullName ?? ctx.user.email,
+        details: { preview: suggestion.trim().slice(0, 200) },
+      },
+    }).catch(() => {});
+    const projectId = project?.id;
+    if (projectId) {
+      const { chargeUsd } = await import("@/lib/billing");
+      await chargeUsd({
+        organizationId: ctx.organizationId, projectId,
+        entityType: "SCENE", entityId: scene.id,
+        providerName: "Groq", category: "TOKEN",
+        description: `AI Director remix suggest · scene ${scene.sceneNumber}`,
+        unitCost: 0.005, quantity: 1, userId: ctx.user.id,
+      }).catch(() => {});
+    }
+
     return ok({ sceneId: scene.id, suggestion: suggestion.trim() });
   } catch (e) { return handleError(e); }
 }

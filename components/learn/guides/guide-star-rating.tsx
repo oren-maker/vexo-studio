@@ -27,7 +27,7 @@ export default function GuideStarRating({
     setErr("");
     startTransition(async () => {
       try {
-        const res = await fetch(`/api/guides/${slug}/rate`, {
+        const res = await fetch(`/api/v1/learn/guides/${slug}/rate`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...adminHeaders() },
           body: JSON.stringify({ rating: newRating }),

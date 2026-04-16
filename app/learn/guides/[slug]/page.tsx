@@ -47,7 +47,7 @@ export default async function GuideViewPage({
           <LanguagePicker current={lang} size="sm" />
           <ShareButton slug={guide.slug} title={trans?.title || ""} />
           <a
-            href={`/api/guides/${guide.slug}/pdf?lang=${lang}`}
+            href={`/api/v1/learn/guides/${guide.slug}/pdf?lang=${lang}`}
             target="_blank"
             className="text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded"
           >

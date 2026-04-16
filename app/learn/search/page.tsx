@@ -27,7 +27,7 @@ export default function VideoSearch() {
     if (!q) return;
     setLoading(true);
     setErr("");
-    const res = await fetch(`/api/learn/search/videos?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`/api/v1/learn/search/videos?q=${encodeURIComponent(q)}`);
     const j = await res.json();
     if (!res.ok) setErr(j.error || "שגיאה");
     else setResults(j.results || []);
@@ -40,7 +40,7 @@ export default function VideoSearch() {
       return;
     }
     setAnalyzing(s.id);
-    const res = await fetch("/api/learn/search/analyze", {
+    const res = await fetch("/api/v1/learn/search/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

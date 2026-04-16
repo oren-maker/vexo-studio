@@ -23,7 +23,7 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
   async function saveGuideMeta(updates: any) {
     if (!getAdminKey()) { setErr("הגדר admin key ב-/admin"); return; }
     try {
-      await fetch(`/api/guides/${guide.slug}`, {
+      await fetch(`/api/v1/learn/guides/${guide.slug}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ ...updates, lang }),
@@ -35,7 +35,7 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
   async function addStage() {
     if (!getAdminKey()) { setErr("הגדר admin key"); return; }
     try {
-      const res = await fetch(`/api/guides/${guide.slug}/stages`, {
+      const res = await fetch(`/api/v1/learn/guides/${guide.slug}/stages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ title: `שלב חדש`, content: "", lang }),
@@ -50,7 +50,7 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
 
   async function saveStage(stageId: string, patch: any) {
     if (!getAdminKey()) return;
-    await fetch(`/api/guides/stages/${stageId}`, {
+    await fetch(`/api/v1/learn/guides/stages/${stageId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", ...adminHeaders() },
       body: JSON.stringify({ ...patch, lang }),
@@ -60,14 +60,14 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
   async function deleteStage(stageId: string) {
     if (!confirm("למחוק את השלב?")) return;
     if (!getAdminKey()) return;
-    await fetch(`/api/guides/stages/${stageId}`, { method: "DELETE", headers: adminHeaders() });
+    await fetch(`/api/v1/learn/guides/stages/${stageId}`, { method: "DELETE", headers: adminHeaders() });
     setGuide({ ...guide, stages: guide.stages.filter((s: any) => s.id !== stageId) });
   }
 
   async function aiFillStage(stageId: string) {
     if (!getAdminKey()) { setErr("הגדר admin key"); return; }
     try {
-      const res = await fetch(`/api/guides/stages/${stageId}/ai-fill`, {
+      const res = await fetch(`/api/v1/learn/guides/stages/${stageId}/ai-fill`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ lang }),
@@ -83,10 +83,10 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
     try {
       const blob = await upload(`guides/${guide.slug}/${Date.now()}-${file.name}`, file, {
         access: "public",
-        handleUploadUrl: "/api/guides/upload",
+        handleUploadUrl: "/api/v1/learn/guides/upload",
         headers: adminHeaders() as any,
       });
-      await fetch(`/api/guides/stages/${stageId}/images`, {
+      await fetch(`/api/v1/learn/guides/stages/${stageId}/images`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ blobUrl: blob.url, source: "upload" }),
@@ -97,7 +97,7 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
 
   async function deleteImage(stageId: string, imageId: string) {
     if (!getAdminKey()) return;
-    await fetch(`/api/guides/stages/${stageId}/images?imageId=${imageId}`, { method: "DELETE", headers: adminHeaders() });
+    await fetch(`/api/v1/learn/guides/stages/${stageId}/images?imageId=${imageId}`, { method: "DELETE", headers: adminHeaders() });
     router.refresh();
   }
 
@@ -107,7 +107,7 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
       // Trigger translation for each non-source lang lazily by calling GET with lang
       for (const l of GUIDE_LANGUAGES) {
         if (l.code === guide.defaultLang) continue;
-        await fetch(`/api/guides/${guide.slug}?lang=${l.code}`, { cache: "no-store" });
+        await fetch(`/api/v1/learn/guides/${guide.slug}?lang=${l.code}`, { cache: "no-store" });
       }
       router.refresh();
     } catch (e: any) { setErr(e?.message || "translate error"); }

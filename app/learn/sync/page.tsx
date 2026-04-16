@@ -89,7 +89,7 @@ export default function SyncPage() {
   async function extractPattern() {
     setErr(""); setResult(null); setJobId(null);
     try {
-      const res = await fetch("/api/learn/pattern-extract", { method: "POST" });
+      const res = await fetch("/api/v1/learn/pattern-extract", { method: "POST" });
       const j = await res.json();
       if (!res.ok || !j.ok) { setErr(j.error || `HTTP ${res.status}`); return; }
       setJobId(j.jobId);

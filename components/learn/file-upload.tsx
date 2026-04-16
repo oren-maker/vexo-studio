@@ -23,11 +23,11 @@ export default function FileUpload() {
     try {
       const blob = await upload(file.name, file, {
         access: "public",
-        handleUploadUrl: "/api/learn/upload",
+        handleUploadUrl: "/api/v1/learn/upload",
         onUploadProgress: (p) => setProgress(Math.round(p.percentage)),
       });
 
-      const res = await fetch("/api/learn/sources", {
+      const res = await fetch("/api/v1/learn/sources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

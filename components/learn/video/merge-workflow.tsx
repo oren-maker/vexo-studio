@@ -52,7 +52,7 @@ export default function MergeWorkflow() {
         setUploadProgress({ name: file.name, pct: 0 });
         const blob = await upload(`video-merge/${Date.now()}-${file.name}`, file, {
           access: "public",
-          handleUploadUrl: "/api/video/upload",
+          handleUploadUrl: "/api/v1/learn/video/upload",
           clientPayload: JSON.stringify({ name: file.name }),
           onUploadProgress: (p) => setUploadProgress({ name: file.name, pct: Math.round(p.percentage) }),
           headers: adminHeaders() as any,
@@ -85,7 +85,7 @@ export default function MergeWorkflow() {
     try {
       const blob = await upload(`video-merge/audio-${Date.now()}-${file.name}`, file, {
         access: "public",
-        handleUploadUrl: "/api/video/upload",
+        handleUploadUrl: "/api/v1/learn/video/upload",
         headers: adminHeaders() as any,
       });
       setAudioTrackUrl(blob.url);
@@ -117,7 +117,7 @@ export default function MergeWorkflow() {
     setErr(""); setRunning(true); setProgressPct(0); setProgressMsg("יוצר פרויקט…");
     try {
       // 1. Create the job
-      const createRes = await fetch("/api/video/jobs", {
+      const createRes = await fetch("/api/v1/learn/video/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({
@@ -137,7 +137,7 @@ export default function MergeWorkflow() {
       const jobId: string = j.job.id;
 
       // 2. Apply per-clip trim/transition settings via PATCH
-      await fetch(`/api/video/jobs/${jobId}`, {
+      await fetch(`/api/v1/learn/video/jobs/${jobId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({
@@ -152,7 +152,7 @@ export default function MergeWorkflow() {
       });
 
       // 3. Trigger run
-      const runRes = await fetch(`/api/video/jobs/${jobId}/run`, {
+      const runRes = await fetch(`/api/v1/learn/video/jobs/${jobId}/run`, {
         method: "POST",
         headers: adminHeaders(),
       });
@@ -185,17 +185,17 @@ export default function MergeWorkflow() {
         const [startUp, endUp] = await Promise.all([
           upload(`video-merge/frames/${jobId}-${i}-last.jpg`, new File([lastBlob], "last.jpg", { type: "image/jpeg" }), {
             access: "public",
-            handleUploadUrl: "/api/video/upload",
+            handleUploadUrl: "/api/v1/learn/video/upload",
             headers: adminHeaders() as any,
           }),
           upload(`video-merge/frames/${jobId}-${i + 1}-first.jpg`, new File([firstBlob], "first.jpg", { type: "image/jpeg" }), {
             access: "public",
-            handleUploadUrl: "/api/video/upload",
+            handleUploadUrl: "/api/v1/learn/video/upload",
             headers: adminHeaders() as any,
           }),
         ]);
         setProgressMsg(`🤖 AI transition ${k + 1}/${aiIndices.length} — Luma מרנדר (~30s)`);
-        const genRes = await fetch("/api/video/transitions/generate", {
+        const genRes = await fetch("/api/v1/learn/video/transitions/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...adminHeaders() },
           body: JSON.stringify({
@@ -216,7 +216,7 @@ export default function MergeWorkflow() {
         let lumaUrl: string | null = null;
         while (Date.now() < deadline) {
           await new Promise((r) => setTimeout(r, 4000));
-          const sRes = await fetch(`/api/video/transitions/${transitionId}`);
+          const sRes = await fetch(`/api/v1/learn/video/transitions/${transitionId}`);
           if (!sRes.ok) continue;
           const sJson = await sRes.json();
           if (sJson.status === "complete" && sJson.outputUrl) { lumaUrl = sJson.outputUrl; break; }
@@ -263,12 +263,12 @@ export default function MergeWorkflow() {
       const file = new File([blob], `merged-${jobId}.mp4`, { type: "video/mp4" });
       const outBlob = await upload(`video-merge/output-${jobId}.mp4`, file, {
         access: "public",
-        handleUploadUrl: "/api/video/upload",
+        handleUploadUrl: "/api/v1/learn/video/upload",
         headers: adminHeaders() as any,
       });
 
       // 6. Tell the server we're done
-      await fetch(`/api/video/jobs/${jobId}/wasm-complete`, {
+      await fetch(`/api/v1/learn/video/jobs/${jobId}/wasm-complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ outputUrl: outBlob.url, outputDuration: totalDur }),
@@ -436,7 +436,7 @@ export default function MergeWorkflow() {
                     onClick={async () => {
                       setNarrationGenerating(true); setErr("");
                       try {
-                        const res = await fetch("/api/video/tts", {
+                        const res = await fetch("/api/v1/learn/video/tts", {
                           method: "POST",
                           headers: { "Content-Type": "application/json", ...adminHeaders() },
                           body: JSON.stringify({ text: narrationText, voice: narrationVoice }),

@@ -26,7 +26,7 @@ export default function AddSource() {
   async function onUrlSubmit(e: React.FormEvent) {
     e.preventDefault();
     setUrlBusy(true); setUrlErr("");
-    const res = await fetch("/api/learn/sources", {
+    const res = await fetch("/api/v1/learn/sources", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, prompt }),

@@ -41,7 +41,7 @@ export default function TrimWorkflow() {
       setPhase("uploading"); setProgressPct(2); setProgressMsg("מעלה ל-Blob…");
       const blob = await upload(`video-trim/${Date.now()}-${f.name}`, f, {
         access: "public",
-        handleUploadUrl: "/api/video/upload",
+        handleUploadUrl: "/api/v1/learn/video/upload",
         onUploadProgress: (p) => { setProgressPct(2 + Math.round(p.percentage * 0.18)); },
         headers: adminHeaders() as any,
       });
@@ -50,7 +50,7 @@ export default function TrimWorkflow() {
       // AI mode: hand off to server, polling SyncJob takes over
       if (detectMode === "ai") {
         setPhase("detecting"); setProgressPct(25); setProgressMsg("Gemini מנתח את הוידאו…");
-        const res = await fetch("/api/video/trim/ai-detect", {
+        const res = await fetch("/api/v1/learn/video/trim/ai-detect", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...adminHeaders() },
           body: JSON.stringify({ inputBlobUrl: blob.url, filename: f.name }),
@@ -77,7 +77,7 @@ export default function TrimWorkflow() {
           const tName = `video-trim/${Date.now()}-thumb-${i}.jpg`;
           const tBlob = await upload(tName, new File([s.thumbnail], `thumb-${i}.jpg`, { type: "image/jpeg" }), {
             access: "public",
-            handleUploadUrl: "/api/video/upload",
+            handleUploadUrl: "/api/v1/learn/video/upload",
             headers: adminHeaders() as any,
           });
           return {
@@ -91,7 +91,7 @@ export default function TrimWorkflow() {
 
       // 4. Persist session
       setProgressPct(92); setProgressMsg("שומר סשן…");
-      const createRes = await fetch("/api/video/trim/sessions", {
+      const createRes = await fetch("/api/v1/learn/video/trim/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({
@@ -117,7 +117,7 @@ export default function TrimWorkflow() {
     if (!sessionId) return;
     setErr(""); setPhase("rating");
     try {
-      const res = await fetch(`/api/video/trim/sessions/${sessionId}/rate`, { method: "POST", headers: adminHeaders() });
+      const res = await fetch(`/api/v1/learn/video/trim/sessions/${sessionId}/rate`, { method: "POST", headers: adminHeaders() });
       const j = await res.json();
       if (!res.ok || !j.ok) throw new Error(j.error || "rating failed");
       if (j.jobId) setRatingJobId(j.jobId);
@@ -129,7 +129,7 @@ export default function TrimWorkflow() {
 
   async function reloadSession() {
     if (!sessionId) return;
-    const res = await fetch(`/api/video/trim/sessions/${sessionId}`);
+    const res = await fetch(`/api/v1/learn/video/trim/sessions/${sessionId}`);
     if (!res.ok) return;
     const s = await res.json();
     setScenes(s.scenes);
@@ -149,12 +149,12 @@ export default function TrimWorkflow() {
     setPhase("exporting"); setErr("");
     try {
       // Persist current selection
-      await fetch(`/api/video/trim/sessions/${sessionId}`, {
+      await fetch(`/api/v1/learn/video/trim/sessions/${sessionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ scenes: scenes.map((s) => ({ id: s.id, selected: s.selected })) }),
       });
-      const res = await fetch(`/api/video/trim/sessions/${sessionId}/export`, { method: "POST", headers: adminHeaders() });
+      const res = await fetch(`/api/v1/learn/video/trim/sessions/${sessionId}/export`, { method: "POST", headers: adminHeaders() });
       const j = await res.json();
       if (!res.ok || !j.ok) throw new Error(j.error || "export failed");
       router.push(`/video/jobs/${j.jobId}`);
@@ -215,7 +215,7 @@ export default function TrimWorkflow() {
             setAiDetectJobId(null);
             if (result?.sessionId) {
               setSessionId(result.sessionId);
-              const r = await fetch(`/api/video/trim/sessions/${result.sessionId}`);
+              const r = await fetch(`/api/v1/learn/video/trim/sessions/${result.sessionId}`);
               if (r.ok) {
                 const s = await r.json();
                 setScenes(s.scenes);

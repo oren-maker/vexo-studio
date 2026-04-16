@@ -1,13 +1,16 @@
-// Client-side helper: read admin key from localStorage and build fetch headers.
-// The user sets their admin key once via /admin or localStorage.setItem("adminKey", "...").
+// Bridged client-side auth headers for migrated vexo-learn components.
+// Instead of reading an admin key from localStorage (old vexo-learn pattern),
+// inject the vexo-studio JWT so the bridged requireAdmin() on the server
+// accepts the request.
+
+import { getAccessToken } from "@/lib/api";
 
 export function getAdminKey(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("adminKey");
+  return getAccessToken();
 }
 
 export function adminHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const key = getAdminKey();
-  if (!key) return extra;
-  return { ...extra, "x-admin-key": key };
+  const token = getAccessToken();
+  if (!token) return extra;
+  return { ...extra, Authorization: `Bearer ${token}` };
 }

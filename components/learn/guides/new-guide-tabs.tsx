@@ -51,7 +51,7 @@ export default function NewGuideTabs() {
     if (!checkAuth()) return;
     setPending(true); setErr("");
     try {
-      const res = await fetch("/api/guides", {
+      const res = await fetch("/api/v1/learn/guides", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ title, description, category: category || null, lang, source: "manual" }),
@@ -71,7 +71,7 @@ export default function NewGuideTabs() {
     if (!checkAuth()) return;
     setPending(true); setErr("");
     try {
-      const res = await fetch("/api/guides/ai-create", {
+      const res = await fetch("/api/v1/learn/guides/ai-create", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ topic: aiTopic, lang }),
@@ -91,7 +91,7 @@ export default function NewGuideTabs() {
     if (!checkAuth()) return;
     setPending(true); setErr("");
     try {
-      const res = await fetch("/api/guides/import-url", {
+      const res = await fetch("/api/v1/learn/guides/import-url", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ url: importUrl, lang }),
@@ -111,7 +111,7 @@ export default function NewGuideTabs() {
     if (!checkAuth()) return;
     setPending(true); setErr("");
     try {
-      const res = await fetch("/api/guides/import-instagram", {
+      const res = await fetch("/api/v1/learn/guides/import-instagram", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ url: importUrl, lang }),

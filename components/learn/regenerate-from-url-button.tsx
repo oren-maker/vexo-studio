@@ -18,7 +18,7 @@ export default function RegenerateFromUrlButton({ sourceId, hasUrl }: { sourceId
     if (!confirm("זה ימשוך מחדש את הכיתוב והתמונה מה-URL ויחליף את הפרומפט הנוכחי. הגרסה הישנה תישמר ב-לוגים. להמשיך?")) return;
     setErr(""); setStarting(true);
     try {
-      const res = await fetch(`/api/learn/sources/${sourceId}/regenerate`, {
+      const res = await fetch(`/api/v1/learn/sources/${sourceId}/regenerate`, {
         method: "POST",
         headers: adminHeaders(),
       });

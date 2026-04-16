@@ -10,7 +10,7 @@ export default function DeleteSourceButton({ id }: { id: string }) {
   async function onDelete() {
     if (!confirm("למחוק את המקור לצמיתות?")) return;
     setBusy(true);
-    await fetch(`/api/learn/sources/${id}`, { method: "DELETE" });
+    await fetch(`/api/v1/learn/sources/${id}`, { method: "DELETE" });
     router.refresh();
   }
 

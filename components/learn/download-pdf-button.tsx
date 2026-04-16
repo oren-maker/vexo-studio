@@ -7,8 +7,8 @@ export default function DownloadPdfButton({ sourceId, hasCached }: { sourceId: s
 
   function download(force = false) {
     const url = force
-      ? `/api/learn/sources/${sourceId}/pdf?force=1`
-      : `/api/learn/sources/${sourceId}/pdf`;
+      ? `/api/v1/learn/sources/${sourceId}/pdf?force=1`
+      : `/api/v1/learn/sources/${sourceId}/pdf`;
     setBusy(true);
     // Open in new tab — if cached the redirect is instant; otherwise generates + redirects
     window.open(url, "_blank", "noopener,noreferrer");

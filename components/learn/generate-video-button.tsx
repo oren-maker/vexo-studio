@@ -40,7 +40,7 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
     if (isDone) return;
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/learn/videos/${videoId}/status`, { cache: "no-store" });
+        const res = await fetch(`/api/v1/learn/videos/${videoId}/status`, { cache: "no-store" });
         if (!res.ok) return;
         const s = (await res.json()) as Status;
         setStatus(s);

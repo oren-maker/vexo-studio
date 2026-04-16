@@ -15,7 +15,7 @@ export default function DeleteGuideButton({ slug }: { slug: string }) {
     if (!confirm("למחוק את המדריך?")) return;
     setPending(true);
     try {
-      const res = await fetch(`/api/guides/${slug}`, { method: "DELETE", headers: adminHeaders() });
+      const res = await fetch(`/api/v1/learn/guides/${slug}`, { method: "DELETE", headers: adminHeaders() });
       if (res.ok) router.refresh();
       else alert(`שגיאה: ${res.status}`);
     } finally {

@@ -539,19 +539,19 @@ export default function ScenePage() {
                         <span>{m.durationSeconds ? `${m.durationSeconds}s` : ""}</span>
                         <span>{new Date(v.createdAt).toLocaleString()}</span>
                       </div>
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {!isPrimary && (
+                      <div data-no-translate className="grid grid-cols-4 gap-1 mt-2">
+                        {!isPrimary ? (
                           <button onClick={async () => {
                             try {
                               await api(`/api/v1/scenes/${scene.id}/set-active-video`, { method: "POST", body: { assetId: v.id } });
                               location.reload();
                             } catch (e) { alert((e as Error).message); }
-                          }} className="flex-1 text-[11px] px-2 py-1.5 rounded bg-accent text-white font-semibold">⭐ {he ? "ראשי" : "Main"}</button>
-                        )}
-                        {(m.provider === "openai" || /sora/i.test(m.model ?? "")) && (
+                          }} className="text-[11px] py-1.5 rounded-lg bg-accent text-white font-semibold text-center">⭐ ראשי</button>
+                        ) : <div />}
+                        {(m.provider === "openai" || /sora/i.test(m.model ?? "")) ? (
                           <button onClick={() => setRemixModal({ assetId: v.id, model: m.model ?? "sora-2" })}
-                            className="flex-1 text-[11px] px-2 py-1.5 rounded border border-status-warnText text-status-warnText font-semibold">✨ Remix</button>
-                        )}
+                            className="text-[11px] py-1.5 rounded-lg border-2 border-status-warnText text-status-warnText font-semibold text-center">✨ Remix</button>
+                        ) : <div />}
                         <button onClick={async () => {
                           try {
                             const res = await fetch(v.fileUrl);
@@ -562,15 +562,15 @@ export default function ScenePage() {
                             a.click();
                             URL.revokeObjectURL(a.href);
                           } catch { window.open(v.fileUrl, "_blank"); }
-                        }} className="flex-1 text-[11px] px-2 py-1.5 rounded border border-bg-main text-text-muted font-semibold hover:bg-bg-main">⬇ {he ? "הורד" : "DL"}</button>
+                        }} className="text-[11px] py-1.5 rounded-lg border border-bg-main text-text-primary font-semibold text-center hover:bg-bg-main">⬇ הורד</button>
                         <button onClick={() => {
                           const url = `${window.location.origin}${v.fileUrl}`;
                           navigator.clipboard.writeText(url).then(() => {
                             const btn = document.activeElement as HTMLButtonElement;
                             const orig = btn?.textContent ?? "";
-                            if (btn) { btn.textContent = he ? "✓ הועתק" : "✓ Copied"; setTimeout(() => { btn.textContent = orig; }, 1500); }
+                            if (btn) { btn.textContent = "✓ הועתק"; setTimeout(() => { btn.textContent = orig; }, 1500); }
                           });
-                        }} className="flex-1 text-[11px] px-2 py-1.5 rounded border border-bg-main text-text-muted font-semibold hover:bg-bg-main">🔗 {he ? "קישור" : "Link"}</button>
+                        }} className="text-[11px] py-1.5 rounded-lg border border-bg-main text-text-primary font-semibold text-center hover:bg-bg-main">🔗 קישור</button>
                       </div>
                     </div>
                   </div>

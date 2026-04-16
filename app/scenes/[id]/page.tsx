@@ -59,6 +59,12 @@ export default function ScenePage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, scene, he]);
   const [imageModel, setImageModel] = useState<"nano-banana">("nano-banana");
+  // Remix modal state
+  const [remixModal, setRemixModal] = useState<{ assetId: string; model: string } | null>(null);
+  const [remixSuggestion, setRemixSuggestion] = useState<string | null>(null);
+  const [remixNotes, setRemixNotes] = useState("");
+  const [remixBusy, setRemixBusy] = useState<"suggest" | "submit" | null>(null);
+
   // Curated shortlist — one best-in-class option per use case, no dupes.
   // Sora 2 is the default (good audio + 12s + cheap).
   type AllVideoModel =
@@ -533,14 +539,8 @@ export default function ScenePage() {
                         }} className="mt-2 w-full text-[11px] px-2 py-1 rounded bg-accent text-white font-semibold">⭐ {he ? "קבע כראשי" : "Set as main"}</button>
                       )}
                       {(m.provider === "openai" || /sora/i.test(m.model ?? "")) && (
-                        <button onClick={async () => {
-                          const change = prompt(he ? "מה לשנות בסרטון? (לדוגמה: 'שנה את הרקע ליום במקום לילה' / 'תוסיף גשם')" : "What to change? (e.g. 'change background to day' / 'add rain')");
-                          if (!change) return;
-                          try {
-                            await api(`/api/v1/scenes/${scene.id}/remix-video`, { method: "POST", body: { assetId: v.id, prompt: change } });
-                            alert(he ? "Remix נשלח. ייקח 1-3 דקות. רענן את הדף בעוד דקה." : "Remix submitted. Takes 1-3 min. Refresh in a minute.");
-                          } catch (e) { alert((e as Error).message); }
-                        }} className="mt-1 w-full text-[11px] px-2 py-1 rounded border border-status-warnText text-status-warnText font-semibold">✨ {he ? "Remix (שמירת זהות)" : "Remix (keep identity)"}</button>
+                        <button onClick={() => setRemixModal({ assetId: v.id, model: m.model ?? "sora-2" })}
+                          className="mt-1 w-full text-[11px] px-2 py-1 rounded border border-status-warnText text-status-warnText font-semibold">✨ {he ? "Remix (שמירת זהות)" : "Remix (keep identity)"}</button>
                       )}
                     </div>
                   </div>
@@ -715,6 +715,79 @@ export default function ScenePage() {
               🎬 {he ? `הפעל ${MODEL_LABEL[veoModel].name}` : `Run ${MODEL_LABEL[veoModel].name}`}
             </button>
             <button onClick={() => setVeoModalOpen(false)} className="w-full text-center text-text-muted text-sm hover:text-text-secondary">{he ? "ביטול" : "Cancel"}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Remix Modal ── */}
+      {remixModal && scene && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => { setRemixModal(null); setRemixSuggestion(null); setRemixNotes(""); }}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-bg-card rounded-card border border-bg-main p-5 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-lg">✨ Remix</h3>
+              <button onClick={() => { setRemixModal(null); setRemixSuggestion(null); setRemixNotes(""); }} className="text-text-muted">✕</button>
+            </div>
+
+            {/* Step 1: Ask AI Director for suggestions */}
+            {!remixSuggestion && (
+              <div className="space-y-3">
+                <p className="text-sm text-text-secondary">{he ? "הבמאי AI יסקור את הסצנה ויציע הערות שיפור. אם אין מה לשנות — הוא יגיד." : "The AI Director will review the scene and suggest improvements. If nothing needs fixing, it'll say so."}</p>
+                <button
+                  disabled={remixBusy === "suggest"}
+                  onClick={async () => {
+                    setRemixBusy("suggest");
+                    try {
+                      const r = await api<{ suggestion: string }>(`/api/v1/scenes/${scene.id}/remix-suggest`, { method: "POST" });
+                      setRemixSuggestion(r.suggestion);
+                      setRemixNotes(r.suggestion);
+                    } catch (e) { alert((e as Error).message); }
+                    finally { setRemixBusy(null); }
+                  }}
+                  className="w-full px-4 py-2 rounded-lg bg-accent text-white font-semibold disabled:opacity-50"
+                >
+                  {remixBusy === "suggest" ? (he ? "🎬 הבמאי סוקר…" : "🎬 Director reviewing…") : (he ? "🎬 בקש מהבמאי לסקור" : "🎬 Ask Director to review")}
+                </button>
+              </div>
+            )}
+
+            {/* Step 2: Show suggestions + editable notes */}
+            {remixSuggestion && (
+              <div className="space-y-3">
+                <div className="text-xs font-semibold text-text-muted uppercase tracking-wider">{he ? "הערות הבמאי (ערוך לפי הצורך)" : "Director's notes (edit as needed)"}</div>
+                <textarea
+                  value={remixNotes}
+                  onChange={(e) => setRemixNotes(e.target.value)}
+                  rows={10}
+                  className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm font-mono"
+                />
+                <div className="flex gap-2">
+                  <button
+                    disabled={remixBusy === "submit" || !remixNotes.trim()}
+                    onClick={async () => {
+                      setRemixBusy("submit");
+                      try {
+                        await api(`/api/v1/scenes/${scene.id}/remix-video`, {
+                          method: "POST",
+                          body: { assetId: remixModal.assetId, prompt: remixNotes.trim() },
+                        });
+                        setRemixModal(null); setRemixSuggestion(null); setRemixNotes("");
+                        alert(he ? "✨ Remix נשלח. ייקח 1-3 דקות. רענן את הדף." : "✨ Remix submitted. Takes 1-3 min. Refresh the page.");
+                      } catch (e) { alert((e as Error).message); }
+                      finally { setRemixBusy(null); }
+                    }}
+                    className="flex-1 px-4 py-2 rounded-lg bg-accent text-white font-semibold disabled:opacity-50"
+                  >
+                    {remixBusy === "submit" ? "…" : (he ? "✨ שלח Remix" : "✨ Submit Remix")}
+                  </button>
+                  <button
+                    onClick={() => { setRemixModal(null); setRemixSuggestion(null); setRemixNotes(""); }}
+                    className="px-4 py-2 rounded-lg border border-bg-main text-sm"
+                  >
+                    {he ? "ביטול" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

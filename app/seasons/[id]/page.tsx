@@ -396,7 +396,10 @@ export default function SeasonPage() {
   const seasonPct = avg(epPercents);
 
   return (
-    <div className="space-y-4">
+    // translate="no" — content is already in user's language (he/en). Chrome's
+    // auto-translator re-translates and truncates Hebrew strings + mangles
+    // English tokens (EP06 → פורטוגזית06). notranslate class covers Chrome.
+    <div translate="no" className="notranslate space-y-4">
       <div className="bg-bg-card rounded-card border border-bg-main px-4 py-3 flex items-center gap-3 flex-wrap">
         <h1 className="text-lg font-bold truncate">
           <span className="text-text-muted font-normal text-sm">{season.series.project.name} · </span>

@@ -297,7 +297,11 @@ export default function ScenePage() {
   if (!scene) return <div className="text-text-muted">{he ? "טוען…" : "Loading…"}</div>;
 
   return (
-    <div className="space-y-4">
+    // translate="no" across the whole scene page: text is ALREADY rendered in
+    // the user's chosen language (he/en) via useLang(). Chrome's auto-translator
+    // would re-translate Hebrew→Hebrew, causing truncation ("הסצ" instead of
+    // "הסצנה") and word mangling ("EP06" → "פורטוגזית06"). notranslate disables it.
+    <div translate="no" className="notranslate space-y-4">
       {scene.episodeId && (
         <Link href={`/episodes/${scene.episodeId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">
           {he ? "→ חזרה לפרק" : "← Back to episode"}

@@ -120,37 +120,61 @@ export async function POST(req: NextRequest) {
       const brief = String(action.brief || action.topic || "").trim();
       if (!brief) return NextResponse.json({ error: "brief/topic required" }, { status: 400 });
       const composed = await composePrompt(brief);
-      const source = await prisma.learnSource.create({
-        data: {
-          type: "upload",
-          prompt: composed.prompt,
-          title: brief.slice(0, 120),
-          status: "complete",
-          addedBy: ctxKind === "scene" ? `brain-chat:scene:${ctxId}` : "brain-chat",
-        },
-      });
-      // If the brain was called on a Scene page, also write the prompt into
-      // the unified Scene record so Oren sees it immediately on the scene
-      // dashboard — this keeps /learn and /seasons/... in sync.
+
+      // Resolve target Scene: explicit action.sceneId wins, else page context
+      // when on a scene page. If we have a sceneId we update the production DB
+      // INSTEAD of polluting the prompt library with another LearnSource —
+      // that's what was happening when Oren worked on episodes/scenes and got
+      // detached prompts. We still create a LearnSource only when no scene
+      // target exists (e.g. explicit "create a prompt" with no scene).
+      const targetSceneId: string | null = String(action.sceneId || "").trim() || (ctxKind === "scene" ? ctxId : null);
+
       let sceneUpdated = false;
       let sceneUrl: string | null = null;
-      if (ctxKind === "scene" && ctxId) {
+      let updatedScene: any = null;
+      if (targetSceneId) {
         try {
-          const scene = await prisma.scene.update({
-            where: { id: ctxId },
+          updatedScene = await prisma.scene.update({
+            where: { id: targetSceneId },
             data: { scriptText: composed.prompt, scriptSource: "brain-compose" },
-            include: { episode: { select: { id: true, seasonId: true } } },
+            include: { episode: { select: { id: true, seasonId: true, episodeNumber: true } } },
           });
           sceneUpdated = true;
-          if (scene.episode) sceneUrl = `/seasons/${scene.episode.seasonId}/episodes/${scene.episodeId}/scenes/${scene.id}`;
-        } catch {}
+          if (updatedScene.episode) {
+            sceneUrl = `/seasons/${updatedScene.episode.seasonId}/episodes/${updatedScene.episodeId}/scenes/${updatedScene.id}`;
+          }
+        } catch (e: any) {
+          return NextResponse.json({
+            error: `scene ${targetSceneId} not found — ${String(e?.message || e).slice(0, 150)}`,
+          }, { status: 404 });
+        }
       }
-      resultUrl = sceneUrl ?? `/learn/sources/${source.id}`;
+
+      // Only create a LearnSource when the prompt isn't bound to a scene —
+      // otherwise it just clutters the library with duplicates of scene scripts.
+      let source: any = null;
+      if (!targetSceneId) {
+        source = await prisma.learnSource.create({
+          data: {
+            type: "upload",
+            prompt: composed.prompt,
+            title: brief.slice(0, 120),
+            status: "complete",
+            addedBy: "brain-chat",
+          },
+        });
+      }
+
+      resultUrl = sceneUrl ?? (source ? `/learn/sources/${source.id}` : null);
       const wordCount = composed.prompt.split(/\s+/).length;
       const sections = ["VISUAL STYLE", "FILM STOCK", "COLOR", "LIGHTING", "CHARACTER", "AUDIO", "TIMELINE", "QUALITY"]
         .filter((s) => composed.prompt.toUpperCase().includes(s));
       const preview = composed.prompt.slice(0, 600);
-      const sceneNote = sceneUpdated ? "\n📍 עדכנתי גם את scriptText של הסצנה הנוכחית." : "";
+      const sceneNote = sceneUpdated && updatedScene
+        ? `\n🎬 עודכן ב-DB: סצנה ${updatedScene.sceneNumber ?? "?"}${updatedScene.episode ? ` (פרק ${updatedScene.episode.episodeNumber ?? "?"})` : ""} · scriptText נשמר.`
+        : !targetSceneId
+        ? "\n📚 נשמר ב-זיכרון (LearnSource). אם זה היה אמור להיות לסצנה — תגיד לי איזו וננתב מחדש."
+        : "";
       resultText = `✅ יצרתי פרומפט מלא: ${wordCount} מילים · ${sections.length}/8 סעיפים.${sceneNote}\n\n📄 תצוגה מקדימה:\n${preview}${composed.prompt.length > 600 ? "..." : ""}\n\n💡 ${composed.rationale?.slice(0, 300) || ""}`;
     } else if (action.type === "generate_video") {
       const sourceId = String(action.sourceId || "").trim();

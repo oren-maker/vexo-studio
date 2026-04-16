@@ -103,21 +103,27 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
       if (pageCtx.kind === "season") {
         const s: any = await (prisma as any).season?.findUnique({
           where: { id: pageCtx.id },
-          include: { episodes: { select: { id: true, episodeNumber: true, title: true, status: true } } },
+          include: { episodes: { select: { id: true, episodeNumber: true, title: true, status: true }, orderBy: { episodeNumber: "asc" } } },
         });
         if (s) {
           const eps = s.episodes ?? [];
-          pageContextBlock = `עונה ${s.seasonNumber ?? "?"}: "${s.title || s.id}" · סטטוס ${s.status ?? "—"} · ${eps.length} פרקים${eps.length ? ` (${eps.slice(0, 5).map((e: any) => `E${e.episodeNumber ?? "?"} ${e.title ?? ""}`).join(", ")}${eps.length > 5 ? "…" : ""})` : ""}`;
+          const epList = eps.slice(0, 10).map((e: any) =>
+            `  • פרק ${e.episodeNumber ?? "?"}: id=${e.id} status=${e.status} title="${e.title ?? ""}"`
+          ).join("\n");
+          pageContextBlock = `עונה ${s.seasonNumber ?? "?"}: "${s.title || s.id}" · סטטוס ${s.status ?? "—"} · ${eps.length} פרקים${epList ? `\n${epList}` : ""}\n💡 לעבוד על פרק ספציפי, אורן צריך לעבור לעמוד הפרק או לציין במפורש.`;
         } else {
           pageContextError = "season id לא נמצא ב-DB";
         }
       } else if (pageCtx.kind === "episode") {
         const e: any = await (prisma as any).episode?.findUnique({
           where: { id: pageCtx.id },
-          include: { scenes: { select: { id: true, sceneNumber: true, title: true, status: true } } },
+          include: { scenes: { select: { id: true, sceneNumber: true, title: true, status: true }, orderBy: { sceneNumber: "asc" } } },
         });
         if (e) {
-          pageContextBlock = `פרק ${e.episodeNumber ?? "?"}: "${e.title || e.id}" · סטטוס ${e.status} · ${e.scenes?.length || 0} סצנות`;
+          const sceneList = (e.scenes ?? []).slice(0, 12).map((s: any) =>
+            `  • סצנה ${s.sceneNumber ?? "?"}: id=${s.id} status=${s.status} title="${s.title ?? ""}"`
+          ).join("\n");
+          pageContextBlock = `פרק ${e.episodeNumber ?? "?"}: "${e.title || e.id}" · סטטוס ${e.status} · ${e.scenes?.length || 0} סצנות${sceneList ? `\n${sceneList}` : ""}\n💡 לעדכן סצנה ספציפית — השתמש ב-compose_prompt עם sceneId של הסצנה הרלוונטית מהרשימה למעלה.`;
         } else {
           pageContextError = "episode id לא נמצא ב-DB";
         }
@@ -215,7 +221,12 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
 ⚠️ **\`type\` חייב להיות EXACTLY אחד מהשמות באנגלית למטה.** אסור עברית, אסור "כן"/"לא"/"בצע", אסור שם שהמצאת. אם אתה לא בטוח איזו פעולה צריך — אל תחזיר action בכלל ושאל את אורן.
 
 7 סוגי פעולות שאתה יכול לבצע:
-1. \`compose_prompt\` — יצירת **פרומפט וידאו חדש** מתיאור/נושא. אם אורן אומר "תייצר פרומפט" / "צור פרומפט" / "תעשה פרומפט על X" → זו הפעולה הנכונה. פרמטרים: brief (תיאור הנושא)
+1. \`compose_prompt\` — יצירת **פרומפט וידאו** מתיאור/נושא.
+   פרמטרים: \`brief\` (תיאור הנושא, חובה) · \`sceneId\` (אופציונלי — אם הפרומפט הוא לסצנה ספציפית בהפקה)
+   📌 **כלל קריטי לעבודה על פרקים/סצנות:**
+   - אם אורן עובד על פרק/סצנה ספציפית (page context kind=scene/episode/season, או הוא מציין במפורש "סצנה X של פרק Y") — **חייב לכלול \`sceneId\`** של הסצנה הרלוונטית. הפרומפט יישמר ב-Scene.scriptText במקום ביצירת LearnSource מנותקת.
+   - אם אין סצנה יעד ברורה (אורן רק מבקש "תייצר פרומפט על נושא X" כללי) — אל תכלול sceneId, ואז יישמר בזיכרון (LearnSource).
+   - **אם אתה לא מוצא את ה-sceneId** מתוך page context או היסטוריית השיחה — שאל את אורן "לאיזו סצנה הפרומפט הזה?" במקום ליצור LearnSource מנותק.
 2. \`generate_video\` — יצירת **סרטון VEO 3.1** מפרומפט קיים (LearnSource). **רק** אם אורן אומר במפורש "תייצר סרטון" / "תעשה וידאו" / "הפוך לסרטון". אל תציע זאת אוטומטית אחרי compose_prompt. פרמטרים: sourceId (חובה), durationSec (אופציונלי, ברירת מחדל 8), aspectRatio (אופציונלי, "16:9" או "9:16")
 3. \`import_guide_url\` — ייבוא URL לאתר רגיל (wikiHow, blog, docs) ל-**מדריך** חדש. פרמטרים: url, lang
 4. \`ai_guide\` — יצירת **מדריך** מנושא (לא פרומפט!). פרמטרים: topic, lang

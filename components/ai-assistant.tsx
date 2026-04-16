@@ -18,25 +18,45 @@ const VALID_ACTION_TYPES = new Set([
 
 type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };
 
-// Parse brain reply: extract action JSON + clean content. Tolerant to malformed JSON
-// (strips the action fence regardless, so it never shows as raw text).
+// Parse brain reply: extract action JSON + clean content.
+// Tolerant to:
+//   - fence with or without the "action" label
+//   - 1/2/3 backticks (RTL-direction sometimes mangles the fence visually)
+//   - raw JSON object embedded in prose
+//   - trailing quote on numbers, trailing commas
+// Always strips the source block from content so it never shows as raw text.
 function parseBrainReply(raw: string): { content: string; action: { type: string; [k: string]: unknown } | null } {
-  const re = /```action\s*([\s\S]*?)```/;
-  const match = raw.match(re);
-  if (!match) return { content: raw, action: null };
-  let action: { type: string; [k: string]: unknown } | null = null;
-  try {
-    // Try to salvage common JSON errors (trailing quote on numbers, trailing commas)
-    let candidate = match[1].trim();
-    candidate = candidate.replace(/:(\s*-?\d+\.?\d*)"(\s*[,}])/g, ":$1$2"); // fix "confidence":0.98" → 0.98
-    candidate = candidate.replace(/,(\s*[}\]])/g, "$1"); // trailing commas
-    const parsed = JSON.parse(candidate) as { type?: string; [k: string]: unknown };
-    if (parsed && typeof parsed.type === "string" && VALID_ACTION_TYPES.has(parsed.type)) {
-      action = parsed as { type: string; [k: string]: unknown };
+  function tryParse(candidate: string): { type: string; [k: string]: unknown } | null {
+    try {
+      let s = candidate.trim().replace(/^json\s*/i, "").replace(/^action\s*/i, "");
+      s = s.replace(/:(\s*-?\d+\.?\d*)"(\s*[,}])/g, ":$1$2"); // "0.98" → 0.98
+      s = s.replace(/,(\s*[}\]])/g, "$1"); // trailing commas
+      const p = JSON.parse(s);
+      if (p && typeof p.type === "string" && VALID_ACTION_TYPES.has(p.type)) return p;
+    } catch {}
+    return null;
+  }
+
+  // Pass 1: standard fenced block ```action ... ``` (or ```json or plain ```).
+  let match = raw.match(/```+\s*(?:action|json)?\s*\n?([\s\S]*?)\n?```+/);
+  if (match) {
+    const parsed = tryParse(match[1]);
+    return { content: raw.replace(match[0], "").trim() || "(אין תגובה)", action: parsed };
+  }
+
+  // Pass 2: look for a single-backtick-wrapped or unfenced JSON with "type":"<known>"
+  // so if the brain/RTL mangled the triple backticks we still recover.
+  const jsonHunt = raw.match(/\{[\s\S]*?"type"\s*:\s*"(?:compose_prompt|generate_video|import_guide_url|ai_guide|import_instagram_guide|import_source|update_reference)"[\s\S]*?\}/);
+  if (jsonHunt) {
+    const parsed = tryParse(jsonHunt[0]);
+    if (parsed) {
+      // Strip the JSON + any stray surrounding backticks from visible content
+      const cleaned = raw.replace(jsonHunt[0], "").replace(/`+\s*action\s*/gi, "").replace(/`+/g, "").trim();
+      return { content: cleaned || "(אין תגובה)", action: parsed };
     }
-  } catch {}
-  const content = raw.replace(re, "").trim() || "(אין תגובה)";
-  return { content, action };
+  }
+
+  return { content: raw, action: null };
 }
 
 function detectPageContext(): PageContext {

@@ -97,28 +97,65 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
 
   // Resolve page context to a rich, human-readable block
   let pageContextBlock = "";
+  let pageContextError: string | null = null;
   if (pageCtx?.kind && pageCtx.id) {
     try {
       if (pageCtx.kind === "season") {
-        const s: any = await (prisma as any).season?.findUnique({ where: { id: pageCtx.id }, include: { episodes: { select: { id: true, number: true, title: true, status: true } } } });
-        if (s) pageContextBlock = `עונה: "${s.title || s.name || s.id}" · ${s.episodes?.length || 0} פרקים${s.episodes?.length ? ` (${s.episodes.slice(0,5).map((e:any)=>`E${e.number||"?"} ${e.title||""}`).join(", ")}${s.episodes.length>5?"…":""})` : ""}`;
+        const s: any = await (prisma as any).season?.findUnique({
+          where: { id: pageCtx.id },
+          include: { episodes: { select: { id: true, episodeNumber: true, title: true, status: true } } },
+        });
+        if (s) {
+          const eps = s.episodes ?? [];
+          pageContextBlock = `עונה ${s.seasonNumber ?? "?"}: "${s.title || s.id}" · סטטוס ${s.status ?? "—"} · ${eps.length} פרקים${eps.length ? ` (${eps.slice(0, 5).map((e: any) => `E${e.episodeNumber ?? "?"} ${e.title ?? ""}`).join(", ")}${eps.length > 5 ? "…" : ""})` : ""}`;
+        } else {
+          pageContextError = "season id לא נמצא ב-DB";
+        }
       } else if (pageCtx.kind === "episode") {
-        const e: any = await (prisma as any).episode?.findUnique({ where: { id: pageCtx.id }, include: { scenes: { select: { id: true, order: true, title: true, status: true } } } });
-        if (e) pageContextBlock = `פרק: "${e.title || e.id}" · מספר ${e.number || "?"} · סטטוס ${e.status} · ${e.scenes?.length || 0} סצנות`;
+        const e: any = await (prisma as any).episode?.findUnique({
+          where: { id: pageCtx.id },
+          include: { scenes: { select: { id: true, sceneNumber: true, title: true, status: true } } },
+        });
+        if (e) {
+          pageContextBlock = `פרק ${e.episodeNumber ?? "?"}: "${e.title || e.id}" · סטטוס ${e.status} · ${e.scenes?.length || 0} סצנות`;
+        } else {
+          pageContextError = "episode id לא נמצא ב-DB";
+        }
       } else if (pageCtx.kind === "scene") {
         const sc: any = await (prisma as any).scene?.findUnique({ where: { id: pageCtx.id } });
-        if (sc) pageContextBlock = `סצנה: "${sc.title || sc.id}" · סטטוס ${sc.status}${sc.description ? ` · ${String(sc.description).slice(0,200)}` : ""}`;
+        if (sc) {
+          pageContextBlock = `סצנה ${sc.sceneNumber ?? "?"}: "${sc.title || sc.id}" · סטטוס ${sc.status}${sc.summary ? ` · ${String(sc.summary).slice(0, 200)}` : ""}`;
+        } else {
+          pageContextError = "scene id לא נמצא ב-DB";
+        }
       } else if (pageCtx.kind === "character") {
         const c: any = await (prisma as any).character?.findUnique({ where: { id: pageCtx.id } });
-        if (c) pageContextBlock = `דמות: "${c.name || c.id}"${c.description ? ` · ${String(c.description).slice(0,200)}` : ""}`;
+        if (c) {
+          pageContextBlock = `דמות: "${c.name || c.id}"${c.appearance ? ` · ${String(c.appearance).slice(0, 200)}` : ""}`;
+        } else {
+          pageContextError = "character id לא נמצא ב-DB";
+        }
       } else if (pageCtx.kind === "guide") {
         const g: any = await prisma.guide.findUnique({ where: { slug: pageCtx.id }, include: { translations: { where: { lang: "he" } }, stages: { select: { id: true } } } });
-        if (g) pageContextBlock = `מדריך: "${g.translations?.[0]?.title || g.slug}" · ${g.stages?.length || 0} שלבים · קטגוריה ${g.category || "—"}`;
+        if (g) {
+          pageContextBlock = `מדריך: "${g.translations?.[0]?.title || g.slug}" · ${g.stages?.length || 0} שלבים · קטגוריה ${g.category || "—"}`;
+        } else {
+          pageContextError = "guide slug לא נמצא";
+        }
       } else if (pageCtx.kind === "source") {
         const src = await prisma.learnSource.findUnique({ where: { id: pageCtx.id }, select: { title: true, status: true, prompt: true, type: true } });
-        if (src) pageContextBlock = `מקור (פרומפט): "${src.title || src.prompt.slice(0, 80)}" · סטטוס ${src.status} · סוג ${src.type}`;
+        if (src) {
+          pageContextBlock = `מקור (פרומפט): "${src.title || src.prompt.slice(0, 80)}" · סטטוס ${src.status} · סוג ${src.type}`;
+        } else {
+          pageContextError = "source id לא נמצא";
+        }
       }
-    } catch {}
+    } catch (e: any) {
+      pageContextError = `lookup failed: ${String(e?.message || e).slice(0, 120)}`;
+    }
+  }
+  if (pageContextError && !pageContextBlock) {
+    pageContextBlock = `(שגיאה בזיהוי: ${pageContextError})`;
   }
   // Always surface the raw path so the brain cites it verbatim instead of
   // inventing a description. When kind/id don't resolve — say so explicitly.

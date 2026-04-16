@@ -40,7 +40,7 @@ export default function SeasonPage() {
   const [err, setErr] = useState<string | null>(null);
   const [costs, setCosts] = useState<Record<string, number>>({});
   const [tab, setTab] = useState<"episodes" | "characters" | "logs" | "opening">("episodes");
-  type Opening = { id: string; status: string; videoUrl: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; updatedAt: string; versions: { id: string; prompt: string; createdAt: string }[] };
+  type Opening = { id: string; status: string; videoUrl: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; updatedAt: string; chunkIndex: number; chunkPrompts: string[] | null; chunkVideoIds: string[] | null; versions: { id: string; prompt: string; createdAt: string }[] };
   type OpeningCostBreakdown = { text: number; video: number; total: number; calls: number };
   type OpeningVideo = { id: string; fileUrl: string; at: string; model: string | null; durationSeconds: number | null; costUsd: number | null };
   const [opening, setOpening] = useState<Opening | null>(null);
@@ -688,22 +688,69 @@ export default function SeasonPage() {
                   </div>
                 </div>
               ) : (openingJob && !openingJob.done) || opening.status === "GENERATING" ? (
-                <div className="bg-bg-main rounded-lg p-5 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="text-sm font-semibold">🎬 {lang === "he" ? `${opening.model} מייצר גרסה חדשה…` : `${opening.model} is rendering a new version…`}</div>
-                      <div className="text-[11px] text-text-muted mt-1">{lang === "he" ? "fal מעבד — ברוב המקרים 60-90 שניות, עד 4 דקות" : "fal is rendering — typically 60-90s, up to 4min"}</div>
+                (() => {
+                  const totalChunks = Math.max(opening.chunkPrompts?.length ?? 1, 1);
+                  const activeIdx = (opening.chunkIndex ?? 0) + 1; // 1-based for display
+                  const isChain = totalChunks > 1;
+                  return (
+                    <div className="bg-bg-main rounded-lg p-5 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="text-sm font-semibold">
+                            🎬 {lang === "he"
+                              ? isChain
+                                ? `${opening.model} · מייצר קטע ${activeIdx}/${totalChunks}`
+                                : `${opening.model} מייצר גרסה חדשה…`
+                              : isChain
+                                ? `${opening.model} · rendering clip ${activeIdx}/${totalChunks}`
+                                : `${opening.model} is rendering a new version…`}
+                          </div>
+                          <div className="text-[11px] text-text-muted mt-1">
+                            {lang === "he"
+                              ? isChain
+                                ? `סה״כ ${totalChunks * 20}s · כל קטע 20s · שרשור אוטומטי (Sora extend)`
+                                : "Sora מעבד — 60-90 שניות בד״כ, עד 4 דקות"
+                              : isChain
+                                ? `${totalChunks * 20}s total · 20s per chunk · auto-chain (Sora extend)`
+                                : "Sora is rendering — typically 60-90s, up to 4min"}
+                          </div>
+                        </div>
+                        <div className="text-end">
+                          <div className="text-[10px] text-text-muted uppercase tracking-widest">{lang === "he" ? "זמן שעבר" : "Elapsed"}</div>
+                          <div className="text-3xl font-bold num">{openingJob?.elapsed ?? 0}s</div>
+                        </div>
+                      </div>
+                      <div className="h-2 rounded-full bg-bg-card overflow-hidden">
+                        <div
+                          className="h-full bg-accent transition-all"
+                          style={{
+                            width: `${isChain
+                              ? Math.min(100, ((activeIdx - 1 + Math.min((openingJob?.elapsed ?? 0) / 90, 1)) / totalChunks) * 100)
+                              : Math.min(100, ((openingJob?.elapsed ?? 0) / 90) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      {isChain && (
+                        <div className="flex gap-1">
+                          {Array.from({ length: totalChunks }).map((_, i) => {
+                            const done = i < (opening.chunkIndex ?? 0);
+                            const active = i === (opening.chunkIndex ?? 0);
+                            return (
+                              <div
+                                key={i}
+                                className={`flex-1 h-1.5 rounded-full ${done ? "bg-accent" : active ? "bg-accent/60 animate-pulse" : "bg-bg-card"}`}
+                                title={`Chunk ${i + 1}/${totalChunks}`}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="text-[11px] text-text-muted">
+                        {lang === "he" ? "הדף יתרענן אוטומטית. שום לחיצה נוספת אינה נדרשת." : "Page auto-refreshes. No extra clicks needed."}
+                      </div>
                     </div>
-                    <div className="text-end">
-                      <div className="text-[10px] text-text-muted uppercase tracking-widest">{lang === "he" ? "זמן שעבר" : "Elapsed"}</div>
-                      <div className="text-3xl font-bold num">{openingJob?.elapsed ?? 0}s</div>
-                    </div>
-                  </div>
-                  <div className="h-2 rounded-full bg-bg-card overflow-hidden">
-                    <div className="h-full bg-accent transition-all" style={{ width: `${Math.min(100, ((openingJob?.elapsed ?? 0) / 90) * 100)}%` }} />
-                  </div>
-                  <div className="text-[11px] text-text-muted">{lang === "he" ? "הדף יתרענן אוטומטית כשהסרטון מוכן. הכפתורים חסומים כדי למנוע חיוב כפול." : "Page auto-refreshes when ready. Buttons are disabled to prevent double charges."}</div>
-                </div>
+                  );
+                })()
               ) : opening.videoUrl ? (
                 <video src={opening.videoUrl} controls className="w-full max-w-2xl rounded-lg bg-black mx-auto" />
               ) : (

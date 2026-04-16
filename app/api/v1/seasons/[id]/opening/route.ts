@@ -83,23 +83,78 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       try {
         const res = await pollSoraVideo(opening.falRequestId);
         if (res.status === "completed") {
-          const proxyUrl = `/api/v1/videos/sora-proxy?id=${encodeURIComponent(opening.falRequestId)}`;
-          await prisma.seasonOpening.update({
-            where: { id: opening.id },
-            data: { status: "READY", videoUrl: proxyUrl, videoUri: opening.falRequestId },
-          });
+          const completedChunkIndex = opening.chunkIndex ?? 0;
+          const chunkPrompts = (opening.chunkPrompts as string[] | null) ?? [];
+          const totalChunks = chunkPrompts.length || 1;
+          const hasMoreChunks = completedChunkIndex + 1 < totalChunks;
+          const completedVideoId = opening.falRequestId;
+          const proxyUrl = `/api/v1/videos/sora-proxy?id=${encodeURIComponent(completedVideoId)}`;
           const { season: s } = await prisma.seasonOpening.findUniqueOrThrow({
             where: { id: opening.id },
             include: { season: { include: { series: { select: { projectId: true } } } } },
           });
           const projectId = s.series.projectId;
+          const isExtension = completedChunkIndex > 0;
           await prisma.asset.create({
             data: {
               projectId, entityType: "SEASON_OPENING", entityId: opening.id, assetType: "VIDEO",
               fileUrl: proxyUrl, mimeType: "video/mp4", status: "READY",
-              metadata: { provider: "openai-sora", model: opening.model, durationSeconds: opening.duration, costUsd: priceSora(opening.model as SoraModel, opening.duration), soraVideoId: opening.falRequestId } as object,
+              metadata: {
+                provider: "openai-sora", model: opening.model,
+                durationSeconds: 20,
+                costUsd: priceSora(opening.model as SoraModel, 20),
+                soraVideoId: completedVideoId,
+                isExtension,
+                chunkIndex: completedChunkIndex,
+                totalChunks,
+              } as object,
             },
           }).catch(() => {});
+
+          if (hasMoreChunks) {
+            // Auto-chain: fire the next chunk as a Sora extension.
+            const nextChunkIndex = completedChunkIndex + 1;
+            try {
+              const { extendSoraVideo } = await import("@/lib/providers/openai-sora");
+              const { chargeUsd } = await import("@/lib/billing");
+              const next = await extendSoraVideo({
+                sourceId: completedVideoId,
+                prompt: chunkPrompts[nextChunkIndex],
+                seconds: "20",
+              });
+              const videoIds = [...((opening.chunkVideoIds as string[] | null) ?? []), next.id];
+              await prisma.seasonOpening.update({
+                where: { id: opening.id },
+                data: {
+                  falRequestId: next.id,
+                  status: "GENERATING",
+                  chunkIndex: nextChunkIndex,
+                  chunkVideoIds: videoIds as any,
+                },
+              });
+              await chargeUsd({
+                organizationId: ctx.organizationId, projectId,
+                entityType: "SEASON_OPENING", entityId: opening.id,
+                providerName: "OpenAI", category: "GENERATION",
+                description: `Opening · chunk ${nextChunkIndex + 1}/${totalChunks} · ${opening.model} · 20s`,
+                unitCost: priceSora(opening.model as SoraModel, 20), quantity: 1,
+                userId: ctx.user.id,
+                meta: { seasonId: params.id, openingId: opening.id, model: opening.model, durationSeconds: 20, provider: "openai", chunkIndex: nextChunkIndex, totalChunks, isExtension: true, parentVideoId: completedVideoId },
+              }).catch(() => {});
+            } catch (e) {
+              console.warn("[sora-chain]", (e as Error).message);
+              await prisma.seasonOpening.update({
+                where: { id: opening.id },
+                data: { status: "FAILED" },
+              });
+            }
+          } else {
+            // Final chunk finished — opening is now READY.
+            await prisma.seasonOpening.update({
+              where: { id: opening.id },
+              data: { status: "READY", videoUrl: proxyUrl, videoUri: completedVideoId },
+            });
+          }
           opening = await prisma.seasonOpening.findUnique({
             where: { seasonId: params.id },
             include: { versions: { orderBy: { createdAt: "desc" }, take: 30 } },
@@ -165,7 +220,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 const Patch = z.object({
   prompt: z.string().min(1).optional(),
-  duration: z.number().int().min(1).max(20).optional(),
+  duration: z.number().int().min(1).max(120).optional(),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
   model: z.enum([
     "seedance", "kling", "veo3-fast", "veo3-pro",
@@ -206,7 +261,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       "google-veo-3.1-fast-generate-preview": 8,
       "google-veo-3.1-generate-preview": 8,
       "google-veo-3.1-lite-generate-preview": 8,
-      "sora-2": 20, "sora-2-pro": 20,
+      "sora-2": 120, "sora-2-pro": 120,
       "vidu-q1": 8,
     };
     const activeModel = body.model ?? existing.model;

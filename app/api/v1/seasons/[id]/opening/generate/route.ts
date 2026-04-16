@@ -58,21 +58,37 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     let estUsd: number;
 
     if (isSora) {
-      // Sora 2 enum: "4" | "8" | "12" | "16" | "20". Snap the requested
-      // duration to the nearest bucket DOWN (so we never overcharge).
-      const sec: SoraSeconds = opening.duration >= 20 ? "20"
-        : opening.duration >= 16 ? "16"
-        : opening.duration >= 12 ? "12"
-        : opening.duration >= 8 ? "8"
-        : "4";
+      // Sora chain-extend: durations > 20 are served via multiple sequential
+      // 20s clips (initial + extensions). Build the per-chunk prompts up-front
+      // so the polling loop can fire each one as the previous finishes.
+      const totalSec = Math.min(opening.duration, 120);
+      const chunkCount = totalSec > 20 ? Math.ceil(totalSec / 20) : 1;
+      let chunkPrompts: string[] = [opening.currentPrompt];
+      if (chunkCount > 1) {
+        const { splitPromptIntoChunks } = await import("@/lib/providers/sora-chunk-splitter");
+        chunkPrompts = await splitPromptIntoChunks({
+          masterPrompt: opening.currentPrompt,
+          totalSeconds: totalSec,
+          seriesTitle: season.series.title ?? season.series.project.name,
+        });
+      }
+
+      // Snap first chunk to exactly 20s (or smaller if single-chunk and user picked <20).
+      const firstSec: SoraSeconds = chunkCount > 1
+        ? "20"
+        : (opening.duration >= 20 ? "20"
+          : opening.duration >= 16 ? "16"
+          : opening.duration >= 12 ? "12"
+          : opening.duration >= 8 ? "8"
+          : "4");
       const size = opening.aspectRatio === "9:16" ? "720x1280" : "1280x720";
       try {
         const submitted = await submitSoraVideo({
-          prompt: opening.currentPrompt,
+          prompt: chunkPrompts[0],
           model: opening.model as SoraModel,
-          seconds: sec,
+          seconds: firstSec,
           size,
-          imageUrl: seedImageUrl,  // Sora i2v seed — first character portrait (auto-resized)
+          imageUrl: seedImageUrl,
         });
         submittedId = submitted.id;
         submittedDisplay = opening.model;
@@ -80,10 +96,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "DRAFT" } }).catch(() => {});
         throw Object.assign(new Error(`Sora submit failed: ${(e as Error).message}`), { statusCode: 502 });
       }
-      estUsd = priceSora(opening.model as SoraModel, parseInt(sec, 10));
+      estUsd = priceSora(opening.model as SoraModel, parseInt(firstSec, 10));
       await prisma.seasonOpening.update({
         where: { id: opening.id },
-        data: { falRequestId: submittedId, provider: "openai" },
+        data: {
+          falRequestId: submittedId,
+          provider: "openai",
+          chunkPrompts: chunkPrompts as any,
+          chunkIndex: 0,
+          chunkVideoIds: [submittedId] as any,
+        },
       });
       await chargeUsd({
         organizationId: ctx.organizationId,
@@ -92,10 +114,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         entityId: season.id,
         providerName: "OpenAI",
         category: "GENERATION",
-        description: `Opening · ${opening.model} · ${sec}s (OpenAI direct)`,
+        description: `Opening · chunk 1/${chunkCount} · ${opening.model} · ${firstSec}s`,
         unitCost: estUsd, quantity: 1,
         userId: ctx.user.id,
-        meta: { seasonId: season.id, openingId: opening.id, model: opening.model, durationSeconds: parseInt(sec, 10), provider: "openai" },
+        meta: { seasonId: season.id, openingId: opening.id, model: opening.model, durationSeconds: parseInt(firstSec, 10), provider: "openai", chunkIndex: 0, totalChunks: chunkCount },
       }).catch(() => {});
     } else if (isGoogleVeo) {
       // Google VEO direct — supports referenceImages on 3.1 for up to 3 subjects

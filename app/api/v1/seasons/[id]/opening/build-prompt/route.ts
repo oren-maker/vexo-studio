@@ -19,7 +19,7 @@ const Body = z.object({
   styleLabel: z.string().optional(),
   includeCharacters: z.boolean().default(true),
   characterIds: z.array(z.string()).default([]),
-  duration: z.number().int().min(4).max(20).default(20),
+  duration: z.number().int().min(4).max(120).default(20),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).default("16:9"),
   model: z.enum([
     "seedance", "kling", "veo3-fast", "veo3-pro",

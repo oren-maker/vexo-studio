@@ -140,6 +140,27 @@ export async function remixSoraVideo(opts: { sourceId: string; prompt: string })
   return { id: data.id, model: data.model, seconds: String(data.seconds) as SoraSeconds };
 }
 
+/**
+ * Extend an existing Sora video — adds a continuation clip of up to 20s to
+ * the end of the source. Per OpenAI docs: max 6 extensions per source, each
+ * adds 4/8/12/16/20s, total clip length capped at ~120s. Returns a new video
+ * id we can poll like any other (the final video includes the extension).
+ */
+export async function extendSoraVideo(opts: {
+  sourceId: string;
+  prompt: string;
+  seconds: SoraSeconds;
+}): Promise<{ id: string; model: SoraModel; seconds: SoraSeconds }> {
+  const res = await fetch(`${OPENAI}/videos/${opts.sourceId}/extensions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: opts.prompt.slice(0, 2000), seconds: opts.seconds }),
+  });
+  if (!res.ok) throw new Error(`Sora extend ${res.status}: ${(await res.text()).slice(0, 400)}`);
+  const data = await res.json();
+  return { id: data.id, model: data.model, seconds: String(data.seconds) as SoraSeconds };
+}
+
 export const SORA_PRICING: Record<SoraModel, number> = {
   "sora-2": 0.10,
   "sora-2-pro": 0.30,

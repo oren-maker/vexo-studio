@@ -558,6 +558,14 @@ model SeasonOpening {
   status            String   @default("DRAFT")
   isSeriesDefault   Boolean  @default(false)
   cost              Float?
+  // For Sora chain-extend flow. When duration > 20 we pre-split the master
+  // prompt into N × 20s chunks and fire them sequentially (clip + extensions).
+  // chunkPrompts[i] drives chunk #i, chunkVideoIds[i] is the Sora video id
+  // that resulted from chunk #i once it finished. chunkIndex = how many have
+  // completed so far (when chunkIndex === chunkPrompts.length → status=READY).
+  chunkPrompts      Json?    // string[]
+  chunkIndex        Int      @default(0)
+  chunkVideoIds     Json?    // string[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

@@ -202,19 +202,26 @@ export function OpeningWizard({
               </div>
               <div className="flex items-center gap-3 mb-1">
                 <label className="text-xs text-text-muted w-20">{he ? "משך" : "Duration"}</label>
-                {/* Sora 2 accepts only these buckets — one button per value so nothing gets silently clamped. */}
-                <div className="flex-1 flex gap-1">
-                  {[4, 8, 12, 16, 20].map((sec) => (
+                {/* Sora 2 native buckets (first clip). Above 20s → chain-extend
+                 *  automatically behind the scenes (up to 120s = 6 × 20s). */}
+                <div className="flex-1 grid grid-cols-5 md:grid-cols-10 gap-1">
+                  {[4, 8, 12, 16, 20, 40, 60, 80, 100, 120].map((sec) => (
                     <button
                       key={sec}
                       onClick={() => setDuration(sec)}
-                      className={`flex-1 py-1.5 rounded-lg border-2 text-xs font-semibold ${duration === sec ? "border-accent bg-accent text-white" : "border-bg-main text-text-muted hover:border-accent/50"}`}
+                      className={`py-1.5 rounded-lg border-2 text-xs font-semibold ${duration === sec ? "border-accent bg-accent text-white" : "border-bg-main text-text-muted hover:border-accent/50"}`}
+                      title={sec > 20 ? (he ? `שרשור אוטומטי של ${Math.ceil(sec / 20)} קליפים` : `auto-chain ${Math.ceil(sec / 20)} clips`) : undefined}
                     >
                       {sec}s
                     </button>
                   ))}
                 </div>
               </div>
+              {duration > 20 && (
+                <div className="text-[11px] text-text-muted mb-2 ms-20">
+                  🔗 {he ? `ישורשרו ${Math.ceil(duration / 20)} קליפים של 20s ברקע (Sora chain-extend). זמן צפוי: ~${Math.ceil(duration / 20) * 2} דקות.` : `Auto-chain ${Math.ceil(duration / 20)} × 20s clips (Sora chain-extend). ETA ~${Math.ceil(duration / 20) * 2}min.`}
+                </div>
+              )}
               <div className="text-[11px] text-text-muted mb-3 ms-20">
                 📌 {he ? "שם הסדרה יופיע אוטומטית בתחילת או בסוף הפתיחה ככרטיסיית כותרת" : "Series title will appear as a title card at the start or end"}
               </div>

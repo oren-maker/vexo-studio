@@ -59,17 +59,26 @@ function diffFrequencyList(
 }
 
 function computeDelta(prev: CorpusInsights, curr: CorpusInsights): SnapshotDelta {
+  // Older snapshots may have missing fields if the CorpusInsights shape changed
+  // over time. Default everything to [] so .map / Set don't blow up.
+  const safePrevTechniques = Array.isArray(prev?.topTechniques) ? prev.topTechniques : [];
+  const safeCurrTechniques = Array.isArray(curr?.topTechniques) ? curr.topTechniques : [];
+  const safePrevStyles = Array.isArray(prev?.topStyles) ? prev.topStyles : [];
+  const safeCurrStyles = Array.isArray(curr?.topStyles) ? curr.topStyles : [];
+  const safePrevRules = Array.isArray(prev?.derivedRules) ? prev.derivedRules : [];
+  const safeCurrRules = Array.isArray(curr?.derivedRules) ? curr.derivedRules : [];
+
   const techDiff = diffFrequencyList(
-    prev.topTechniques.map((t) => ({ name: t.name, count: t.count })),
-    curr.topTechniques.map((t) => ({ name: t.name, count: t.count })),
+    safePrevTechniques.map((t) => ({ name: t.name, count: t.count })),
+    safeCurrTechniques.map((t) => ({ name: t.name, count: t.count })),
   );
   const styleDiff = diffFrequencyList(
-    prev.topStyles.map((s) => ({ name: s.name, count: s.count })),
-    curr.topStyles.map((s) => ({ name: s.name, count: s.count })),
+    safePrevStyles.map((s) => ({ name: s.name, count: s.count })),
+    safeCurrStyles.map((s) => ({ name: s.name, count: s.count })),
   );
 
-  const prevRules = new Set(prev.derivedRules);
-  const newRules = curr.derivedRules.filter((r) => !prevRules.has(r));
+  const prevRules = new Set(safePrevRules);
+  const newRules = safeCurrRules.filter((r) => !prevRules.has(r));
 
   return {
     sourcesAdded: curr.totals.sources - prev.totals.sources,

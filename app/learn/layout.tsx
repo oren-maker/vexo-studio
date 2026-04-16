@@ -32,7 +32,6 @@ const groups = [
       { href: "/learn/consciousness", label: "תודעה", icon: "👁" },
       { href: "/learn", label: "Feed", icon: "📚" },
       { href: "/learn/sources", label: "זיכרון", icon: "🧠" },
-      { href: "/learn/sources/new", label: "הוסף מקור", icon: "➕" },
       { href: "/learn/sync", label: "סנכרון", icon: "🔄" },
       { href: "/learn/knowledge", label: "Knowledge", icon: "💡" },
       { href: "/learn/search", label: "חיפוש סמנטי", icon: "🧬" },

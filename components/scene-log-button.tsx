@@ -73,6 +73,7 @@ export default function SceneLogButton({ sceneId }: { sceneId: string }) {
 
   async function openLog() {
     setOpen(true);
+    if (logs) return; // already loaded — show instantly
     try {
       const d = await api<{ logs: Log[] }>(`/api/v1/scenes/${sceneId}/log`);
       setLogs(d.logs);

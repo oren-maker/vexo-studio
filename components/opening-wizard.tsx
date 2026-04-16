@@ -187,33 +187,34 @@ export function OpeningWizard({
 
           {step === 3 && (
             <div>
-              <div className="text-sm font-semibold mb-3">{he ? "מודל, משך ויחס" : "Model, duration, aspect"}</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
-                {(Object.keys(MODEL_INFO) as ModelKey[]).map((k) => {
-                  const m = MODEL_INFO[k];
-                  return (
-                    <button key={k} onClick={() => setModel(k)} className={`text-start rounded-lg border-2 p-3 ${model === k ? "border-accent bg-accent/5" : "border-bg-main hover:border-accent/50"}`}>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xl">{m.emoji}</span>
-                        <span className="font-semibold">{m.name}</span>
-                        <span className={`text-[10px] rounded-full px-2 py-0.5 ${m.audio ? "bg-status-okBg text-status-okText" : "bg-bg-main text-text-muted"}`}>{m.audio ? "🔊 " + (he ? "סאונד" : "audio") : "🔇 " + (he ? "שקט" : "silent")}</span>
-                        {m.maxSubjects > 1 && <span className="text-[10px] rounded-full px-2 py-0.5 bg-accent/15 text-accent font-semibold">👥 {he ? `עד ${m.maxSubjects} דמויות` : `${m.maxSubjects} subjects`}</span>}
-                      </div>
-                      <div className="text-xs text-text-muted mt-1">{he ? `עד ${m.maxDuration}s · $${m.pricePerSec}/sec` : `up to ${m.maxDuration}s · $${m.pricePerSec}/sec`}</div>
-                    </button>
-                  );
-                })}
+              <div className="text-sm font-semibold mb-3">{he ? "משך ויחס" : "Duration & aspect"}</div>
+              {/* Model is locked to Sora 2 — one model, one look, zero decisions. */}
+              <div className="rounded-lg border-2 border-accent bg-accent/5 p-3 mb-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xl">🎭</span>
+                  <span className="font-semibold">Sora 2 (OpenAI)</span>
+                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-status-okBg text-status-okText">🔊 {he ? "סאונד מסונכרן" : "synced audio"}</span>
+                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-accent/15 text-accent font-semibold">⭐ {he ? "ברירת מחדל" : "default"}</span>
+                </div>
+                <div className="text-xs text-text-muted mt-1">
+                  {he ? "עד 20s · $0.10/sec · תומך ב-4/8/12/16/20 שניות" : "Up to 20s · $0.10/sec · 4/8/12/16/20 buckets"}
+                </div>
               </div>
               <div className="flex items-center gap-3 mb-1">
                 <label className="text-xs text-text-muted w-20">{he ? "משך" : "Duration"}</label>
-                <input type="range" min={4} max={MODEL_INFO[model].maxDuration} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="flex-1" />
-                <span className="num font-semibold w-12 text-end">{duration}s</span>
-              </div>
-              {MODEL_INFO[model].maxDuration <= 8 && (
-                <div className="text-[11px] text-status-warnText mb-3 ms-20">
-                  ℹ {he ? `${MODEL_INFO[model].name} מוגבל ל-8 שניות — לפתיחה ארוכה יותר (עד 12s) בחר SeeDance 2` : `${MODEL_INFO[model].name} caps at 8s — for a longer intro (up to 12s) pick SeeDance 2`}
+                {/* Sora 2 accepts only these buckets — one button per value so nothing gets silently clamped. */}
+                <div className="flex-1 flex gap-1">
+                  {[4, 8, 12, 16, 20].map((sec) => (
+                    <button
+                      key={sec}
+                      onClick={() => setDuration(sec)}
+                      className={`flex-1 py-1.5 rounded-lg border-2 text-xs font-semibold ${duration === sec ? "border-accent bg-accent text-white" : "border-bg-main text-text-muted hover:border-accent/50"}`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
               <div className="text-[11px] text-text-muted mb-3 ms-20">
                 📌 {he ? "שם הסדרה יופיע אוטומטית בתחילת או בסוף הפתיחה ככרטיסיית כותרת" : "Series title will appear as a title card at the start or end"}
               </div>

@@ -351,6 +351,44 @@ export async function POST(req: NextRequest) {
       });
       resultUrl = scene.episode ? `/seasons/${scene.episode.seasonId}/episodes/${scene.episodeId}/scenes/${scene.id}` : `/scenes/${scene.id}`;
       resultText = `✅ עדכנתי סצנה ${scene.sceneNumber ?? "?"}${scene.title ? ` — "${scene.title}"` : ""}.`;
+    } else if (action.type === "update_opening_prompt") {
+      // Swap the season-opening prompt, optionally duration/model/aspect.
+      // Old prompt snapshotted to SeasonOpeningPromptVersion so nothing is lost.
+      const seasonId = String(action.seasonId || "").trim() || (ctxKind === "season" ? ctxId : null);
+      if (!seasonId) return NextResponse.json({ error: "seasonId חסר — פתח עמוד עונה או שלח seasonId במפורש" }, { status: 400 });
+      const prompt = typeof action.prompt === "string" ? action.prompt.trim() : "";
+      if (prompt.length < 10) return NextResponse.json({ error: "prompt required (>=10 chars)" }, { status: 400 });
+
+      const existing = await prisma.seasonOpening.findUnique({ where: { seasonId } });
+      if (!existing) return NextResponse.json({ error: "opening not found — create one from the UI first" }, { status: 404 });
+
+      const MODEL_MAX: Record<string, number> = {
+        "seedance": 12, "kling": 10,
+        "veo3-fast": 8, "veo3-pro": 8,
+        "google-veo-3.1-fast-generate-preview": 8,
+        "google-veo-3.1-generate-preview": 8,
+        "google-veo-3.1-lite-generate-preview": 8,
+        "sora-2": 20, "sora-2-pro": 20,
+        "vidu-q1": 8,
+      };
+
+      const data: Record<string, any> = { currentPrompt: prompt };
+      const activeModel = typeof action.model === "string" ? action.model : existing.model;
+      if (typeof action.model === "string") data.model = action.model;
+      if (typeof action.aspectRatio === "string") data.aspectRatio = action.aspectRatio;
+      const cap = MODEL_MAX[activeModel] ?? 12;
+      if (typeof action.duration === "number") data.duration = Math.min(action.duration, cap);
+      else if (data.model && existing.duration > cap) data.duration = cap;
+
+      // Snapshot the old prompt before overwriting
+      if (existing.currentPrompt && existing.currentPrompt !== prompt) {
+        await prisma.seasonOpeningPromptVersion.create({
+          data: { openingId: existing.id, prompt: existing.currentPrompt },
+        });
+      }
+      await prisma.seasonOpening.update({ where: { id: existing.id }, data });
+      resultUrl = `/seasons/${seasonId}#opening`;
+      resultText = `✅ עדכנתי את פרומפט הפתיחה של העונה (${prompt.length} תווים). גש ל-Opening ולחץ "יצר מחדש" כדי להפיק וידאו חדש.`;
     } else {
       return NextResponse.json({ error: `unknown action type: ${action.type}` }, { status: 400 });
     }

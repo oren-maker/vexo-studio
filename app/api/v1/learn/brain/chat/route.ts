@@ -226,7 +226,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
 
 ⚠️ **\`type\` חייב להיות EXACTLY אחד מהשמות באנגלית למטה.** אסור עברית, אסור "כן"/"לא"/"בצע", אסור שם שהמצאת. אם אתה לא בטוח איזו פעולה צריך — אל תחזיר action בכלל ושאל את אורן.
 
-11 סוגי פעולות שאתה יכול לבצע:
+12 סוגי פעולות שאתה יכול לבצע:
 1. \`compose_prompt\` — יצירת **פרומפט וידאו** מתיאור/נושא.
    פרמטרים: \`brief\` (תיאור הנושא, חובה) · \`sceneId\` (אופציונלי — אם הפרומפט הוא לסצנה ספציפית בהפקה)
    📌 **כלל קריטי לעבודה על פרקים/סצנות:**
@@ -244,6 +244,9 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
 9. \`update_episode\` — עדכון פרק קיים. פרמטרים: \`episodeId\` (חובה — או מ-page context), \`title\`/\`synopsis\`/\`status\`/\`targetDurationSeconds\` (לפחות אחד). סטטוסים: DRAFT, READY, IN_PROGRESS, DONE.
 10. \`create_scene\` — יצירת **סצנה חדשה** בפרק. פרמטרים: \`episodeId\` (חובה — או מ-page context של פרק/סצנה), \`title\` (אופציונלי), \`summary\` (אופציונלי — תיאור חזותי קצר של הסצנה), \`scriptText\` (אופציונלי — פרומפט וידאו מלא אם יש לך). מספר הסצנה נבחר אוטומטית.
 11. \`update_scene\` — עדכון סצנה קיימת. פרמטרים: \`sceneId\` (חובה — או מ-page context), \`title\`/\`summary\`/\`scriptText\`/\`status\`/\`targetDurationSeconds\` (לפחות אחד).
+12. \`update_opening_prompt\` — עדכון פרומפט **פתיחת עונה**. פרמטרים: \`seasonId\` (חובה — או מ-page context של season), \`prompt\` (חובה, פרומפט וידאו מלא באנגלית, 200-600 מילים), אופציונלי: \`duration\` (Sora עד 20s, VEO עד 8s), \`model\` (sora-2 / sora-2-pro / google-veo-3.1-*), \`aspectRatio\` (16:9/9:16/1:1).
+    מתי להשתמש: אורן בעמוד עונה או מזכיר "הפתיחה של הסדרה/העונה" ורוצה לשנות את תיאור הפתיחה (כיוון מצלמה, סגנון ויזואלי, מוזיקה, תאורה).
+    הגרסה הישנה של הפרומפט נשמרת ב-SeasonOpeningPromptVersion אוטומטית — כלום לא הולך לאיבוד.
 
 🎬 **זרימת עבודה לייצור אוטונומי של פרק שלם** (כש-אורן אומר "תייצר פרק חדש על X"):
 א. החזר \`create_episode\` עם title+synopsis. חכה לאישור.

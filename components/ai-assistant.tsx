@@ -18,6 +18,7 @@ const VALID_ACTION_TYPES = new Set([
   "update_episode",
   "create_scene",
   "update_scene",
+  "update_opening_prompt",
 ]);
 
 type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };
@@ -50,7 +51,7 @@ function parseBrainReply(raw: string): { content: string; action: { type: string
 
   // Pass 2: look for a single-backtick-wrapped or unfenced JSON with "type":"<known>"
   // so if the brain/RTL mangled the triple backticks we still recover.
-  const jsonHunt = raw.match(/\{[\s\S]*?"type"\s*:\s*"(?:compose_prompt|generate_video|import_guide_url|ai_guide|import_instagram_guide|import_source|update_reference|create_episode|update_episode|create_scene|update_scene)"[\s\S]*?\}/);
+  const jsonHunt = raw.match(/\{[\s\S]*?"type"\s*:\s*"(?:compose_prompt|generate_video|import_guide_url|ai_guide|import_instagram_guide|import_source|update_reference|create_episode|update_episode|create_scene|update_scene|update_opening_prompt)"[\s\S]*?\}/);
   if (jsonHunt) {
     const parsed = tryParse(jsonHunt[0]);
     if (parsed) {

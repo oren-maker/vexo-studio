@@ -220,9 +220,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const refQuery = [scene.title, scene.summary].filter(Boolean).join(" ");
     const refs = await fetchReferencePrompts(refQuery, 3);
     const referenceCtx = buildReferenceContext(refs);
-    // Every scene ends with a gentle fade-out to black — smoother transitions
-    // when clips are later merged into a full episode.
-    const fadeDirective = "END OF SCENE: in the final 0.5 seconds only, quickly and smoothly fade to black — keep the action running until that point.";
+    // Every scene ends with a 1.5-second fade-to-black — smoother transitions
+    // when clips are merged into an episode, and matches the project-wide
+    // episode-end rule Oren set. The action must run normally until the fade
+    // begins; audio ducks to silence during the fade.
+    const fadeDirective = "MANDATORY END-OF-CLIP FADE-OUT: the final 1.5 seconds (e.g. 18.5-20s for a 20-second clip) MUST fade smoothly from the live action to pure black. Audio ducks to silence in sync with the visual fade. Keep the scene action playing at normal pace until the fade begins — do NOT slow the action down to fit. This is non-negotiable for every scene.";
     const prompt = [basePrompt, referenceCtx, fadeDirective].filter(Boolean).join("\n\n");
 
     // Build webhook URL pointing back at us

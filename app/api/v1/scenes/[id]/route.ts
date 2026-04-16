@@ -75,6 +75,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           if (pending.provider === "openai") {
             const rate = pending.model === "sora-2-pro" ? 0.30 : 0.10;
             costUsd = +(rate * (pending.durationSeconds ?? 0)).toFixed(4);
+          } else if (pending.provider === "higgsfield") {
+            const rate = /kling/.test(pending.model) ? 0.06 : 0.05;
+            costUsd = +(rate * (pending.durationSeconds ?? 0)).toFixed(4);
           }
           await prisma.asset.create({
             data: {

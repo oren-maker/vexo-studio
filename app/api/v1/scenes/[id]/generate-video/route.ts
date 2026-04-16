@@ -386,7 +386,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       videoSeconds: duration,
       sourceId: scene.id,
       meta: {
-        engine: provider === "openai" ? "openai-video" : provider === "google" ? "gemini-video" : "fal-video",
+        engine: provider === "openai" ? "openai-video" : provider === "google" ? "gemini-video" : provider === "higgsfield" ? "higgsfield" : "fal-video",
         sceneId: scene.id,
         episodeId: scene.episodeId,
         seasonId: scene.episode?.seasonId,

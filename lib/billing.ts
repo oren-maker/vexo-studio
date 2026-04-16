@@ -10,6 +10,7 @@ const AUTO_CREATE_PROVIDERS: Record<string, { category: string; apiUrl?: string 
   "Google Gemini": { category: "TEXT",  apiUrl: "https://generativelanguage.googleapis.com" },
   "fal.ai":        { category: "VIDEO", apiUrl: "https://fal.run" },
   "OpenAI":        { category: "VIDEO", apiUrl: "https://api.openai.com" },
+  "Higgsfield":    { category: "VIDEO", apiUrl: "https://platform.higgsfield.ai" },
 };
 
 export async function chargeUsd(opts: {

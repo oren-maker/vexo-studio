@@ -137,6 +137,7 @@ function inferEngineFromModel(model: string): string {
   if (m.includes("gpt") || m.includes("o1") || m.startsWith("text-")) return "openai";
   if (m.includes("eleven")) return "elevenlabs";
   if (m.includes("luma") || m.includes("ray")) return "luma";
+  if (m.includes("higgs") || m.includes("soul") || m.includes("dop")) return "higgsfield";
   if (m.includes("fal") || m.includes("seedance") || m.includes("kling") || m.includes("vidu")) return "fal";
   return "other"; // last resort — never "unknown" again
 }

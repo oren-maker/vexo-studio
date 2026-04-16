@@ -120,21 +120,21 @@ Be specific with numbers. Reference actual episode/scene counts. Give dollar amo
       { role: "user", content: `Production data as of ${new Date().toISOString().split("T")[0]}:\n\n${dataBlock}` },
     ], { temperature: 0.5, maxTokens: 2000, description: "Series sync · daily analysis" });
 
-    // 5. Store in DailyBrainCache — the brain reads this for context.
-    // (KnowledgeNode requires a VideoAnalysis FK — skip for this use case.)
+    // 5. Store as InsightsSnapshot (kind=series_analysis). The brain reads
+    // these during daily refresh. DailyBrainCache has required fields that
+    // don't fit this use case; InsightsSnapshot is simpler.
     const today = new Date().toISOString().split("T")[0];
 
-    await prisma.dailyBrainCache.upsert({
-      where: { date: today },
-      update: {
-        seriesAnalysis: analysis,
-        productionData: summaries as object,
-        updatedAt: new Date(),
-      },
-      create: {
-        date: today,
-        seriesAnalysis: analysis,
-        productionData: summaries as object,
+    await prisma.insightsSnapshot.create({
+      data: {
+        kind: "series_analysis",
+        takenAt: new Date(),
+        sourcesCount: summaries.reduce((s, p) => s + p.episodes, 0),
+        nodesCount: summaries.reduce((s, p) => s + p.scenes, 0),
+        avgWords: 0,
+        avgTechniques: 0,
+        summary: analysis,
+        data: summaries as object,
       },
     });
 

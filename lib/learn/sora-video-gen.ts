@@ -69,10 +69,46 @@ export async function runSoraGeneration(videoId: string, prompt: string): Promis
   const size = aspectToSize(aspect);
   const usdCost = +(SORA_PRICING[model] * Number(seconds)).toFixed(4);
 
+  let imageGenCost = 0;
   try {
-    await updateProgress(videoId, { status: "submitting", progressPct: 8, progressMessage: "שולח בקשה ל-Sora 2…" });
+    // Step 0: pick the best reference image so the video stays visually
+    // consistent with what the user already saw on the source page.
+    // Priority: existing GeneratedImage (latest) → source thumbnail →
+    // generate a new one with nano-banana → fall back to text-only.
+    await updateProgress(videoId, { status: "submitting", progressPct: 5, progressMessage: "בודק תמונת reference…" });
+    const existingImages = await prisma.generatedImage.findMany({
+      where: { sourceId: row.sourceId },
+      orderBy: { createdAt: "desc" },
+      take: 1,
+      select: { blobUrl: true },
+    });
+    let refImage: string | undefined =
+      existingImages[0]?.blobUrl || source?.thumbnail || undefined;
 
-    const refImage = source?.thumbnail || undefined;
+    if (!refImage) {
+      await updateProgress(videoId, {
+        status: "submitting",
+        progressPct: 10,
+        progressMessage: "אין תמונה קיימת — יוצר reference עם nano-banana (~$0.04)",
+      });
+      try {
+        const imgResult = await generateImageFromPrompt(prompt, row.sourceId);
+        refImage = imgResult.blobUrl;
+        imageGenCost = imgResult.usdCost;
+        await prisma.learnSource.update({
+          where: { id: row.sourceId },
+          data: { thumbnail: refImage },
+        }).catch(() => {});
+      } catch {
+        // Image generation failed — proceed text-only. Sora can still create.
+      }
+    }
+
+    await updateProgress(videoId, {
+      status: "submitting",
+      progressPct: 14,
+      progressMessage: refImage ? "שולח ל-Sora עם תמונת reference…" : "שולח ל-Sora 2 (text-only)…",
+    });
     const submission = await submitSoraVideo({
       model,
       prompt: prompt.slice(0, 2000),
@@ -116,14 +152,15 @@ export async function runSoraGeneration(videoId: string, prompt: string): Promis
     const filename = `prompt-videos/${row.sourceId}-sora-${Date.now()}.mp4`;
     const blob = await put(filename, bytes, { access: "public", contentType: mimeType || "video/mp4" });
 
+    const finalCost = +(usdCost + imageGenCost).toFixed(4);
     await prisma.generatedVideo.update({
       where: { id: videoId },
       data: {
         blobUrl: blob.url,
-        usdCost,
+        usdCost: finalCost,
         status: "complete",
         progressPct: 100,
-        progressMessage: "הושלם ✓",
+        progressMessage: imageGenCost > 0 ? `הושלם ✓ (כולל +$${imageGenCost.toFixed(2)} תמונת reference)` : "הושלם ✓",
       },
     });
 

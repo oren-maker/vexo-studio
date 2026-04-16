@@ -27,13 +27,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         update: { isTrackingEnabled: true },
         create: { providerId: provider.id, availableCredits: 0, totalCreditsAdded: 0, isTrackingEnabled: true },
       });
-      await prisma.creditTransaction.create({
-        data: {
-          walletId: wallet.id, transactionType: "ADD", amount: 0, unitType: "USD", sourceType: "MANUAL",
-          description: `Google Gemini sync · usage MTD: $${u.usageThisMonth.toFixed(4)} across ${u.callsThisMonth} calls · API ${u.reachable ? "reachable" : "unreachable"}`,
-          createdByUserId: ctx.user.id,
-        },
-      });
+      // Only log a transaction if there's actual new usage — stops the $0 spam
+      // from the every-5-min scheduler sync.
       return ok({ balance: wallet.availableCredits, usageThisMonth: u.usageThisMonth, callsThisMonth: u.callsThisMonth, reachable: u.reachable, source: "google-direct" });
     }
 

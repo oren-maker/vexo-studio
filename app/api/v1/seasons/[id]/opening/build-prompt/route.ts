@@ -137,6 +137,10 @@ Keep it ≤ 1400 chars. Positive phrasing only (no "NOT X" negations). Do not me
           data: { openingId: existing.id, prompt: existing.currentPrompt },
         });
       }
+      // Keep status=GENERATING if a Sora/VEO job is already in-flight — the
+      // webhook/poll will flip it to READY once the in-flight clip finishes.
+      // Otherwise reset to DRAFT so the user can trigger a fresh generate.
+      const isJobInFlight = existing.status === "GENERATING" && !!existing.falRequestId;
       opening = await prisma.seasonOpening.update({
         where: { id: existing.id },
         data: {
@@ -148,7 +152,7 @@ Keep it ≤ 1400 chars. Positive phrasing only (no "NOT X" negations). Do not me
           aspectRatio: body.aspectRatio,
           model: body.model,
           currentPrompt: finalPrompt,
-          status: "DRAFT",
+          status: isJobInFlight ? "GENERATING" : "DRAFT",
         },
       });
     } else {

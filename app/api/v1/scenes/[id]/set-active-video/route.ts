@@ -51,6 +51,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       });
     }));
 
+    // SceneLog
+    await (prisma as any).sceneLog.create({
+      data: {
+        sceneId: scene.id,
+        action: "video_set_primary",
+        actor: `user:${ctx.user.id}`,
+        actorName: ctx.user.fullName ?? ctx.user.email,
+        details: { assetId: target.id },
+      },
+    }).catch(() => {});
     return ok({ assetId: target.id, isPrimary: true });
   } catch (e) { return handleError(e); }
 }

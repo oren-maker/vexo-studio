@@ -117,6 +117,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     await prisma.scene.update({ where: { id: scene.id }, data: { status: "STORYBOARD_REVIEW" } });
+    // SceneLog
+    await (prisma as any).sceneLog.create({
+      data: {
+        sceneId: scene.id,
+        action: "storyboard_generated",
+        actor: `user:${ctx.user.id}`,
+        actorName: ctx.user.fullName ?? ctx.user.email,
+        details: { framesGenerated: generated.filter((g) => g.imageUrl).length, framesTotal: frames.length, model: body.imageModel ?? "nano-banana" },
+      },
+    }).catch(() => {});
     return ok({ jobId: `inline-${Date.now()}`, estimate, framesGenerated: generated.filter((g) => g.imageUrl).length, framesTotal: frames.length, model: body.imageModel ?? "nano-banana", details: generated });
   } catch (e) { return handleError(e); }
 }

@@ -12,6 +12,7 @@ export async function requireAdmin(req: Request): Promise<NextResponse | null> {
     process.env.ADMIN_API_KEY,
     process.env.ADMIN_API_KEY_2,
     process.env.ADMIN_API_KEY_3,
+    process.env.CRON_SECRET,
   ].filter(Boolean) as string[];
   const provided = req.headers.get("x-admin-key");
   if (provided && adminKeys.includes(provided)) return null;

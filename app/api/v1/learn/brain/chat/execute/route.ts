@@ -38,11 +38,13 @@ export async function POST(req: NextRequest) {
   const unauth = await requireAdmin(req);
   if (unauth) return unauth;
   try {
-    const { action, chatId } = await req.json();
+    const { action, chatId, pageContext } = await req.json();
     if (!action?.type) return NextResponse.json({ error: "action.type required" }, { status: 400 });
 
     let resultText = "";
     let resultUrl: string | null = null;
+    const ctxKind: string | null = pageContext?.kind ?? null;
+    const ctxId: string | null = pageContext?.id ?? null;
 
     if (action.type === "import_guide_url") {
       const scraped = await scrapeGuideFromUrl(action.url);
@@ -114,15 +116,32 @@ export async function POST(req: NextRequest) {
           prompt: composed.prompt,
           title: brief.slice(0, 120),
           status: "complete",
-          addedBy: "brain-chat",
+          addedBy: ctxKind === "scene" ? `brain-chat:scene:${ctxId}` : "brain-chat",
         },
       });
-      resultUrl = `/learn/sources/${source.id}`;
+      // If the brain was called on a Scene page, also write the prompt into
+      // the unified Scene record so Oren sees it immediately on the scene
+      // dashboard — this keeps /learn and /seasons/... in sync.
+      let sceneUpdated = false;
+      let sceneUrl: string | null = null;
+      if (ctxKind === "scene" && ctxId) {
+        try {
+          const scene = await prisma.scene.update({
+            where: { id: ctxId },
+            data: { scriptText: composed.prompt, scriptSource: "brain-compose" },
+            include: { episode: { select: { id: true, seasonId: true } } },
+          });
+          sceneUpdated = true;
+          if (scene.episode) sceneUrl = `/seasons/${scene.episode.seasonId}/episodes/${scene.episodeId}/scenes/${scene.id}`;
+        } catch {}
+      }
+      resultUrl = sceneUrl ?? `/learn/sources/${source.id}`;
       const wordCount = composed.prompt.split(/\s+/).length;
       const sections = ["VISUAL STYLE", "FILM STOCK", "COLOR", "LIGHTING", "CHARACTER", "AUDIO", "TIMELINE", "QUALITY"]
         .filter((s) => composed.prompt.toUpperCase().includes(s));
       const preview = composed.prompt.slice(0, 600);
-      resultText = `✅ יצרתי פרומפט מלא: ${wordCount} מילים · ${sections.length}/8 סעיפים.\n\n📄 תצוגה מקדימה:\n${preview}${composed.prompt.length > 600 ? "..." : ""}\n\n💡 ${composed.rationale?.slice(0, 300) || ""}`;
+      const sceneNote = sceneUpdated ? "\n📍 עדכנתי גם את scriptText של הסצנה הנוכחית." : "";
+      resultText = `✅ יצרתי פרומפט מלא: ${wordCount} מילים · ${sections.length}/8 סעיפים.${sceneNote}\n\n📄 תצוגה מקדימה:\n${preview}${composed.prompt.length > 600 ? "..." : ""}\n\n💡 ${composed.rationale?.slice(0, 300) || ""}`;
     } else if (action.type === "generate_video") {
       const sourceId = String(action.sourceId || "").trim();
       if (!sourceId) return NextResponse.json({ error: "sourceId required" }, { status: 400 });

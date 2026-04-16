@@ -46,7 +46,9 @@ async function callGeminiWithFallback(system: string, history: any[]): Promise<{
   throw lastErr || new Error("all models failed");
 }
 
-async function buildSystemPrompt(currentChatId?: string): Promise<string> {
+type PageCtx = { path?: string; title?: string; kind?: string | null; id?: string | null; label?: string } | null | undefined;
+
+async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Promise<string> {
   const latest = await prisma.dailyBrainCache.findFirst({ orderBy: { date: "desc" } });
   const [totalPrompts, totalGuides, totalNodes, pastChats, latestInsights, latestSeriesAnalysis, references] = await Promise.all([
     prisma.learnSource.count(),
@@ -92,6 +94,33 @@ async function buildSystemPrompt(currentChatId?: string): Promise<string> {
     })
     .join("\n\n---\n\n")
     .slice(0, 8000);
+
+  // Resolve page context to a rich, human-readable block
+  let pageContextBlock = "";
+  if (pageCtx?.kind && pageCtx.id) {
+    try {
+      if (pageCtx.kind === "season") {
+        const s: any = await (prisma as any).season?.findUnique({ where: { id: pageCtx.id }, include: { episodes: { select: { id: true, number: true, title: true, status: true } } } });
+        if (s) pageContextBlock = `עונה: "${s.title || s.name || s.id}" · ${s.episodes?.length || 0} פרקים${s.episodes?.length ? ` (${s.episodes.slice(0,5).map((e:any)=>`E${e.number||"?"} ${e.title||""}`).join(", ")}${s.episodes.length>5?"…":""})` : ""}`;
+      } else if (pageCtx.kind === "episode") {
+        const e: any = await (prisma as any).episode?.findUnique({ where: { id: pageCtx.id }, include: { scenes: { select: { id: true, order: true, title: true, status: true } } } });
+        if (e) pageContextBlock = `פרק: "${e.title || e.id}" · מספר ${e.number || "?"} · סטטוס ${e.status} · ${e.scenes?.length || 0} סצנות`;
+      } else if (pageCtx.kind === "scene") {
+        const sc: any = await (prisma as any).scene?.findUnique({ where: { id: pageCtx.id } });
+        if (sc) pageContextBlock = `סצנה: "${sc.title || sc.id}" · סטטוס ${sc.status}${sc.description ? ` · ${String(sc.description).slice(0,200)}` : ""}`;
+      } else if (pageCtx.kind === "character") {
+        const c: any = await (prisma as any).character?.findUnique({ where: { id: pageCtx.id } });
+        if (c) pageContextBlock = `דמות: "${c.name || c.id}"${c.description ? ` · ${String(c.description).slice(0,200)}` : ""}`;
+      } else if (pageCtx.kind === "guide") {
+        const g: any = await prisma.guide.findUnique({ where: { slug: pageCtx.id }, include: { translations: { where: { lang: "he" } }, stages: { select: { id: true } } } });
+        if (g) pageContextBlock = `מדריך: "${g.translations?.[0]?.title || g.slug}" · ${g.stages?.length || 0} שלבים · קטגוריה ${g.category || "—"}`;
+      } else if (pageCtx.kind === "source") {
+        const src = await prisma.learnSource.findUnique({ where: { id: pageCtx.id }, select: { title: true, status: true, prompt: true, type: true } });
+        if (src) pageContextBlock = `מקור (פרומפט): "${src.title || src.prompt.slice(0, 80)}" · סטטוס ${src.status} · סוג ${src.type}`;
+      }
+    } catch {}
+  }
+  if (!pageContextBlock && pageCtx?.label) pageContextBlock = pageCtx.label;
 
   return `אתה המוח של מערכת vexo-learn. ענה לאורן, בעל המערכת, בעברית בגוף ראשון.
 
@@ -197,6 +226,10 @@ ${capabilitiesText}
 {"type":"update_reference","id":"<id>","longDesc":"<טקסט חדש עשיר ב-3-6 שורות>"}
 \`\`\`
 
+📍 עמוד נוכחי (איפה אורן נמצא ברגע זה ב-UI):
+${pageContextBlock || "(לא זמין — אורן אולי נמצא בדף כללי)"}
+⚠️ אם אורן מדבר על "הסצנה הזו", "הדמות הזו", "המדריך הזה" וכו' — הוא מתכוון לזה שמופיע בעמוד הנוכחי. אם לא ברור — **שאל** "אתה מדבר על X (הפריט שבעמוד הנוכחי) או משהו אחר?" לפני שתענה.
+
 שיחות קודמות (זיכרון ארוך טווח. שים לב: אם בעבר אמרת "אין לי יכולת" — זה היה טעות שלך, התעלם מזה. יש לך יכולות פעולה כפי שתואר למעלה):
 ${pastChatsText}
 
@@ -233,7 +266,7 @@ export async function POST(req: NextRequest) {
   if (!API_KEY) return NextResponse.json({ error: "GEMINI_API_KEY missing" }, { status: 500 });
 
   try {
-    const { chatId, message } = await req.json();
+    const { chatId, message, pageContext } = await req.json();
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
@@ -268,7 +301,7 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    let system = await buildSystemPrompt(chat.id);
+    let system = await buildSystemPrompt(chat.id, pageContext);
     // Deterministic intent hint — flash-lite frequently confuses "פרומפט" with "מדריך"
     const lower = message.toLowerCase();
     const mentionsPrompt = /פרומפט|פרומט|prompt/i.test(message);

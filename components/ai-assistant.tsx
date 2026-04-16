@@ -5,6 +5,33 @@ import { useLang } from "@/lib/i18n";
 
 type Message = { id: string; role: "user" | "director"; content: string; action?: { type: string; [k: string]: unknown } | null };
 
+type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };
+
+function detectPageContext(): PageContext {
+  if (typeof window === "undefined") return { path: "", title: "", kind: null, id: null, label: "" };
+  const path = window.location.pathname;
+  const docTitle = (document.title || "").replace(/\s*[·|]\s*vexo.*$/i, "").trim();
+
+  const patterns: Array<{ re: RegExp; kind: string; labelHe: (m: RegExpMatchArray) => string }> = [
+    { re: /^\/seasons\/([^\/]+)\/episodes\/([^\/]+)\/scenes\/([^\/]+)/, kind: "scene", labelHe: (m) => `סצנה ${m[3].slice(0, 8)} · פרק ${m[2].slice(0, 8)} · עונה ${m[1].slice(0, 8)}` },
+    { re: /^\/seasons\/([^\/]+)\/episodes\/([^\/]+)/, kind: "episode", labelHe: (m) => `פרק ${m[2].slice(0, 8)} · עונה ${m[1].slice(0, 8)}` },
+    { re: /^\/seasons\/([^\/]+)/, kind: "season", labelHe: (m) => `עונה ${m[1].slice(0, 8)}` },
+    { re: /^\/characters\/([^\/]+)/, kind: "character", labelHe: (m) => `דמות ${m[1].slice(0, 8)}` },
+    { re: /^\/learn\/guides\/([^\/]+)/, kind: "guide", labelHe: (m) => `מדריך: ${m[1]}` },
+    { re: /^\/learn\/sources\/([^\/]+)/, kind: "source", labelHe: (m) => `מקור ${m[1].slice(0, 8)}` },
+    { re: /^\/learn\/series/, kind: "series_dashboard", labelHe: () => "דשבורד סדרות" },
+    { re: /^\/learn\/knowledge/, kind: "knowledge", labelHe: () => "ידע" },
+    { re: /^\/learn\/brain\/upgrades/, kind: "brain_upgrades", labelHe: () => "שדרוגי מוח" },
+    { re: /^\/learn\/compose/, kind: "compose", labelHe: () => "מחולל פרומפטים" },
+  ];
+
+  for (const p of patterns) {
+    const m = path.match(p.re);
+    if (m) return { path, title: docTitle, kind: p.kind, id: m[1] || null, label: p.labelHe(m) };
+  }
+  return { path, title: docTitle, kind: null, id: null, label: docTitle || path };
+}
+
 export function AiAssistant() {
   const lang = useLang(); const he = lang === "he";
   const [open, setOpen] = useState(false);
@@ -16,7 +43,13 @@ export function AiAssistant() {
     if (typeof window === "undefined") return null;
     return localStorage.getItem("vexo-brain-chatId");
   });
+  const [pageCtx, setPageCtx] = useState<PageContext>(() => detectPageContext());
   const endRef = useRef<HTMLDivElement>(null);
+
+  // Refresh context when bubble opens (client-side navigation may have changed the URL)
+  useEffect(() => {
+    if (open) setPageCtx(detectPageContext());
+  }, [open]);
 
   // Persist chatId so bubble survives page refresh — same brain, same log
   useEffect(() => {
@@ -53,7 +86,7 @@ export function AiAssistant() {
       try {
         r = await api<{ reply?: string; chatId?: string; content?: string }>("/api/v1/learn/brain/chat", {
           method: "POST",
-          body: { message: text, chatId: chatId ?? undefined },
+          body: { message: text, chatId: chatId ?? undefined, pageContext: pageCtx },
           signal: ctrl.signal,
         });
       } finally { clearTimeout(t); }
@@ -100,6 +133,15 @@ export function AiAssistant() {
               </div>
             </div>
 
+            {/* Current page context — lets the brain know where Oren is working */}
+            {pageCtx.label && (
+              <div className="px-4 py-2 border-b border-bg-main bg-accent/5 flex items-center gap-2 text-[11px]">
+                <span className="text-accent">📍</span>
+                <span className="text-text-muted">{he ? "אתה נמצא ב:" : "You are on:"}</span>
+                <span className="font-semibold text-text-primary truncate" title={pageCtx.path}>{pageCtx.label}</span>
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {messages.length === 0 && (
                 <div className="text-center text-text-muted text-sm py-8">
@@ -118,7 +160,7 @@ export function AiAssistant() {
                           try {
                             const r = await api<{ text?: string; url?: string }>("/api/v1/learn/brain/chat/execute", {
                               method: "POST",
-                              body: { action: m.action, chatId },
+                              body: { action: m.action, chatId, pageContext: pageCtx },
                             });
                             const result = [r.text, r.url].filter(Boolean).join("\n🔗 ");
                             setMessages((msgs) => [...msgs, { id: `exec-${Date.now()}`, role: "director", content: `✅ ${result || "בוצע"}` }]);

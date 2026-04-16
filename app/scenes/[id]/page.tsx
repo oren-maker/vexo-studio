@@ -74,7 +74,7 @@ export default function ScenePage() {
   const [videoModel, setVideoModel] = useState<AllVideoModel>("sora-2");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
-  const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean; maxWaitMs?: number; label?: string } | null>(null);
+  const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean; maxWaitMs?: number; label?: string; initialStatus?: string } | null>(null);
   const [veoModel, setVeoModel] = useState<AllVideoModel>("sora-2");
   const [veoDuration, setVeoDuration] = useState(20);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
@@ -119,7 +119,7 @@ export default function ScenePage() {
   async function runVeo() {
     setVeoModalOpen(false);
     const beforeCount = scene?.videos?.length ?? 0;
-    setVeoJob({ startedAt: Date.now(), durationGoal: 90, elapsed: 0, videoCountBefore: beforeCount, done: false });
+    setVeoJob({ startedAt: Date.now(), durationGoal: 90, elapsed: 0, videoCountBefore: beforeCount, done: false, initialStatus: scene?.status });
     try {
       await api(`/api/v1/scenes/${id}/generate-video`, {
         method: "POST",
@@ -149,7 +149,11 @@ export default function ScenePage() {
       try {
         const fresh = await api<{ videos?: { id: string; fileUrl: string }[]; status?: string }>(`/api/v1/scenes/${id}`);
         const gotNewVideo = (fresh.videos?.length ?? 0) > veoJob.videoCountBefore;
-        const serverSideSettled = fresh.status && ["VIDEO_REVIEW", "STORYBOARD_REVIEW", "STORYBOARD_APPROVED"].includes(fresh.status);
+        // Only treat "settled" as a stop signal when status actually TRANSITIONED
+        // away from the initial state. Otherwise a Remix (which runs while the
+        // scene is already in VIDEO_REVIEW) would tick the first poll as done.
+        const statusChanged = !!fresh.status && !!veoJob.initialStatus && fresh.status !== veoJob.initialStatus;
+        const serverSideSettled = statusChanged && ["VIDEO_REVIEW", "STORYBOARD_REVIEW", "STORYBOARD_APPROVED"].includes(fresh.status as string);
         const elapsed = Date.now() - veoJob.startedAt;
         if (gotNewVideo || serverSideSettled || elapsed > MAX_WAIT_MS) {
           setVeoJob((j) => j ? { ...j, done: true, elapsed: Math.round(elapsed / 1000) } : null);
@@ -790,6 +794,7 @@ export default function ScenePage() {
                           done: false,
                           maxWaitMs: 180_000,
                           label: he ? "✨ Remix מתבצע…" : "✨ Remix in progress…",
+                          initialStatus: scene?.status,
                         });
                         setRemixModal(null); setRemixSuggestion(null); setRemixNotes("");
                       } catch (e) { alert((e as Error).message); }

@@ -230,9 +230,10 @@ export default async function TokensPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {recent.map((r) => {
-                    const topic = topicFor(r);
-                    const project = projectFor(r);
+                  {recent
+                    .map((r) => ({ r, topic: topicFor(r), project: projectFor(r) }))
+                    .filter((x) => x.topic !== "—" || x.project !== "כללי")
+                    .map(({ r, topic, project }) => {
                     return (
                       <tr key={r.id} className={r.errored ? "bg-red-500/5" : ""}>
                         <td className="px-3 py-2 text-slate-400 font-mono">

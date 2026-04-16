@@ -80,16 +80,20 @@ function computeDelta(prev: CorpusInsights, curr: CorpusInsights): SnapshotDelta
   const prevRules = new Set(safePrevRules);
   const newRules = safeCurrRules.filter((r) => !prevRules.has(r));
 
+  // Older snapshots may also be missing the totals object entirely.
+  const prevTotals: any = prev?.totals ?? {};
+  const currTotals: any = curr?.totals ?? {};
+  const num = (v: any, d = 0) => (typeof v === "number" ? v : d);
   return {
-    sourcesAdded: curr.totals.sources - prev.totals.sources,
-    nodesAdded: curr.totals.knowledgeNodes - prev.totals.knowledgeNodes,
+    sourcesAdded: num(currTotals.sources) - num(prevTotals.sources),
+    nodesAdded: num(currTotals.knowledgeNodes) - num(prevTotals.knowledgeNodes),
     avgTechniquesChange:
-      Math.round((curr.totals.avgTechniquesPerPrompt - prev.totals.avgTechniquesPerPrompt) * 100) / 100,
-    avgWordsChange: curr.totals.avgWordsPerPrompt - prev.totals.avgWordsPerPrompt,
+      Math.round((num(currTotals.avgTechniquesPerPrompt) - num(prevTotals.avgTechniquesPerPrompt)) * 100) / 100,
+    avgWordsChange: num(currTotals.avgWordsPerPrompt) - num(prevTotals.avgWordsPerPrompt),
     timecodePctChange:
       Math.round(
-        ((curr.totals.promptsWithTimecodes / Math.max(curr.totals.sources, 1)) -
-          (prev.totals.promptsWithTimecodes / Math.max(prev.totals.sources, 1))) * 100,
+        ((num(currTotals.promptsWithTimecodes) / Math.max(num(currTotals.sources), 1)) -
+          (num(prevTotals.promptsWithTimecodes) / Math.max(num(prevTotals.sources), 1))) * 100,
       ),
     newTechniques: techDiff.added.slice(0, 10),
     lostTechniques: techDiff.removed.slice(0, 10),

@@ -90,7 +90,15 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
   const [executingStage, setExecutingStage] = useState<number>(0);
   const [executingStages, setExecutingStages] = useState<string[]>([]);
   const [executed, setExecuted] = useState<Record<string, { text: string; url: string | null }>>({});
+  const [pendingUpgrades, setPendingUpgrades] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    learnFetch("/api/v1/learn/brain/upgrades").then((r) => r.json()).then((d) => {
+      const items = d.upgrades ?? d.items ?? [];
+      setPendingUpgrades(items.filter((u: any) => u.status === "pending" || u.status === "in-progress").length);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!chatId) return;
@@ -187,6 +195,12 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
               ✨ שיחה חדשה
             </button>
           )}
+          <Link
+            href="/learn/brain/upgrades"
+            className="text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded font-semibold"
+          >
+            ⬆️ שדרוגים{pendingUpgrades > 0 && ` (${pendingUpgrades})`}
+          </Link>
           <button
             onClick={() => router.push("/learn/brain")}
             className="text-xs bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded font-semibold"

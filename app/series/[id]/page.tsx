@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
+import SeriesLogButton from "@/components/series-log-button";
 
 type Series = { id: string; title: string; summary: string | null; actualCost: number; revenueTotal: number; profitTotal: number; budgetStatus: string };
 type Season = { id: string; seasonNumber: number; title: string | null; totalEpisodes: number; status: string };
@@ -51,7 +52,10 @@ export default function SeriesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">{series.title}</h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-3xl font-bold">{series.title}</h1>
+          <SeriesLogButton seriesId={series.id} />
+        </div>
         {series.summary && <p className="text-text-secondary mt-1">{series.summary}</p>}
       </div>
       <div className="grid grid-cols-4 gap-4">

@@ -286,7 +286,7 @@ export default function BudgetsTokensPage() {
                   <td className="py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}`}>{status}</span></td>
                   <td className="py-3 pe-3 text-end space-x-2 rtl:space-x-reverse whitespace-nowrap">
                     <button onClick={() => setTopup({ provider: p, mode: "add" })} className="text-xs text-status-okText hover:underline">+ <T>Top up</T></button>
-                    {/* Sync hidden — no provider has a reliable remote-balance API. Oren manages manually via Top up / Reconcile. */}
+                    {/fal/i.test(p.name) && <button disabled={busySync === p.id} onClick={() => syncProvider(p)} className="text-xs text-accent hover:underline disabled:opacity-50">⟳ <T>Sync</T></button>}
                     <button onClick={async () => { try { const r = await api<{ totalSpent: number; newAvailable: number }>(`/api/v1/providers/${p.id}/reconcile`, { method: "POST" }); alert((lang === "he" ? `יושר: סה"כ הוצאה $${r.totalSpent.toFixed(4)}, יתרה חדשה $${r.newAvailable.toFixed(2)}` : `Reconciled: spent $${r.totalSpent.toFixed(4)}, new balance $${r.newAvailable.toFixed(2)}`)); load(); } catch (e) { alert((e as Error).message); } }} className="text-xs text-accent hover:underline">⚖ {lang === "he" ? "השוואה" : "Reconcile"}</button>
                     <button onClick={() => showTx(p)} className="text-xs text-accent hover:underline"><T>History</T></button>
                     {p.isActive && <button onClick={() => disableProvider(p)} className="text-xs text-status-errText hover:underline"><T>Disable</T></button>}

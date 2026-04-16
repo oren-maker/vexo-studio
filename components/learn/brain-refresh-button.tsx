@@ -5,10 +5,24 @@ import { useState } from "react";
 import SyncProgress from "./sync-progress";
 import { adminHeaders, getAdminKey } from "@/lib/learn/admin-key";
 
-export default function BrainRefreshButton() {
+function formatNextRun(): { nextAt: Date; inText: string } {
+  // Daily cron at 06:00 UTC (vercel.json: "0 6 * * *")
+  const now = new Date();
+  const nextAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 0, 0));
+  if (nextAt.getTime() <= now.getTime()) nextAt.setUTCDate(nextAt.getUTCDate() + 1);
+  const deltaMs = nextAt.getTime() - now.getTime();
+  const hours = Math.floor(deltaMs / 3600_000);
+  const mins = Math.floor((deltaMs % 3600_000) / 60_000);
+  const inText = hours > 0 ? `בעוד ${hours} שעות ו-${mins} דקות` : `בעוד ${mins} דקות`;
+  return { nextAt, inText };
+}
+
+export default function BrainRefreshButton({ lastRunAt }: { lastRunAt?: Date | string | null }) {
   const [jobId, setJobId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [err, setErr] = useState("");
+  const lastAt = lastRunAt ? new Date(lastRunAt) : null;
+  const { nextAt, inText } = formatNextRun();
 
   async function run() {
     if (!getAdminKey()) { setErr("הגדר admin key ב-/admin"); return; }
@@ -37,6 +51,14 @@ export default function BrainRefreshButton() {
       >
         {pending ? "🔄 חושב…" : "🔄 רענן זהות עכשיו"}
       </button>
+      <div className="flex flex-col gap-0.5 text-[10px] leading-tight">
+        <span className="text-slate-500">
+          ⏮ אחרון: <span className="text-slate-300 font-mono">{lastAt ? lastAt.toLocaleString("he-IL") : "אף פעם"}</span>
+        </span>
+        <span className="text-slate-500">
+          ⏭ הבא: <span className="text-cyan-300 font-mono">{nextAt.toLocaleString("he-IL")}</span> <span className="text-slate-500">· {inText}</span>
+        </span>
+      </div>
       {jobId && (
         <SyncProgress
           jobId={jobId}

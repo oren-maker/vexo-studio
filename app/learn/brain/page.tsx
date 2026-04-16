@@ -46,7 +46,7 @@ export default async function BrainPage() {
           >
             🔧 שדרוגים {pendingUpgrades > 0 && `(${pendingUpgrades})`}
           </Link>
-          <BrainRefreshButton />
+          <BrainRefreshButton lastRunAt={today?.createdAt ?? null} />
         </div>
       </header>
 

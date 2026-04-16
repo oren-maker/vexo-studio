@@ -176,6 +176,19 @@ model UserSession {
   @@index([userId])
 }
 
+model SceneLog {
+  id        String   @id @default(cuid())
+  sceneId   String
+  action    String   // "script_updated" | "script_overwritten" | "status_changed" | "prompt_added" | "video_generated" | etc.
+  actor     String   // "ai:brain-compose" | "ai:veo-render" | "user:<userId>" | "system"
+  actorName String?  // display name of user, or AI engine
+  details   Json?    // { before, after, reason, wordCount, etc. }
+  createdAt DateTime @default(now())
+
+  @@index([sceneId, createdAt])
+  @@index([actor])
+}
+
 model AuditLog {
   id             String   @id @default(cuid())
   organizationId String

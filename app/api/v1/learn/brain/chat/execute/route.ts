@@ -189,6 +189,24 @@ export async function POST(req: NextRequest) {
           if (updatedScene.episode) {
             sceneUrl = `/seasons/${updatedScene.episode.seasonId}/episodes/${updatedScene.episodeId}/scenes/${updatedScene.id}`;
           }
+          // Log scene activity
+          try {
+            await (prisma as any).sceneLog.create({
+              data: {
+                sceneId: targetSceneIdResolved,
+                action: overwriteMode ? "script_overwritten" : "script_updated",
+                actor: "ai:brain-compose",
+                actorName: "AI Director (Gemini)",
+                details: {
+                  brief: brief.slice(0, 200),
+                  wordCount: composed.prompt.split(/\s+/).length,
+                  previousLength: previousScriptText?.length || 0,
+                  newLength: composed.prompt.length,
+                  reason: overwriteMode ? "overwrite (all scenes had scripts)" : "first-empty",
+                },
+              },
+            });
+          } catch {}
         } catch (e: any) {
           return NextResponse.json({
             error: `scene ${targetSceneIdResolved} not found — ${String(e?.message || e).slice(0, 150)}`,

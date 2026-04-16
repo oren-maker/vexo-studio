@@ -75,8 +75,12 @@ async function buildSystemPrompt(currentChatId?: string): Promise<string> {
   ]);
   const emotionsRef = references.filter((r) => r.kind === "emotion");
   const soundsRef = references.filter((r) => r.kind === "sound");
+  const cinematographyRef = references.filter((r) => r.kind === "cinematography");
+  const capabilitiesRef = references.filter((r) => r.kind === "capability");
   const emotionsText = emotionsRef.length === 0 ? "—" : emotionsRef.map((r) => `• ${r.name}: ${r.shortDesc}`).join("\n");
   const soundsText = soundsRef.length === 0 ? "—" : soundsRef.map((r) => `• ${r.name}: ${r.shortDesc}`).join("\n");
+  const cinematographyText = cinematographyRef.length === 0 ? "—" : cinematographyRef.map((r) => `• ${r.name}: ${r.shortDesc}`).join("\n");
+  const capabilitiesText = capabilitiesRef.length === 0 ? "—" : capabilitiesRef.map((r) => `• ${r.name}: ${r.shortDesc}`).join("\n");
   const identity = latest?.identity || "עדיין לא נבנתה זהות יומית.";
   const focus = Array.isArray(latest?.tomorrowFocus) ? (latest!.tomorrowFocus as any[]) : [];
   const focusText = focus.slice(0, 3).map((f, i) => `${i + 1}. ${f.action}`).join("\n");
@@ -181,6 +185,12 @@ ${emotionsText}
 
 🔊 מילון סאונד מקצועי (לשימוש בהנחיה על עיצוב סאונד, מיקס, ומעברים):
 ${soundsText}
+
+🎥 זוויות צילום וקומפוזיציה (לשימוש בהנחיה על shot list, עדשות, תנועת מצלמה):
+${cinematographyText}
+
+⚙️ יכולות המערכת שלי (כל מה שאתה יכול לבקש ממני לבצע בפועל):
+${capabilitiesText}
 
 📝 כשמבקשים ממך לשדרג תיאור ברפרנס ("שדרג את הרגש X" / "שפר את התיאור של הסאונד Y") — החזר בלוק action:
 \`\`\`action

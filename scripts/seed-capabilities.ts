@@ -1,0 +1,47 @@
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+const ITEMS: { name: string; shortDesc: string; longDesc: string; tags: string[] }[] = [
+  { name: "יצירת פרומפט בAI (compose_prompt)", shortDesc: "מייצר פרומפט וידאו מלא (400-900 מילים) מתיאור קצר.", longDesc: "קלט: brief (2-3 משפטים על הנושא). תהליך: Gemini משתמש ב-5 פרומפטים רפרנס מהספרייה + framework 8-סעיפים (Visual Style, Film Stock, Color, Lighting, Character, Audio, Timeline, Quality). תוצאה: LearnSource חדש. UI: /learn/compose, או שהמוח מחזיר action block מסוג compose_prompt. הפייפליין מלא: runPipeline.", tags: ["פרומפט", "יצירה"] },
+  { name: "חולל מקור מ-URL (LearnSource pipeline)", shortDesc: "URL של סרטון MP4 → פרומפט אוטומטי.", longDesc: "קלט: URL ישיר לסרטון (Pexels, Pixabay, Vercel Blob, או MP4 ציבורי). תהליך: Gemini צופה בסרטון, מתרגם כיתוב, מחלץ פרומפט בפורמט סטנדרטי + מחלץ KnowledgeNodes (techniques, style, insights). תוצאה: LearnSource עם VideoAnalysis + KnowledgeNodes. UI: /learn/sources/new (טאב URL).", tags: ["מקור", "pipeline"] },
+  { name: "יצירת מדריך מנושא (ai_guide)", shortDesc: "נושא → מדריך מובנה עם שלבים בעזרת Gemini.", longDesc: "קלט: topic (מחרוזת) + שפה. תהליך: Gemini מייצר כותרת, תיאור, קטגוריה, זמן קריאה משוער, ושלבים (start/middle/end) עם כותרות ותוכן. תוצאה: Guide + GuideStage. אם השפה ≠ עברית → auto-translate ל-he ברקע. UI: /learn/guides/new או action block ai_guide.", tags: ["מדריך", "יצירה"] },
+  { name: "ייבוא מדריך מ-URL (import_guide_url)", shortDesc: "דף אינטרנט רגיל → מדריך עם תמונות ושלבים.", longDesc: "קלט: URL של article/blog/docs. תהליך: scrapeGuideFromUrl שולף כותרת, תיאור, cover, שלבים (מ-h1/h2), תמונות. תוצאה: Guide מסומן מקור='url-import'. UI: /learn/sources/new (טאב URL, בחירה 'מדריך').", tags: ["מדריך", "ייבוא"] },
+  { name: "ייבוא Instagram Reel למדריך (import_instagram_guide)", shortDesc: "Reel/Post של Instagram → מדריך עם thumbnail וכיתוב.", longDesc: "קלט: URL של Instagram reel/post. תהליך: extractInstagram שולף caption + thumbnail (דרך oembed, לא video_url). תוצאה: Guide עם stage יחיד שמכיל את הכיתוב. מגבלה: Instagram חוסם video_url → אין הורדת וידאו.", tags: ["מדריך", "instagram"] },
+  { name: "ייבוא Instagram/TikTok למקור (import_source)", shortDesc: "פוסט חברתי → LearnSource עם פרומפט מפוסט קיים.", longDesc: "קלט: URL Instagram/TikTok. תהליך: pipeline מוריד, מתרגם, מנתח, מחלץ פרומפט. תוצאה: LearnSource type='instructor_url'. UI: /learn/sources/new (טאב Instagram, מריץ pipeline מלא ברקע דרך waitUntil).", tags: ["מקור", "חברתי"] },
+  { name: "יצירת סרטון VEO 3.1 (generate_video)", shortDesc: "פרומפט → סרטון 8 שניות ב-VEO 3.1 של Google.", longDesc: "קלט: sourceId + durationSec (ברירת מחדל 8) + aspectRatio (16:9 או 9:16). תהליך: startVideoGeneration יוצר GeneratedVideo + מריץ runVideoGeneration ברקע. תוצאה: קובץ mp4 ב-Vercel Blob. עלות: ~$0.35/8 שניות. לוקח 1-2 דקות.", tags: ["וידאו", "yeo"] },
+  { name: "יצירת סרטון Sora 2 (OpenAI)", shortDesc: "פרומפט → סרטון Sora 2 (4/8/12/16/20 שניות).", longDesc: "קלט: פרומפט + משך. תהליך: OpenAI API (sora-2, לא sora-2-pro לפי הנחיה). עלות: $0.10/sec. תוצאה: mp4 ב-Blob. UI: /video/sora או דרך brain action. מוגבל ל-20 שניות.", tags: ["וידאו", "sora"] },
+  { name: "מיזוג וידאו (FFmpeg merge)", shortDesc: "כמה קליפים → סרטון אחד עם crossfade.", longDesc: "קלט: רשימת URL-ים של קליפים + משכים. תהליך: FFmpeg.wasm בדפדפן (client-side) עם xfade transitions בין קליפים. תוצאה: mp4 ממוזג. UI: /video/merge. יתרון: אפס עלות שרת, חסרון: מוגבל למחשב של המשתמש.", tags: ["וידאו", "עריכה"] },
+  { name: "חיתוך וידאו (advanced trim)", shortDesc: "חיתוך מדויק של קליפ בפורמטים שונים.", longDesc: "קלט: URL של מקור + טווח (from/to בשניות). תהליך: FFmpeg stream copy (אפס re-encode). תוצאה: קליפ חדש. תומך בפרמטרים: fade in/out, speed change, crop. UI: /video/trim.", tags: ["וידאו", "עריכה"] },
+  { name: "מעברי AI בין קליפים (Luma Ray-2)", shortDesc: "Luma מייצר מעבר חלק ו'חכם' בין שני קליפים.", longDesc: "קלט: 2 קליפים/תמונות + prompt מעבר. תהליך: Luma API לוקח את המסגרים האחרון/ראשון ויוצר 2-4 שניות של מעבר. עלות: ~$0.30 למעבר. תוצאה: קליפ מעבר שמתחבר במיזוג. UI: /video/merge (אופציית transitions=ai).", tags: ["וידאו", "מעבר"] },
+  { name: "מערכת Remix (וריאציות על פרומפט)", shortDesc: "פרומפט קיים → 3-5 וריאציות דומות עם פרטים שונים.", longDesc: "קלט: LearnSource id. תהליך: Gemini לוקח את הפרומפט ומחולל וריאציות (שינוי סגנון, תאורה, זווית, נפח). תוצאה: 3-5 LearnSources חדשים עם parentSourceId=original. UI: כפתור '🔁 וריאציה' בכל כרטיס מקור.", tags: ["פרומפט", "וריאציות"] },
+  { name: "יצירת תוכן עם סאונד (remotion-avatar)", shortDesc: "וידאו אווטאר מדבר עם סאונד מסונכרן.", longDesc: "קלט: טקסט + voice ID. תהליך: ElevenLabs TTS → Gemini lipsync timing → Remotion render. תוצאה: mp4 עם אווטאר מדבר + כתוביות. ארכיטקטורה: vexo API (נתונים) + server.mjs (תזמור) + Gemini TEXT-only + Remotion (פיקסלים).", tags: ["וידאו", "סאונד", "avatar"] },
+  { name: "ניתוח וידאו (Video → KnowledgeNode)", shortDesc: "Gemini צופה בסרטון ומחלץ ידע מובני.", longDesc: "קלט: URL של סרטון. תהליך: analyzeVideoFromUrl (Gemini) מחזיר description, techniques, style, mood, difficulty, insights, tags, promptAlignment. תוצאה: VideoAnalysis + KnowledgeNodes (technique, style, how_to, insight). נקרא ע״י כל LearnSource חדש.", tags: ["ניתוח", "knowledge"] },
+  { name: "חיפוש סמנטי (semantic search)", shortDesc: "שאילתה בעברית/אנגלית → פרומפטים דומים מהספרייה.", longDesc: "קלט: שאילתת טקסט. תהליך: gemini-embedding-001 מייצר vector של 768 מימדים → cosine similarity מול כל ה-embeddings השמורים. תוצאה: Top-N LearnSources מהדומה. UI: /learn/search.", tags: ["חיפוש"] },
+  { name: "שיחה עם הבמאי (Brain chat)", shortDesc: "שיחה עם AI Director שיודע את כל הפרומפטים, הרגשות, הסאונד, והצילום.", longDesc: "UI: /learn/brain/chat + floating bubble בכל דף. התנהגות: קורא DailyBrainCache, InsightsSnapshot, past chats, BrainReference (45+ פריטי רגש/סאונד/צילום). מחזיר action blocks ל-compose_prompt/generate_video/ai_guide/וכו. זיכרון: BrainChat + BrainMessage, נשמר ב-localStorage chatId.", tags: ["brain", "chat"] },
+  { name: "שדרוגי מוח (Brain upgrades)", shortDesc: "הוראות שניתנות לבמאי נשמרות כ-BrainUpgradeRequest.", longDesc: "UI: /learn/brain/upgrades. טבלה: BrainUpgradeRequest עם status (pending/in-progress/done/rejected). כשהמשתמש אומר 'תמיד תעשה X', המוח שומר את זה אוטומטית. אני (Claude) עובר על הרשימה ומבצע.", tags: ["brain", "upgrades"] },
+  { name: "ניתוח סדרות (Series sync)", shortDesc: "סנכרון נתוני הפקה של סדרות TV + delta analysis.", longDesc: "תהליך: מושך פרקים/סצנות/דמויות/עלויות, בונה summary, שומר ב-InsightsSnapshot (kind=series_analysis), מריץ attachDeltaToLatest להשוות מול הסנכרון הקודם. UI: /learn/series + /learn/series/archive. אוטומטי דרך cron יומי ב-06:00 UTC.", tags: ["סדרות", "ניתוח"] },
+  { name: "תובנות (Insights snapshot)", shortDesc: "snapshot שעתי של כל הספרייה עם מגמות.", longDesc: "cron שעתי: computeCorpusInsights מנתח את כל ה-LearnSources (techniques frequency, style profiles, gaps, timecode%). נשמר ב-InsightsSnapshot (kind=hourly). UI: /learn/insights.", tags: ["ניתוח", "insights"] },
+  { name: "תודעה (Consciousness report)", shortDesc: "snapshot יומי של מצב המערכת + metrics.", longDesc: "cron יומי: ConsciousnessReport עם מטריקות (פרומפטים חדשים, סרטונים שנוצרו, עלויות, שגיאות). UI: /learn/consciousness.", tags: ["ניתוח", "consciousness"] },
+  { name: "Daily-learn master cron", shortDesc: "cron מרכזי ב-06:00 UTC שמריץ 5 שלבים סדרתית.", longDesc: "נתיב: /api/v1/cron/daily-learn. שלבים: series-sync → brain-refresh → insights-snapshot → consciousness-report → auto-improve. כל שלב עם Authorization: Bearer {CRON_SECRET}. כולל 5/5 OK ב-~10s. vercel.json: '0 6 * * *'.", tags: ["cron", "אוטומציה"] },
+  { name: "ניהול דמויות (Character Management)", shortDesc: "דמות אחת → עקביות חזותית על פני סצנות וסדרות.", longDesc: "Character model עם portrait images, style profile, voice config. composite sheet (sharp) מרכיב 8-12 portraits ב-grid 1280x720 כ-reference לסצנות חדשות. משתמש ב-Sora/VEO עם character-id reference. UI: /characters + /characters/[id].", tags: ["דמויות", "עקביות"] },
+  { name: "PDF Export של מדריך", shortDesc: "(כרגע מושבת) מדריך → PDF בעברית עם RTL.", longDesc: "ספריה: @react-pdf/renderer. מצב: stub ב-lib/learn/guide-pdf.tsx זורק Error. הכפתור הוסתר מה-UI. לשחזור: יש להעביר את הלוגיקה מ-vexo-learn + להתקין את החבילה.", tags: ["מדריך", "pdf", "deferred"] },
+  { name: "רפרנסים לבמאי (BrainReference)", shortDesc: "רגשות + סאונד + צילום + יכולות — ידע מובנה למוח.", longDesc: "טבלת BrainReference עם kind (emotion/sound/cinematography/capability). כל פריט: name, shortDesc (נכנס לפרומפט המוח), longDesc (עמוק, נשלף on-demand), tags, order. CRUD דרך /api/v1/learn/reference. UI: /learn/knowledge עם 4 טאבים. המוח יכול לשדרג תיאור דרך action update_reference.", tags: ["brain", "knowledge"] },
+];
+
+async function main() {
+  let added = 0, skipped = 0;
+  const KIND = "capability";
+  for (let i = 0; i < ITEMS.length; i++) {
+    const r = ITEMS[i];
+    const exists = await prisma.brainReference.findFirst({ where: { kind: KIND, name: r.name } });
+    if (exists) { skipped++; continue; }
+    await prisma.brainReference.create({ data: { kind: KIND, ...r, order: i } });
+    added++;
+  }
+  const count = await prisma.brainReference.count({ where: { kind: KIND } });
+  console.log(`[seed-capabilities] added=${added} skipped=${skipped} | total in DB: ${count}`);
+  await prisma.$disconnect();
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });

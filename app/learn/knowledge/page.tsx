@@ -13,19 +13,24 @@ const typeColors: Record<string, string> = {
   insight: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
 };
 
-type Tab = "knowledge" | "emotion" | "sound";
+type Tab = "knowledge" | "emotion" | "sound" | "cinematography" | "capability";
+const REFERENCE_KINDS = ["emotion", "sound", "cinematography", "capability"] as const;
 
 export default async function KnowledgePage({
   searchParams,
 }: {
   searchParams: { type?: string; tab?: string };
 }) {
-  const tab: Tab = searchParams.tab === "emotion" || searchParams.tab === "sound" ? (searchParams.tab as Tab) : "knowledge";
+  const tab: Tab = (REFERENCE_KINDS as readonly string[]).includes(searchParams.tab ?? "")
+    ? (searchParams.tab as Tab)
+    : "knowledge";
 
-  const [kCount, eCount, sCount] = await Promise.all([
+  const [kCount, eCount, sCount, cCount, capCount] = await Promise.all([
     prisma.knowledgeNode.count(),
     prisma.brainReference.count({ where: { kind: "emotion" } }),
     prisma.brainReference.count({ where: { kind: "sound" } }),
+    prisma.brainReference.count({ where: { kind: "cinematography" } }),
+    prisma.brainReference.count({ where: { kind: "capability" } }),
   ]);
 
   return (
@@ -33,7 +38,7 @@ export default async function KnowledgePage({
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-white">💡 ידע</h1>
         <p className="text-sm text-slate-400 mt-1">
-          ה-RAG של הבמאי: KnowledgeNodes שחולצו מסרטונים, רפרנס רגשות אנושיים, ומילון סאונד מקצועי.
+          ה-RAG של הבמאי: רגשות, סאונד, זוויות צילום, יכולות המערכת ו-KnowledgeNodes שחולצו מסרטונים. המוח קורא את כל זה לפני כל תשובה.
         </p>
       </header>
 
@@ -42,11 +47,15 @@ export default async function KnowledgePage({
         <TabLink href="/learn/knowledge" active={tab === "knowledge"} label={`🧠 Knowledge (${kCount})`} />
         <TabLink href="/learn/knowledge?tab=emotion" active={tab === "emotion"} label={`😊 רגשות (${eCount})`} />
         <TabLink href="/learn/knowledge?tab=sound" active={tab === "sound"} label={`🔊 סאונד (${sCount})`} />
+        <TabLink href="/learn/knowledge?tab=cinematography" active={tab === "cinematography"} label={`🎥 צילום (${cCount})`} />
+        <TabLink href="/learn/knowledge?tab=capability" active={tab === "capability"} label={`⚙️ יכולות (${capCount})`} />
       </div>
 
       {tab === "knowledge" && <KnowledgeView type={searchParams.type} />}
       {tab === "emotion" && <ReferenceManager kind="emotion" />}
       {tab === "sound" && <ReferenceManager kind="sound" />}
+      {tab === "cinematography" && <ReferenceManager kind="cinematography" />}
+      {tab === "capability" && <ReferenceManager kind="capability" />}
     </div>
   );
 }

@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
   if (!kind || !name || !shortDesc || !longDesc) {
     return NextResponse.json({ error: "kind, name, shortDesc, longDesc required" }, { status: 400 });
   }
-  if (!["emotion", "sound"].includes(kind)) {
-    return NextResponse.json({ error: "kind must be emotion|sound" }, { status: 400 });
+  if (!["emotion", "sound", "cinematography", "capability"].includes(kind)) {
+    return NextResponse.json({ error: "kind must be emotion|sound|cinematography|capability" }, { status: 400 });
   }
   const last = await prisma.brainReference.findFirst({ where: { kind }, orderBy: { order: "desc" } });
   const item = await prisma.brainReference.create({

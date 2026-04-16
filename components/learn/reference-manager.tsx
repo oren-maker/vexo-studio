@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 type Item = {
   id: string;
-  kind: "emotion" | "sound";
+  kind: "emotion" | "sound" | "cinematography" | "capability";
   name: string;
   shortDesc: string;
   longDesc: string;
@@ -13,7 +13,7 @@ type Item = {
   order: number;
 };
 
-export default function ReferenceManager({ kind }: { kind: "emotion" | "sound" }) {
+export default function ReferenceManager({ kind }: { kind: "emotion" | "sound" | "cinematography" | "capability" }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Item | null>(null);
@@ -37,8 +37,13 @@ export default function ReferenceManager({ kind }: { kind: "emotion" | "sound" }
     load();
   }
 
-  const emptyText = kind === "emotion" ? "אין רגשות. לחץ '➕ הוסף' כדי להתחיל." : "אין סאונדים. לחץ '➕ הוסף' כדי להתחיל.";
-  const addLabel = kind === "emotion" ? "➕ הוסף רגש" : "➕ הוסף סאונד";
+  const kindLabel =
+    kind === "emotion" ? "רגש" :
+    kind === "sound" ? "סאונד" :
+    kind === "cinematography" ? "זווית צילום" :
+    "יכולת מערכת";
+  const emptyText = `אין עדיין פריטים מסוג ${kindLabel}. לחץ '➕ הוסף' כדי להתחיל.`;
+  const addLabel = `➕ הוסף ${kindLabel}`;
 
   return (
     <div>
@@ -114,7 +119,7 @@ function EditModal({
   onClose,
   onSaved,
 }: {
-  kind: "emotion" | "sound";
+  kind: "emotion" | "sound" | "cinematography" | "capability";
   initial?: Item;
   onClose: () => void;
   onSaved: () => void;
@@ -159,7 +164,10 @@ function EditModal({
       <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-2xl w-full mt-10 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-white">
-            {initial ? `ערוך ${kind === "emotion" ? "רגש" : "סאונד"}` : `${kind === "emotion" ? "רגש" : "סאונד"} חדש`}
+            {(() => {
+              const lbl = kind === "emotion" ? "רגש" : kind === "sound" ? "סאונד" : kind === "cinematography" ? "זווית צילום" : "יכולת מערכת";
+              return initial ? `ערוך ${lbl}` : `${lbl} חדש`;
+            })()}
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
         </div>

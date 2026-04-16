@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import StageContent from "./stage-content";
 
 export default function StageRenderer({
   index,
@@ -63,11 +64,7 @@ export default function StageRenderer({
 
       <h2 className="text-2xl font-bold text-white mb-3">{title}</h2>
 
-      {content && (
-        <div className="text-slate-200 leading-relaxed whitespace-pre-wrap text-base">
-          {content}
-        </div>
-      )}
+      {content && <StageContent content={content} />}
 
       {images.length > 0 && (
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">

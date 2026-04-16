@@ -233,7 +233,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
    - אם אורן עובד על פרק/סצנה ספציפית (page context kind=scene/episode/season, או הוא מציין במפורש "סצנה X של פרק Y") — **חייב לכלול \`sceneId\`** של הסצנה הרלוונטית. הפרומפט יישמר ב-Scene.scriptText במקום ביצירת LearnSource מנותקת.
    - אם אין סצנה יעד ברורה (אורן רק מבקש "תייצר פרומפט על נושא X" כללי) — אל תכלול sceneId, ואז יישמר בזיכרון (LearnSource).
    - **אם אתה לא מוצא את ה-sceneId** מתוך page context או היסטוריית השיחה — שאל את אורן "לאיזו סצנה הפרומפט הזה?" במקום ליצור LearnSource מנותק.
-2. \`generate_video\` — יצירת **סרטון VEO 3.1** מפרומפט קיים (LearnSource). **רק** אם אורן אומר במפורש "תייצר סרטון" / "תעשה וידאו" / "הפוך לסרטון". אל תציע זאת אוטומטית אחרי compose_prompt. פרמטרים: sourceId (חובה), durationSec (אופציונלי, ברירת מחדל 8), aspectRatio (אופציונלי, "16:9" או "9:16")
+2. \`generate_video\` — יצירת **סרטון Sora 2** מפרומפט קיים (LearnSource). **רק** אם אורן אומר במפורש "תייצר סרטון" / "תעשה וידאו" / "הפוך לסרטון". אל תציע זאת אוטומטית אחרי compose_prompt. פרמטרים: sourceId (חובה), durationSec (אופציונלי, **ברירת מחדל 20** — Sora תומך 4/8/12/16/20), aspectRatio (אופציונלי, "16:9" או "9:16")
 3. \`import_guide_url\` — ייבוא URL לאתר רגיל (wikiHow, blog, docs) ל-**מדריך** חדש. פרמטרים: url, lang
 4. \`ai_guide\` — יצירת **מדריך** מנושא (לא פרומפט!). פרמטרים: topic, lang
 5. \`import_instagram_guide\` — Instagram/Reel → מדריך. פרמטרים: url, lang

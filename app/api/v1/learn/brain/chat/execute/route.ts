@@ -243,7 +243,7 @@ export async function POST(req: NextRequest) {
       if (!source) return NextResponse.json({ error: "source not found" }, { status: 404 });
       if (!source.prompt) return NextResponse.json({ error: "source has no prompt" }, { status: 400 });
       const videoId = await startVideoGeneration(source.prompt, source.id, {
-        durationSec: action.durationSec || 8,
+        durationSec: action.durationSec || 20,
         aspectRatio: action.aspectRatio || "16:9",
       });
       waitUntil(runVideoGeneration(videoId, source.prompt).catch(() => {}));

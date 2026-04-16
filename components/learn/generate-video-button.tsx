@@ -21,7 +21,7 @@ type Status = {
 
 export default function GenerateVideoButton({ sourceId }: { sourceId: string }) {
   const [open, setOpen] = useState(false);
-  const [duration, setDuration] = useState(8);
+  const [duration, setDuration] = useState(20);
   const [aspect, setAspect] = useState<"16:9" | "9:16">("16:9");
   const [pending, startTransition] = useTransition();
   const [adaptPending, startAdaptTransition] = useTransition();

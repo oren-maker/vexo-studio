@@ -42,7 +42,7 @@ export async function generateVideoAction(
 ) {
   const source = await prisma.learnSource.findUnique({ where: { id: sourceId } });
   if (!source) return { ok: false as const, error: "source not found" };
-  const duration = opts.durationSec || 8;
+  const duration = opts.durationSec || 20;
   // Sora's prompt rewriter is more permissive than VEO's. We still run the
   // "adapt for VEO" step because it also trims / structures the prompt — the
   // output is perfectly usable as a Sora prompt.

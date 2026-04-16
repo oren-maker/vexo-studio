@@ -26,7 +26,7 @@ export async function startSoraGeneration(
   opts: { model?: SoraModel; durationSec?: number; aspectRatio?: "16:9" | "9:16" } = {},
 ): Promise<string> {
   const model = opts.model || "sora-2"; // user directive: never use sora-2-pro
-  const duration = opts.durationSec || 8;
+  const duration = opts.durationSec || 20;
   const aspect = opts.aspectRatio || "16:9";
   const row = await prisma.generatedVideo.create({
     data: {

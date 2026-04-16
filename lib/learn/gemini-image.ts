@@ -73,57 +73,87 @@ export async function generateImageFromPrompt(
   }
 
   // ----- nano-banana path (uses :generateContent with responseModalities) -----
+  // Note: Google docs require BOTH "TEXT" and "IMAGE" in responseModalities.
+  // Using IMAGE-only produces finishReason=NO_IMAGE. Include TEXT so the
+  // model can reason internally even if its visible output is image-only.
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
-  const body = {
-    contents: [{ parts: [{ text: structured }] }],
-    generationConfig: { responseModalities: ["IMAGE"] },
-  };
 
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  async function callNanoBanana(promptText: string): Promise<{ imageB64: string | null; mimeType: string; textNote: string | null; finishReason: string | null; safety: any }> {
+    const body = {
+      contents: [{ parts: [{ text: promptText }] }],
+      generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+    };
+    const r = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(60000),
     });
+    if (!r.ok) {
+      const errText = await r.text();
+      throw new Error(`Gemini ${r.status}: ${errText.slice(0, 200)}`);
+    }
+    const j: any = await r.json();
+    const parts = j.candidates?.[0]?.content?.parts || [];
+    let imgB64: string | null = null;
+    let mime = "image/png";
+    let txt: string | null = null;
+    for (const p of parts) {
+      if (p.inlineData?.data) { imgB64 = p.inlineData.data; mime = p.inlineData.mimeType || "image/png"; }
+      else if (p.text) txt = p.text;
+    }
+    return {
+      imageB64: imgB64,
+      mimeType: mime,
+      textNote: txt,
+      finishReason: j.candidates?.[0]?.finishReason ?? null,
+      safety: j.promptFeedback?.blockReason || j.candidates?.[0]?.safetyRatings,
+    };
+  }
+
+  // First try the structured 6-layer prompt. If the model returns NO_IMAGE
+  // (which is a known non-safety quirk), retry once with a simpler prompt
+  // stripped to just the visual essentials.
+  let result: Awaited<ReturnType<typeof callNanoBanana>>;
+  try {
+    result = await callNanoBanana(structured);
   } catch (e: any) {
     await logUsage({ model: MODEL, operation: "image-gen", sourceId, errored: true, meta: { error: `network: ${String(e.message || e).slice(0, 200)}` } });
     throw e;
   }
 
-  if (!res.ok) {
-    const errText = await res.text();
-    await logUsage({ model: MODEL, operation: "image-gen", sourceId, errored: true, meta: { status: res.status, error: errText.slice(0, 300) } });
-    throw new Error(`Gemini ${res.status}: ${errText.slice(0, 200)}`);
-  }
-
-  const json: any = await res.json();
-  const parts = json.candidates?.[0]?.content?.parts || [];
-  let imageB64: string | null = null;
-  let mimeType = "image/png";
-  let textNote: string | null = null;
-  for (const p of parts) {
-    if (p.inlineData?.data) {
-      imageB64 = p.inlineData.data;
-      mimeType = p.inlineData.mimeType || "image/png";
-    } else if (p.text) {
-      textNote = p.text;
+  if (!result.imageB64 && result.finishReason === "NO_IMAGE" && !result.safety) {
+    // Retry with a simpler, more visual-first prompt — sometimes nano-banana
+    // refuses the heavy 6-layer structure but accepts a shorter paraphrase.
+    const simpler = structured.replace(/\*\*[^:]+:\*\*\s*/g, "").slice(0, 900);
+    try {
+      result = await callNanoBanana(`Photograph: ${simpler}. Return one photorealistic image.`);
+    } catch {
+      /* fall through — will trigger Imagen 4 fallback below */
     }
   }
-  if (!imageB64) {
-    const finishReason = json.candidates?.[0]?.finishReason;
-    const safety = json.promptFeedback?.blockReason || json.candidates?.[0]?.safetyRatings;
-    const reason = safety
-      ? `safety/block: ${typeof safety === "string" ? safety : JSON.stringify(safety).slice(0, 200)}`
-      : finishReason && finishReason !== "STOP"
-      ? `finishReason=${finishReason}`
-      : textNote
-      ? `model returned text instead of image: ${textNote.slice(0, 200)}`
-      : "no image in response";
+
+  if (!result.imageB64) {
+    // Final fallback: Imagen 4 (more reliable, same price tier). Only when
+    // it's NOT a safety block — safety blocks apply across both models.
+    if (!result.safety) {
+      try {
+        const imagen = await generateWithImagen4(structured, sourceId);
+        return imagen;
+      } catch (e: any) {
+        const reason = `nano-banana: finishReason=${result.finishReason} · imagen-4 fallback failed: ${String(e?.message || e).slice(0, 150)}`;
+        await logUsage({ model: MODEL, operation: "image-gen", sourceId, errored: true, meta: { error: reason } });
+        throw new Error(`שני המודלים נכשלו — ${reason}`);
+      }
+    }
+    const safety = result.safety;
+    const reason = `safety/block: ${typeof safety === "string" ? safety : JSON.stringify(safety).slice(0, 200)}`;
     await logUsage({ model: MODEL, operation: "image-gen", sourceId, errored: true, meta: { error: reason } });
-    throw new Error(`Gemini did not return an image — ${reason}`);
+    throw new Error(`Gemini חסם את הפרומפט — ${reason}`);
   }
+
+  const imageB64 = result.imageB64;
+  const mimeType = result.mimeType;
 
   const buffer = Buffer.from(imageB64, "base64");
   const filename = `prompt-images/${sourceId || Date.now()}-${Date.now()}.${mimeType.split("/")[1] || "png"}`;

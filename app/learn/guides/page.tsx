@@ -8,13 +8,27 @@ import MemoryTabs from "@/components/learn/memory-tabs";
 
 export const dynamic = "force-dynamic";
 
-export default async function GuidesLibraryPage({ searchParams }: { searchParams: { lang?: string; category?: string } }) {
+export default async function GuidesLibraryPage({ searchParams }: { searchParams: { lang?: string; category?: string; q?: string } }) {
   const lang = isValidLang(searchParams.lang || "") ? (searchParams.lang as string) : DEFAULT_LANG;
   const category = searchParams.category || undefined;
+  const q = (searchParams.q || "").trim();
+
+  const textWhere: any = q
+    ? {
+        translations: {
+          some: {
+            OR: [
+              { title: { contains: q, mode: "insensitive" as const } },
+              { description: { contains: q, mode: "insensitive" as const } },
+            ],
+          },
+        },
+      }
+    : {};
 
   const [guides, allGuides, totalStages, bySource] = await Promise.all([
     prisma.guide.findMany({
-      where: { status: { in: ["draft", "published"] }, ...(category ? { category } : {}) },
+      where: { status: { in: ["draft", "published"] }, ...(category ? { category } : {}), ...textWhere },
       select: {
         id: true, slug: true, defaultLang: true, coverImageUrl: true,
         category: true, estimatedMinutes: true, userRating: true,
@@ -72,6 +86,24 @@ export default async function GuidesLibraryPage({ searchParams }: { searchParams
         <StatCard value={totalViews.toLocaleString()} label="צפיות סה״כ" accent="emerald" hint={totalGuides > 0 ? `ממוצע ${Math.round(totalViews / totalGuides)} למדריך` : "—"} />
         <StatCard value={avgRating > 0 ? avgRating.toFixed(1) : "—"} label="דירוג ממוצע" accent="amber" hint={ratedGuides.length > 0 ? `${ratedGuides.length} מדריכים דורגו` : "טרם דורגו"} />
       </div>
+
+      {/* Search */}
+      <form action="/learn/guides" className="mb-4">
+        <div className="relative">
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="🔍 חפש מדריך לפי כותרת או תיאור…"
+            className="w-full bg-slate-900 border border-slate-700 focus:border-cyan-500/60 rounded-lg px-4 py-3 text-sm text-slate-100 outline-none"
+          />
+          {q && (
+            <Link href="/learn/guides" className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-red-400">
+              ✕ נקה
+            </Link>
+          )}
+        </div>
+      </form>
 
       {/* Source + minutes breakdown */}
       <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 mb-6 text-xs flex items-center justify-between flex-wrap gap-3">

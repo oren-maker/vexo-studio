@@ -25,7 +25,7 @@ export default async function BrainPage() {
             המוח מחבר בין <b className="text-amber-300">תודעה</b> (snapshots), <b className="text-cyan-300">זיכרון</b> (פרומפטים+מדריכים), ו-<b className="text-emerald-300">ידע</b> (Knowledge Nodes) — וכותב כל יום זהות חדשה.
           </p>
         </div>
-        <div className="flex flex-col items-stretch gap-2">
+        <div className="flex flex-row items-center gap-2 flex-wrap">
           <Link
             href="/learn/brain/chat"
             className="text-xs bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 px-3 py-1.5 rounded text-center font-semibold"

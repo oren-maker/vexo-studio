@@ -5,7 +5,21 @@ import { adminHeaders } from "@/lib/learn/admin-key";
 import { useState } from "react";
 import SyncProgress from "@/components/learn/sync-progress";
 
-export default function TriggerImprovementButton({ snapshotId }: { snapshotId: string }) {
+function formatNextRun(): { nextAt: Date; inText: string } {
+  // Master cron schedule: vercel.json → "0 6 * * *" = 06:00 UTC daily.
+  const now = new Date();
+  const nextAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 0, 0));
+  if (nextAt.getTime() <= now.getTime()) nextAt.setUTCDate(nextAt.getUTCDate() + 1);
+  const deltaMs = nextAt.getTime() - now.getTime();
+  const hours = Math.floor(deltaMs / 3600_000);
+  const mins = Math.floor((deltaMs % 3600_000) / 60_000);
+  const inText = hours > 0 ? `בעוד ${hours} שעות ו-${mins} דקות` : `בעוד ${mins} דקות`;
+  return { nextAt, inText };
+}
+
+export default function TriggerImprovementButton({ snapshotId, lastRunAt }: { snapshotId: string; lastRunAt?: Date | string | null }) {
+  const lastAt = lastRunAt ? new Date(lastRunAt) : null;
+  const { nextAt, inText } = formatNextRun();
   const [jobId, setJobId] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [done, setDone] = useState<any>(null);
@@ -40,6 +54,15 @@ export default function TriggerImprovementButton({ snapshotId }: { snapshotId: s
           <p className="text-xs text-slate-400 max-w-lg">
             המערכת תבחר פרומפטים עם ניתוח רזה ותשדרג אותם לפי התובנות העדכניות. כל שדרוג שומר את הגרסה הקודמת.
           </p>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+            <span className="text-slate-500">
+              ⏮ הרצה אחרונה: <span className="text-slate-300 font-mono">{lastAt ? lastAt.toLocaleString("he-IL") : "אף פעם"}</span>
+            </span>
+            <span className="text-slate-500">
+              ⏭ הרצה הבאה: <span className="text-cyan-300 font-mono">{nextAt.toLocaleString("he-IL")}</span>
+              <span className="text-slate-500"> · {inText}</span>
+            </span>
+          </div>
         </div>
         <button
           onClick={run}

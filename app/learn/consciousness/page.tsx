@@ -85,7 +85,7 @@ export default async function ConsciousnessPage() {
             <Kpi value={`$${totalImprovementCost.toFixed(4)}`} label="עלות שדרוגים" accent="amber" />
           </div>
 
-          {latest && <TriggerImprovementButton snapshotId={latest.id} />}
+          {latest && <TriggerImprovementButton snapshotId={latest.id} lastRunAt={improvementRuns[0]?.startedAt ?? null} />}
 
           <Section title="ציר זמן Snapshots" subtitle="כל כרטיס = snapshot שעתי. הגרף העליון מראה צמיחת Knowledge Nodes לאורך זמן">
             <SnapshotTimeline snapshots={snapshots} />

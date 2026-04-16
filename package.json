@@ -26,6 +26,7 @@
     "@vercel/blob": "^2.3.3",
     "@vercel/functions": "^1.5.0",
     "bcryptjs": "^3.0.3",
+    "html2pdf.js": "^0.14.0",
     "instagram-url-direct": "^2.0.7",
     "jsonwebtoken": "^9.0.2",
     "next": "14.2.18",

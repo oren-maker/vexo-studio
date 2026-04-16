@@ -73,7 +73,7 @@ export default async function GuideViewPage({
         <div className="flex items-center gap-2 flex-wrap">
           <LanguagePicker current={lang} size="sm" />
           <ShareButton slug={guide.slug} title={trans?.title || ""} />
-          <PrintButton />
+          <PrintButton slug={guide.slug} title={trans?.title || ""} />
           <Link
             href={`/learn/guides/${guide.slug}/edit`}
             className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded"

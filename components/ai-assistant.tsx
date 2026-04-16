@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
+import { linkifyText } from "./learn/linkify";
 
 type Message = { id: string; role: "user" | "director"; content: string; action?: { type: string; [k: string]: unknown } | null };
 
@@ -153,7 +154,7 @@ export function AiAssistant() {
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-accent text-white" : "bg-bg-main text-text-primary"}`}>
-                    {m.content}
+                    {m.role === "director" ? linkifyText(m.content) : m.content}
                     {m.action && (
                       <button
                         onClick={async () => {

@@ -21,6 +21,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, snapshot: snap, improvement });
   } catch (e: any) {
     console.error("[cron insights-snapshot]", e);
-    return NextResponse.json({ error: "internal error" }, { status: 500 });
+    return NextResponse.json({
+      error: String(e?.message || e).slice(0, 600),
+      stack: process.env.NODE_ENV !== "production" ? String(e?.stack || "").slice(0, 600) : undefined,
+    }, { status: 500 });
   }
 }

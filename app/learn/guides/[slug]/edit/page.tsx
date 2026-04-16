@@ -9,7 +9,7 @@ import { isValidLang, DEFAULT_LANG } from "@/lib/learn/guide-languages";
 export const dynamic = "force-dynamic";
 
 async function fetchGuide(slug: string, lang: string, host: string, proto: string) {
-  const res = await fetch(`${proto}://${host}/api/guides/${slug}?lang=${lang}`, { cache: "no-store" });
+  const res = await fetch(`${proto}://${host}/api/v1/learn/guides/${slug}?lang=${lang}`, { cache: "no-store" });
   if (!res.ok) return null;
   return res.json();
 }
@@ -31,10 +31,10 @@ export default async function GuideEditPage({
   return (
     <div className="max-w-5xl mx-auto">
       <div className="mb-5 flex items-center justify-between">
-        <Link href={`/guides/${params.slug}?lang=${lang}`} className="text-xs text-slate-400 hover:text-cyan-400">
+        <Link href={`/learn/guides/${params.slug}?lang=${lang}`} className="text-xs text-slate-400 hover:text-cyan-400">
           ← חזרה לתצוגה
         </Link>
-        <Link href="/guides" className="text-xs text-slate-400 hover:text-cyan-400">
+        <Link href="/learn/guides" className="text-xs text-slate-400 hover:text-cyan-400">
           ספריית מדריכים →
         </Link>
       </div>

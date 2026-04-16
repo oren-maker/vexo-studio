@@ -10,12 +10,15 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 function slugify(text: string): string {
-  return text
+  const ascii = text
     .toLowerCase()
-    .replace(/[^\w\u0590-\u05FF\u0600-\u06FF\s-]/g, "")
+    .replace(/[\u0590-\u05FF\u0600-\u06FF]/g, "") // strip Hebrew + Arabic
+    .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
-    .slice(0, 80);
+    .replace(/-+/g, "-")
+    .slice(0, 60);
+  return ascii || "guide";
 }
 
 export async function POST(req: NextRequest) {

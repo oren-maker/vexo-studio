@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 async function fetchGuide(slug: string, lang: string, host: string, proto: string) {
   // Use absolute URL on server, since fetch doesn't resolve relative paths server-side
-  const res = await fetch(`${proto}://${host}/api/guides/${slug}?lang=${lang}`, { cache: "no-store" });
+  const res = await fetch(`${proto}://${host}/api/v1/learn/guides/${slug}?lang=${lang}`, { cache: "no-store" });
   if (!res.ok) return null;
   return res.json();
 }
@@ -42,7 +42,7 @@ export default async function GuideViewPage({
   return (
     <div className="max-w-4xl mx-auto" dir={dir}>
       <div className="mb-5 flex items-center justify-between gap-4 flex-wrap">
-        <Link href="/guides" className="text-xs text-slate-400 hover:text-cyan-400">
+        <Link href="/learn/guides" className="text-xs text-slate-400 hover:text-cyan-400">
           ← חזרה לספריה
         </Link>
         <div className="flex items-center gap-2 flex-wrap">
@@ -56,7 +56,7 @@ export default async function GuideViewPage({
             📥 PDF
           </a>
           <Link
-            href={`/guides/${guide.slug}/edit`}
+            href={`/learn/guides/${guide.slug}/edit`}
             className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded"
           >
             ✏️ ערוך
@@ -87,7 +87,7 @@ export default async function GuideViewPage({
       {guide.stages.length === 0 ? (
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-10 text-center">
           <p className="text-slate-400">למדריך הזה אין שלבים עדיין.</p>
-          <Link href={`/guides/${guide.slug}/edit`} className="text-cyan-400 underline mt-3 inline-block">פתח עורך ←</Link>
+          <Link href={`/learn/guides/${guide.slug}/edit`} className="text-cyan-400 underline mt-3 inline-block">פתח עורך ←</Link>
         </div>
       ) : (
         <div className="space-y-8">

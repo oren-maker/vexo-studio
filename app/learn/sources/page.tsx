@@ -5,6 +5,7 @@ import RefreshButton from "@/components/learn/refresh-button";
 import DeleteSourceButton from "@/components/learn/delete-source-button";
 import StarRating from "@/components/learn/star-rating";
 import ModuleHeader from "@/components/learn/module-header";
+import MemoryTabs from "@/components/learn/memory-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -108,10 +109,10 @@ export default async function SourcesManager({
 
   return (
     <div className="max-w-6xl mx-auto">
-      <header className="flex items-center justify-between mb-6">
+      <header className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">מקורות</h1>
-          <p className="text-sm text-slate-400 mt-1">ניהול כל המקורות שהוזנו למערכת.</p>
+          <h1 className="text-3xl font-bold text-white">🧠 זיכרון</h1>
+          <p className="text-sm text-slate-400 mt-1">כל מה שהבמאי יודע — פרומפטים שנותחו ומדריכים מובנים.</p>
         </div>
         <div className="flex gap-2">
           <RefreshButton />
@@ -124,8 +125,10 @@ export default async function SourcesManager({
         </div>
       </header>
 
+      <MemoryTabs active="prompts" />
+
       <ModuleHeader
-        title="📚 ספרייה"
+        title="📝 פרומפטים"
         operations={["compose", "improve", "video-analysis", "image-gen"]}
         logsTab="usage"
       />

@@ -59,7 +59,7 @@ export default function NewGuideTabs() {
       });
       const j = await res.json();
       if (!res.ok || !j.ok) throw new Error(j.error || "create failed");
-      router.push(`/guides/${j.guide.slug}/edit`);
+      router.push(`/learn/guides/${j.guide.slug}/edit`);
     } catch (e: any) {
       setErr(e?.message || "שגיאה");
     } finally {
@@ -79,7 +79,7 @@ export default function NewGuideTabs() {
       });
       const j = await res.json();
       if (!res.ok || !j.ok) throw new Error(j.error || "ai-create failed");
-      router.push(`/guides/${j.guide.slug}/edit`);
+      router.push(`/learn/guides/${j.guide.slug}/edit`);
     } catch (e: any) {
       setErr(e?.message || "שגיאה");
     } finally {
@@ -99,7 +99,7 @@ export default function NewGuideTabs() {
       });
       const j = await res.json();
       if (!res.ok || !j.ok) throw new Error(j.error || "import failed");
-      router.push(`/guides/${j.guide.slug}/edit`);
+      router.push(`/learn/guides/${j.guide.slug}/edit`);
     } catch (e: any) {
       setErr(e?.message || "שגיאה");
     } finally {
@@ -119,7 +119,7 @@ export default function NewGuideTabs() {
       });
       const j = await res.json();
       if (!res.ok || !j.ok) throw new Error(j.error || "import failed");
-      router.push(`/guides/${j.guide.slug}/edit`);
+      router.push(`/learn/guides/${j.guide.slug}/edit`);
     } catch (e: any) {
       setErr(e?.message || "שגיאה");
     } finally {

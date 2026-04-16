@@ -96,11 +96,20 @@ export function AiAssistant() {
     return localStorage.getItem("vexo-brain-chatId");
   });
   const [pageCtx, setPageCtx] = useState<PageContext>(() => detectPageContext());
+  const [unread, setUnread] = useState(0);
+  const openRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
 
-  // Refresh context when bubble opens (client-side navigation may have changed the URL)
+  // Keep ref in sync so in-flight send() can check open-state at response time
+  useEffect(() => { openRef.current = open; }, [open]);
+
+  // Refresh context + clear unread badge when bubble opens (client-side nav
+  // may have changed the URL; opening also means Oren has seen the answer).
   useEffect(() => {
-    if (open) setPageCtx(detectPageContext());
+    if (open) {
+      setPageCtx(detectPageContext());
+      setUnread(0);
+    }
   }, [open]);
 
   // Persist chatId so bubble survives page refresh — same brain, same log
@@ -151,6 +160,9 @@ export function AiAssistant() {
       const reply = (r.reply ?? r.content ?? "").trim();
       const msgId = `b-${Date.now()}`;
       setMessages((m) => [...m, { id: msgId, role: "director", ...parseBrainReply(reply) }]);
+      // If Oren closed the bubble while we were waiting for the answer, flag
+      // it so the launcher turns red and draws his attention back.
+      if (!openRef.current) setUnread((n) => n + 1);
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -161,11 +173,20 @@ export function AiAssistant() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 end-6 w-14 h-14 rounded-full bg-accent text-white text-2xl shadow-card hover:bg-accent-light flex items-center justify-center z-20"
-        aria-label="Open AI Director"
-        title="AI Director"
+        className={`fixed bottom-6 end-6 w-14 h-14 rounded-full text-white text-2xl shadow-card flex items-center justify-center z-20 transition-colors ${
+          unread > 0
+            ? "bg-red-500 hover:bg-red-600 animate-pulse"
+            : "bg-accent hover:bg-accent-light"
+        }`}
+        aria-label={unread > 0 ? `${unread} new AI Director messages` : "Open AI Director"}
+        title={unread > 0 ? (he ? `${unread} הודעות חדשות מהבמאי` : `${unread} new messages`) : "AI Director"}
       >
         🎬
+        {unread > 0 && (
+          <span className="absolute -top-1 -end-1 min-w-[20px] h-5 px-1 bg-white text-red-600 text-[11px] font-bold rounded-full border-2 border-red-500 flex items-center justify-center">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
       </button>
       {open && (
         <div className="fixed inset-0 bg-black/50 z-30 flex items-end justify-end p-6" onClick={() => setOpen(false)}>

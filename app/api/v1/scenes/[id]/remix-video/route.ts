@@ -60,7 +60,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
     if (!soraId) throw Object.assign(new Error("this video is not a Sora-generated asset (no source id)"), { statusCode: 400 });
 
-    const submitted = await remixSoraVideo({ sourceId: soraId, prompt: body.prompt });
+    // The source clip was generated with the character sheet as the i2v seed,
+    // so Sora inherited a 1-2s opening shot of the portrait grid. Remix
+    // preserves structure — unless we explicitly tell it not to. Prepend a
+    // hard directive so the remix output skips the reference grid entirely.
+    const dedupedPrompt = [
+      "HARD OVERRIDE: the video must begin immediately with the LIVE-ACTION SCENE. Do NOT show any reference sheet, portrait grid, character lineup, or side-by-side portraits at any point — not the opening frame, not a flash, not a cutaway. Replace any such layout in the source with continuous scene action.",
+      body.prompt,
+    ].join("\n\n");
+    const submitted = await remixSoraVideo({ sourceId: soraId, prompt: dedupedPrompt });
 
     // Track pending — same shape generate-video uses.
     const existingMem = (scene.memoryContext as Record<string, unknown> | null) ?? {};

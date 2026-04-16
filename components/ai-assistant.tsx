@@ -18,6 +18,27 @@ const VALID_ACTION_TYPES = new Set([
 
 type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };
 
+// Parse brain reply: extract action JSON + clean content. Tolerant to malformed JSON
+// (strips the action fence regardless, so it never shows as raw text).
+function parseBrainReply(raw: string): { content: string; action: { type: string; [k: string]: unknown } | null } {
+  const re = /```action\s*([\s\S]*?)```/;
+  const match = raw.match(re);
+  if (!match) return { content: raw, action: null };
+  let action: { type: string; [k: string]: unknown } | null = null;
+  try {
+    // Try to salvage common JSON errors (trailing quote on numbers, trailing commas)
+    let candidate = match[1].trim();
+    candidate = candidate.replace(/:(\s*-?\d+\.?\d*)"(\s*[,}])/g, ":$1$2"); // fix "confidence":0.98" → 0.98
+    candidate = candidate.replace(/,(\s*[}\]])/g, "$1"); // trailing commas
+    const parsed = JSON.parse(candidate) as { type?: string; [k: string]: unknown };
+    if (parsed && typeof parsed.type === "string" && VALID_ACTION_TYPES.has(parsed.type)) {
+      action = parsed as { type: string; [k: string]: unknown };
+    }
+  } catch {}
+  const content = raw.replace(re, "").trim() || "(אין תגובה)";
+  return { content, action };
+}
+
 function detectPageContext(): PageContext {
   if (typeof window === "undefined") return { path: "", title: "", kind: null, id: null, label: "" };
   const path = window.location.pathname;
@@ -76,20 +97,7 @@ export function AiAssistant() {
         if (msgs.length > 0) {
           setMessages(msgs.map((m) => {
             if (m.role === "user") return { id: m.id, role: "user" as const, content: m.content };
-            // Parse action block from brain message so the button renders
-            const actionMatch = m.content.match(/```action\s*([\s\S]*?)```/);
-            let action: { type: string; [k: string]: unknown } | null = null;
-            let cleanContent = m.content;
-            if (actionMatch) {
-              try {
-                const parsed = JSON.parse(actionMatch[1].trim()) as { type?: string; [k: string]: unknown };
-                if (parsed && typeof parsed.type === "string" && VALID_ACTION_TYPES.has(parsed.type)) {
-                  action = parsed as { type: string; [k: string]: unknown };
-                }
-              } catch {}
-              cleanContent = m.content.replace(/```action[\s\S]*?```/, "").trim();
-            }
-            return { id: m.id, role: "director" as const, content: cleanContent || "(אין תגובה)", action };
+            return { id: m.id, role: "director" as const, ...parseBrainReply(m.content) };
           }));
         }
       })
@@ -121,29 +129,8 @@ export function AiAssistant() {
       } finally { clearTimeout(t); }
       if (r.chatId && r.chatId !== chatId) setChatId(r.chatId);
       const reply = (r.reply ?? r.content ?? "").trim();
-      // Parse action blocks from the brain's reply (```action ... ```)
-      const actionMatch = reply.match(/```action\s*([\s\S]*?)```/);
-      let cleanReply = reply;
-      let action: { type: string; [k: string]: unknown } | null = null;
-      if (actionMatch) {
-        try {
-          const parsed = JSON.parse(actionMatch[1].trim()) as { type?: string; [k: string]: unknown };
-          // Reject anything where type isn't one of the 7 known executor types.
-          // Hebrew/yes-no/freeform values would otherwise render as "אשר ובצע: כ"
-          // and the executor would 400. Better to ignore the action than to
-          // show a button that can't run.
-          if (parsed && typeof parsed.type === "string" && VALID_ACTION_TYPES.has(parsed.type)) {
-            action = parsed as { type: string; [k: string]: unknown };
-          } else if (parsed?.type) {
-            console.warn("[bubble] dropped invalid action.type:", parsed.type);
-          }
-        } catch (e) {
-          console.warn("[bubble] action JSON parse failed:", (e as Error).message);
-        }
-        cleanReply = reply.replace(/```action[\s\S]*?```/, "").trim();
-      }
       const msgId = `b-${Date.now()}`;
-      setMessages((m) => [...m, { id: msgId, role: "director", content: cleanReply || "(אין תגובה)", action }]);
+      setMessages((m) => [...m, { id: msgId, role: "director", ...parseBrainReply(reply) }]);
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }

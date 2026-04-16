@@ -188,19 +188,15 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Only create a LearnSource when the prompt isn't bound to a scene —
-      // otherwise it just clutters the library with duplicates of scene scripts.
+      // NEVER create a detached LearnSource from compose_prompt.
+      // Prompts must always bind to a Scene (via page context or explicit sceneId).
+      // If no scene target — refuse with a clear message so the brain asks.
       let source: any = null;
       if (!targetSceneIdResolved) {
-        source = await prisma.learnSource.create({
-          data: {
-            type: "upload",
-            prompt: composed.prompt,
-            title: brief.slice(0, 120),
-            status: "complete",
-            addedBy: "brain-chat",
-          },
-        });
+        return NextResponse.json({
+          error: "compose_prompt חייב sceneId או הקשר פרק/סצנה. פתח פרק או סצנה ונסה שוב, או אמור למוח איזו סצנה לעדכן.",
+          aborted: true,
+        }, { status: 400 });
       }
 
       resultUrl = sceneUrl ?? (source ? `/learn/sources/${source.id}` : null);

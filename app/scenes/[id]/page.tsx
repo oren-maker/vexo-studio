@@ -74,7 +74,7 @@ export default function ScenePage() {
   const [videoModel, setVideoModel] = useState<AllVideoModel>("sora-2");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
-  const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean } | null>(null);
+  const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean; maxWaitMs?: number; label?: string } | null>(null);
   const [veoModel, setVeoModel] = useState<AllVideoModel>("sora-2");
   const [veoDuration, setVeoDuration] = useState(20);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
@@ -138,7 +138,7 @@ export default function ScenePage() {
   // videos array.
   useEffect(() => {
     if (!veoJob || veoJob.done) return;
-    const MAX_WAIT_MS = 240_000; // 4 minutes — generous upper bound even for VEO 3 Pro
+    const MAX_WAIT_MS = veoJob.maxWaitMs ?? 240_000; // 4min default; remix overrides to 3min
     const tick = setInterval(() => {
       setVeoJob((j) => {
         if (!j) return null;
@@ -381,7 +381,7 @@ export default function ScenePage() {
         })()}
 
         {veoJob && (
-          <Card title={he ? "🎬 מייצר וידאו" : "🎬 Generating video"} subtitle={veoJob.done ? (he ? "הושלם" : "Done") : (he ? "fal מעבד את הבקשה (בממוצע 30-90 שניות)" : "fal is processing (typical 30-90s)")}>
+          <Card title={veoJob.label ?? (he ? "🎬 מייצר וידאו" : "🎬 Generating video")} subtitle={veoJob.done ? (he ? "הושלם" : "Done") : (he ? `המערכת מעבדת · מקסימום ${Math.round((veoJob.maxWaitMs ?? 240_000) / 60_000)} דקות` : `Processing · max ${Math.round((veoJob.maxWaitMs ?? 240_000) / 60_000)}min`)}>
             <div className="space-y-3">
               <div className="flex justify-between items-center text-sm">
                 <div>
@@ -774,13 +774,25 @@ export default function ScenePage() {
                     disabled={remixBusy === "submit" || !remixNotes.trim()}
                     onClick={async () => {
                       setRemixBusy("submit");
+                      const beforeCount = scene?.videos?.length ?? 0;
                       try {
                         await api(`/api/v1/scenes/${scene.id}/remix-video`, {
                           method: "POST",
                           body: { assetId: remixModal.assetId, prompt: remixNotes.trim() },
                         });
+                        // Kick off the same progress panel the generate-video flow uses
+                        // (polls every 5s, auto-reloads on new video OR after maxWaitMs)
+                        // — remix uses a tighter 3-minute ceiling per Oren's request.
+                        setVeoJob({
+                          startedAt: Date.now(),
+                          durationGoal: 120,
+                          elapsed: 0,
+                          videoCountBefore: beforeCount,
+                          done: false,
+                          maxWaitMs: 180_000,
+                          label: he ? "✨ Remix מתבצע…" : "✨ Remix in progress…",
+                        });
                         setRemixModal(null); setRemixSuggestion(null); setRemixNotes("");
-                        alert(he ? "✨ Remix נשלח. ייקח 1-3 דקות. רענן את הדף." : "✨ Remix submitted. Takes 1-3 min. Refresh the page.");
                       } catch (e) { alert((e as Error).message); }
                       finally { setRemixBusy(null); }
                     }}

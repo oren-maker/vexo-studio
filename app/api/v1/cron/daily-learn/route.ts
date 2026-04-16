@@ -18,16 +18,17 @@ export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export 
 
 type StepResult = { step: string; ok: boolean; ms: number; error?: string };
 
-async function runStep(name: string, url: string, secret: string): Promise<StepResult> {
+async function runStep(name: string, url: string, secret: string, method: "GET" | "POST" = "GET"): Promise<StepResult> {
   const start = Date.now();
   try {
     const res = await fetch(url, {
-      method: url.includes("series-sync") ? "POST" : "GET",
+      method,
       headers: {
         Authorization: `Bearer ${secret}`,
         "x-admin-key": process.env.ADMIN_API_KEY ?? secret,
         "Content-Type": "application/json",
       },
+      ...(method === "POST" ? { body: JSON.stringify({}) } : {}),
     });
     const ok = res.ok;
     if (!ok) {
@@ -50,20 +51,20 @@ export async function GET(req: NextRequest) {
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? `https://${req.headers.get("host")}`;
   const results: StepResult[] = [];
 
-  // 1. Series Sync
-  results.push(await runStep("series-sync", `${base}/api/v1/learn/series-sync`, secret ?? ""));
+  // 1. Series Sync (POST — needs admin auth via x-admin-key)
+  results.push(await runStep("series-sync", `${base}/api/v1/learn/series-sync`, secret ?? "", "POST"));
 
-  // 2. Brain Refresh (daily cache rebuild)
-  results.push(await runStep("brain-refresh", `${base}/api/v1/learn/cron/daily-brain`, secret ?? ""));
+  // 2. Brain Refresh (GET — cron-secret auth)
+  results.push(await runStep("brain-refresh", `${base}/api/v1/learn/cron/daily-brain`, secret ?? "", "GET"));
 
-  // 3. Insights Snapshot
-  results.push(await runStep("insights-snapshot", `${base}/api/v1/learn/snapshot-now`, secret ?? ""));
+  // 3. Insights Snapshot (POST — admin auth)
+  results.push(await runStep("insights-snapshot", `${base}/api/v1/learn/snapshot-now`, secret ?? "", "POST"));
 
-  // 4. Consciousness Report
-  results.push(await runStep("consciousness-report", `${base}/api/v1/learn/cron/daily-consciousness-report`, secret ?? ""));
+  // 4. Consciousness Report (GET — open/cron)
+  results.push(await runStep("consciousness-report", `${base}/api/v1/learn/cron/daily-consciousness-report`, secret ?? "", "GET"));
 
-  // 5. Auto-Improve (3 prompts)
-  results.push(await runStep("auto-improve", `${base}/api/v1/learn/auto-improve`, secret ?? ""));
+  // 5. Auto-Improve (POST — admin auth)
+  results.push(await runStep("auto-improve", `${base}/api/v1/learn/auto-improve`, secret ?? "", "POST"));
 
   const allOk = results.every((r) => r.ok);
   const totalMs = results.reduce((s, r) => s + r.ms, 0);

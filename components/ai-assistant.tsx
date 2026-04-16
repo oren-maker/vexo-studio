@@ -152,7 +152,15 @@ export function AiAssistant() {
               </div>
               <div className="flex items-center gap-2">
                 <a href="/learn/brain/chat/logs" className="text-xs text-text-muted hover:text-accent" title={he ? "לוגים" : "Logs"}>📜</a>
-                {messages.length > 0 && <button onClick={clearChat} className="text-xs text-text-muted hover:text-status-errText" title={he ? "שיחה חדשה" : "New chat"}>✨</button>}
+                {messages.length > 0 && (
+                  <button
+                    onClick={clearChat}
+                    className="text-[11px] bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 px-2 py-1 rounded font-semibold"
+                    title={he ? "סיים שיחה ואפס" : "End chat & reset"}
+                  >
+                    🏁 {he ? "סיים שיחה" : "End chat"}
+                  </button>
+                )}
                 <button onClick={() => setOpen(false)} className="text-text-muted hover:text-text-primary">✕</button>
               </div>
             </div>

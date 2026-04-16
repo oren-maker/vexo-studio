@@ -210,7 +210,11 @@ export function AiAssistant() {
                   <div className="bg-bg-main rounded-2xl px-3 py-2 text-sm text-text-muted">{he ? "חושב…" : "Thinking…"}</div>
                 </div>
               )}
-              {err && <div className="text-status-errText text-xs">⚠ {err}</div>}
+              {err && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 text-xs text-red-400 whitespace-pre-wrap break-words">
+                  ⚠ {err}
+                </div>
+              )}
               <div ref={endRef} />
             </div>
 

@@ -40,7 +40,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           { lesson: { module: { course: { project: { organizationId: ctx.organizationId } } } } },
         ],
       },
-      include: { episode: { include: { season: { include: { series: { select: { projectId: true } } } } } } },
+      include: {
+        episode: {
+          include: {
+            season: { include: { series: { include: { project: { select: { id: true, name: true } } } } } },
+          },
+        },
+      },
     });
     if (!scene) throw Object.assign(new Error("scene not found"), { statusCode: 404 });
 
@@ -61,14 +67,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
     if (!soraId) throw Object.assign(new Error("this video is not a Sora-generated asset (no source id)"), { statusCode: 400 });
 
-    // The source clip was generated with the character sheet as the i2v seed,
-    // so Sora inherited a 1-2s opening shot of the portrait grid. Remix
-    // preserves structure — unless we explicitly tell it not to. Prepend a
-    // hard directive so the remix output skips the reference grid entirely.
-    const dedupedPrompt = [
-      "HARD OVERRIDE: the video must begin immediately with the LIVE-ACTION SCENE. Do NOT show any reference sheet, portrait grid, character lineup, or side-by-side portraits at any point — not the opening frame, not a flash, not a cutaway. Replace any such layout in the source with continuous scene action.",
-      body.prompt,
-    ].join("\n\n");
+    // Build a full-context remix prompt: the ORIGINAL scene requirements
+    // (episode title card, script, cast) + the user's new notes. If we only
+    // send the new notes, Sora drops everything not mentioned — including the
+    // "SEASON 1 · EPISODE 1" title card, cast identity, and storyline.
+    const ep = scene.episode;
+    const seasonNum = ep?.season?.seasonNumber;
+    const epNum = ep?.episodeNumber;
+    const seriesTitle = ep?.season?.series?.title ?? ep?.season?.series?.project?.name ?? "";
+    const mem = (scene.memoryContext as { characters?: string[]; soundNotes?: string } | null) ?? {};
+    const originalContext = [
+      "HARD OVERRIDE: the video must begin immediately with the LIVE-ACTION SCENE. Do NOT show any reference sheet, portrait grid, character lineup, or side-by-side portraits at any point.",
+      seasonNum != null && epNum != null
+        ? `EPISODE TITLE CARD (MANDATORY — first 1.5 seconds): display large clean white sans-serif text reading "SEASON ${seasonNum} · EPISODE ${epNum}" centered on screen with 15% safe margins, then fade out smoothly before the action starts. A narrator reads "Season ${seasonNum}, Episode ${epNum}" in sync.`
+        : null,
+      seriesTitle ? `Series: "${seriesTitle}"` : null,
+      scene.scriptText ? `Original script (maintain these requirements):\n${scene.scriptText.slice(0, 1200)}` : null,
+      mem.characters?.length ? `Characters in scene: ${mem.characters.join(", ")}` : null,
+      "END OF CLIP: the final 1.5 seconds MUST fade smoothly to black. Audio ducks to silence.",
+    ].filter(Boolean).join("\n\n");
+
+    const dedupedPrompt = [originalContext, "--- REMIX NOTES (apply these changes) ---", body.prompt].join("\n\n");
     const submitted = await remixSoraVideo({ sourceId: soraId, prompt: dedupedPrompt });
 
     // Track pending — same shape generate-video uses.

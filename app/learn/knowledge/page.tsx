@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/learn/db";
 import ReferenceManager from "@/components/learn/reference-manager";
+import SystemDocs, { type DocsData } from "@/components/learn/system-docs";
 
 export const dynamic = "force-dynamic";
 
@@ -13,15 +14,16 @@ const typeColors: Record<string, string> = {
   insight: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
 };
 
-type Tab = "knowledge" | "emotion" | "sound" | "cinematography" | "capability";
+type Tab = "knowledge" | "emotion" | "sound" | "cinematography" | "capability" | "docs";
 const REFERENCE_KINDS = ["emotion", "sound", "cinematography", "capability"] as const;
+const VALID_TABS = [...REFERENCE_KINDS, "docs"] as const;
 
 export default async function KnowledgePage({
   searchParams,
 }: {
   searchParams: { type?: string; tab?: string };
 }) {
-  const tab: Tab = (REFERENCE_KINDS as readonly string[]).includes(searchParams.tab ?? "")
+  const tab: Tab = (VALID_TABS as readonly string[]).includes(searchParams.tab ?? "")
     ? (searchParams.tab as Tab)
     : "knowledge";
 
@@ -49,6 +51,7 @@ export default async function KnowledgePage({
         <TabLink href="/learn/knowledge?tab=sound" active={tab === "sound"} label={`🔊 סאונד (${sCount})`} />
         <TabLink href="/learn/knowledge?tab=cinematography" active={tab === "cinematography"} label={`🎥 צילום (${cCount})`} />
         <TabLink href="/learn/knowledge?tab=capability" active={tab === "capability"} label={`⚙️ יכולות (${capCount})`} />
+        <TabLink href="/learn/knowledge?tab=docs" active={tab === "docs"} label="📚 תיעוד" />
       </div>
 
       {tab === "knowledge" && <KnowledgeView type={searchParams.type} />}
@@ -56,8 +59,61 @@ export default async function KnowledgePage({
       {tab === "sound" && <ReferenceManager kind="sound" />}
       {tab === "cinematography" && <ReferenceManager kind="cinematography" />}
       {tab === "capability" && <ReferenceManager kind="capability" />}
+      {tab === "docs" && <DocsView />}
     </div>
   );
+}
+
+async function DocsView() {
+  const [
+    guides,
+    sources,
+    knowledgeNodes,
+    brainRefByKind,
+    snapshotByKind,
+    chats,
+    messages,
+    latestCache,
+    upgradesByStatus,
+    apiAgg,
+    videos,
+    images,
+    promptVersions,
+  ] = await Promise.all([
+    prisma.guide.count(),
+    prisma.learnSource.count(),
+    prisma.knowledgeNode.count(),
+    prisma.brainReference.groupBy({ by: ["kind"], _count: { _all: true } }),
+    prisma.insightsSnapshot.groupBy({ by: ["kind"], _count: { _all: true } }),
+    prisma.brainChat.count(),
+    prisma.brainMessage.count(),
+    prisma.dailyBrainCache.findFirst({ orderBy: { date: "desc" }, select: { identity: true, date: true } }),
+    prisma.brainUpgradeRequest.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.apiUsage.aggregate({ _count: true, _sum: { usdCost: true } }),
+    prisma.generatedVideo.count(),
+    prisma.generatedImage.count(),
+    prisma.promptVersion.count(),
+  ]);
+
+  const data: DocsData = {
+    guides,
+    sources,
+    knowledgeNodes,
+    brainRefByKind: Object.fromEntries(brainRefByKind.map((r) => [r.kind, r._count._all])),
+    snapshotByKind: Object.fromEntries(snapshotByKind.map((r) => [r.kind, r._count._all])),
+    chats,
+    messages,
+    latestIdentity: latestCache?.identity ?? null,
+    latestIdentityDate: latestCache?.date ? new Date(latestCache.date).toLocaleDateString("he-IL") : null,
+    upgradesByStatus: Object.fromEntries(upgradesByStatus.map((r) => [r.status, r._count._all])),
+    apiCallCount: apiAgg._count,
+    apiCostUsd: apiAgg._sum.usdCost ?? 0,
+    videos,
+    images,
+    promptVersions,
+  };
+
+  return <SystemDocs data={data} />;
 }
 
 function TabLink({ href, active, label }: { href: string; active: boolean; label: string }) {

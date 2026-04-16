@@ -79,22 +79,11 @@ export default function SeriesPage() {
 
       {err && <div className="bg-red-500/10 border border-red-500/30 text-red-300 rounded-lg p-3 text-sm">{err}</div>}
 
-      {/* Archive selector */}
-      {snapshots.length > 0 && (
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs text-slate-500">📁 ארכיון ({snapshots.length} סנכרונים):</span>
-          <select
-            value={selected?.id ?? ""}
-            onChange={(e) => setSelected(snapshots.find((s) => s.id === e.target.value) ?? null)}
-            className="bg-slate-800 border border-slate-700 text-sm text-slate-200 rounded px-3 py-1.5"
-          >
-            {snapshots.map((s, i) => (
-              <option key={s.id} value={s.id}>
-                {new Date(s.takenAt).toLocaleString("he-IL")} {i === 0 ? "(אחרון)" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Archive link */}
+      {snapshots.length > 1 && (
+        <a href="/learn/series/archive" className="text-xs text-slate-400 hover:text-cyan-300 border border-slate-700 rounded-lg px-3 py-1.5 inline-block">
+          📁 ארכיון ({snapshots.length - 1})
+        </a>
       )}
 
       {/* Stats cards */}

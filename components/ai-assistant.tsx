@@ -6,6 +6,16 @@ import { linkifyText } from "./learn/linkify";
 
 type Message = { id: string; role: "user" | "director"; content: string; action?: { type: string; [k: string]: unknown } | null };
 
+const VALID_ACTION_TYPES = new Set([
+  "compose_prompt",
+  "generate_video",
+  "import_guide_url",
+  "ai_guide",
+  "import_instagram_guide",
+  "import_source",
+  "update_reference",
+]);
+
 type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };
 
 function detectPageContext(): PageContext {
@@ -98,7 +108,20 @@ export function AiAssistant() {
       let cleanReply = reply;
       let action: { type: string; [k: string]: unknown } | null = null;
       if (actionMatch) {
-        try { action = JSON.parse(actionMatch[1].trim()); } catch {}
+        try {
+          const parsed = JSON.parse(actionMatch[1].trim()) as { type?: string; [k: string]: unknown };
+          // Reject anything where type isn't one of the 7 known executor types.
+          // Hebrew/yes-no/freeform values would otherwise render as "אשר ובצע: כ"
+          // and the executor would 400. Better to ignore the action than to
+          // show a button that can't run.
+          if (parsed && typeof parsed.type === "string" && VALID_ACTION_TYPES.has(parsed.type)) {
+            action = parsed as { type: string; [k: string]: unknown };
+          } else if (parsed?.type) {
+            console.warn("[bubble] dropped invalid action.type:", parsed.type);
+          }
+        } catch (e) {
+          console.warn("[bubble] action JSON parse failed:", (e as Error).message);
+        }
         cleanReply = reply.replace(/```action[\s\S]*?```/, "").trim();
       }
       const msgId = `b-${Date.now()}`;
@@ -156,21 +179,20 @@ export function AiAssistant() {
                   <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-accent text-white" : "bg-bg-main text-text-primary"}`}>
                     {m.role === "director" ? linkifyText(m.content) : m.content}
                     {m.action && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            const r = await api<{ text?: string; url?: string }>("/api/v1/learn/brain/chat/execute", {
-                              method: "POST",
-                              body: { action: m.action, chatId, pageContext: pageCtx },
-                            });
-                            const result = [r.text, r.url].filter(Boolean).join("\n🔗 ");
-                            setMessages((msgs) => [...msgs, { id: `exec-${Date.now()}`, role: "director", content: `✅ ${result || "בוצע"}` }]);
-                          } catch (e) { setErr((e as Error).message); }
+                      <ExecuteActionButton
+                        action={m.action}
+                        chatId={chatId}
+                        pageCtx={pageCtx}
+                        he={he}
+                        onResult={(text, url) => {
+                          const link = url ? `\n🔗 ${url.startsWith("http") ? url : `https://vexo-studio.vercel.app${url}`}` : "";
+                          setMessages((msgs) => [
+                            ...msgs,
+                            { id: `exec-${Date.now()}`, role: "director", content: `✅ ${text || "בוצע"}${link}` },
+                          ]);
                         }}
-                        className="mt-2 w-full text-[11px] px-3 py-1.5 rounded-lg bg-status-okBg text-status-okText font-semibold border border-status-okText/30"
-                      >
-                        ✅ {he ? "אשר ובצע" : "Confirm & Execute"}: {m.action.type.replace(/_/g, " ")}
-                      </button>
+                        onError={(msg) => setErr(msg)}
+                      />
                     )}
                   </div>
                 </div>
@@ -206,5 +228,68 @@ export function AiAssistant() {
         </div>
       )}
     </>
+  );
+}
+
+function ExecuteActionButton({
+  action,
+  chatId,
+  pageCtx,
+  he,
+  onResult,
+  onError,
+}: {
+  action: { type: string; [k: string]: unknown };
+  chatId: string | null;
+  pageCtx: PageContext;
+  he: boolean;
+  onResult: (text: string, url?: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function run() {
+    if (busy || done) return;
+    setBusy(true);
+    try {
+      const r = await api<{ text?: string; url?: string; error?: string; aborted?: boolean }>(
+        "/api/v1/learn/brain/chat/execute",
+        { method: "POST", body: { action, chatId, pageContext: pageCtx } },
+      );
+      if (r.aborted) {
+        onError(r.error || (he ? "הפעולה בוטלה — ביטחון נמוך" : "Aborted — low confidence"));
+      } else {
+        setDone(true);
+        onResult(r.text || "", r.url);
+      }
+    } catch (e: any) {
+      onError(String(e?.message || e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const label = action.type.replace(/_/g, " ");
+  return (
+    <button
+      onClick={run}
+      disabled={busy || done}
+      type="button"
+      className={`mt-2 w-full text-[12px] px-3 py-2 rounded-lg font-semibold border transition ${
+        done
+          ? "bg-emerald-100 text-emerald-700 border-emerald-300 cursor-default"
+          : busy
+          ? "bg-status-okBg text-status-okText border-status-okText/30 opacity-60 cursor-wait"
+          : "bg-status-okBg hover:bg-status-okBg/80 text-status-okText border-status-okText/40 hover:border-status-okText cursor-pointer"
+      }`}
+      style={{ pointerEvents: done ? "none" : "auto" }}
+    >
+      {done
+        ? `✓ ${he ? "בוצע" : "Done"}`
+        : busy
+        ? `⏳ ${he ? "מבצע…" : "Running…"} ${label}`
+        : `✅ ${he ? "אשר ובצע" : "Confirm & Execute"}: ${label}`}
+    </button>
   );
 }

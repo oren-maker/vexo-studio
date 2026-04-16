@@ -21,7 +21,7 @@ async function callGeminiWithFallback(system: string, history: any[]): Promise<{
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
             contents: history,
-            generationConfig: { temperature: 1.0, topP: 0.95, maxOutputTokens: 2048 },
+            generationConfig: { temperature: 1.0, topP: 0.95, maxOutputTokens: 8192 },
           }),
           signal: AbortSignal.timeout(45_000),
         });
@@ -36,7 +36,13 @@ async function callGeminiWithFallback(system: string, history: any[]): Promise<{
           break; // non-transient; try next model
         }
         const json: any = await res.json();
-        const reply = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "(אין תגובה)";
+        let reply = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "(אין תגובה)";
+        const finishReason = json.candidates?.[0]?.finishReason;
+        // If the model hit the token ceiling mid-answer, flag it so Oren
+        // knows the cut is a limit artifact, not a "the brain finished here".
+        if (finishReason === "MAX_TOKENS") {
+          reply += "\n\n⚠️ (התשובה נחתכה עקב מגבלת אורך — תשאל 'המשך' או פרק את הבקשה)";
+        }
         return { reply, usage: json.usageMetadata, model };
       } catch (e: any) {
         lastErr = e;

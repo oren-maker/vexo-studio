@@ -53,6 +53,44 @@ export default async function TokensPage() {
     prisma.apiUsage.count(),
   ]);
 
+  // Resolve sourceId → LearnSource (title) for the נושא column.
+  const sourceIds = Array.from(new Set(recent.map((r) => r.sourceId).filter(Boolean) as string[]));
+  const sourcesById = sourceIds.length
+    ? await prisma.learnSource.findMany({
+        where: { id: { in: sourceIds } },
+        select: { id: true, title: true, prompt: true, addedBy: true },
+      })
+    : [];
+  const sourceMap = new Map(sourcesById.map((s) => [s.id, s]));
+
+  // Helper to derive a "topic" + "project" hint per ApiUsage row from meta + sourceId.
+  function topicFor(r: typeof recent[number]): string {
+    const meta: any = r.meta || {};
+    if (meta.title) return String(meta.title).slice(0, 60);
+    if (meta.purpose) return String(meta.purpose).slice(0, 60);
+    if (r.sourceId && sourceMap.has(r.sourceId)) {
+      const s = sourceMap.get(r.sourceId)!;
+      return (s.title || s.prompt || "").slice(0, 60);
+    }
+    return "—";
+  }
+  function projectFor(r: typeof recent[number]): string {
+    const meta: any = r.meta || {};
+    if (meta.engine === "openai-sora" || meta.engine === "google-veo") return "וידאו";
+    if (r.operation === "video-gen" || r.operation === "video-analysis") return "וידאו";
+    if (r.operation === "image-gen" || r.operation === "image-prompt-build") return "תמונות";
+    if (r.operation === "knowledge-extract" || r.operation === "translate") return "ספרייה";
+    if (r.operation === "compose" || r.operation === "improve") return "פרומפטים";
+    if (r.operation === "brain-chat") return "מוח";
+    if (r.operation === "insights-snapshot") return "תובנות";
+    if (r.sourceId && sourceMap.has(r.sourceId)) {
+      const addedBy = sourceMap.get(r.sourceId)?.addedBy || "";
+      if (addedBy.startsWith("brain-chat:scene:")) return "סצנה";
+      if (addedBy.startsWith("brain-chat")) return "מוח";
+    }
+    return "כללי";
+  }
+
   const totalUsd = all._sum.usdCost || 0;
   const totalTokensIn = all._sum.inputTokens || 0;
   const totalTokensOut = all._sum.outputTokens || 0;
@@ -182,6 +220,8 @@ export default async function TokensPage() {
                   <tr className="bg-slate-800/60 text-right text-[10px] text-slate-400 uppercase">
                     <th className="px-3 py-2">זמן</th>
                     <th className="px-3 py-2">פעולה</th>
+                    <th className="px-3 py-2">נושא</th>
+                    <th className="px-3 py-2">פרוייקט</th>
                     <th className="px-3 py-2">מודל</th>
                     <th className="px-3 py-2">in/out tokens</th>
                     <th className="px-3 py-2">תמונות</th>
@@ -190,21 +230,27 @@ export default async function TokensPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {recent.map((r) => (
-                    <tr key={r.id} className={r.errored ? "bg-red-500/5" : ""}>
-                      <td className="px-3 py-2 text-slate-400 font-mono">
-                        {new Date(r.createdAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })} · {new Date(r.createdAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}
-                      </td>
-                      <td className="px-3 py-2 text-slate-300">{OP_LABELS[r.operation] || r.operation}</td>
-                      <td className="px-3 py-2 text-slate-500 font-mono text-[10px]">{r.model.replace("-20251001", "")}</td>
-                      <td className="px-3 py-2 text-slate-400">{r.inputTokens}/{r.outputTokens}</td>
-                      <td className="px-3 py-2 text-slate-400">{r.imagesOut || "—"}</td>
-                      <td className="px-3 py-2 text-slate-500">
-                        {r.sourceId ? <Link href={`/learn/sources/${r.sourceId}`} className="text-cyan-400 hover:underline">{r.sourceId.slice(-6)}</Link> : "—"}
-                      </td>
-                      <td className="px-3 py-2 text-cyan-300 font-mono text-left">{r.errored ? "⚠" : `$${r.usdCost.toFixed(6)}`}</td>
-                    </tr>
-                  ))}
+                  {recent.map((r) => {
+                    const topic = topicFor(r);
+                    const project = projectFor(r);
+                    return (
+                      <tr key={r.id} className={r.errored ? "bg-red-500/5" : ""}>
+                        <td className="px-3 py-2 text-slate-400 font-mono">
+                          {new Date(r.createdAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })} · {new Date(r.createdAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}
+                        </td>
+                        <td className="px-3 py-2 text-slate-300">{OP_LABELS[r.operation] || r.operation}</td>
+                        <td className="px-3 py-2 text-slate-200 max-w-[200px] truncate" title={topic}>{topic}</td>
+                        <td className="px-3 py-2 text-slate-400 text-[11px]"><span className="bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded">{project}</span></td>
+                        <td className="px-3 py-2 text-slate-500 font-mono text-[10px]">{r.model.replace("-20251001", "")}</td>
+                        <td className="px-3 py-2 text-slate-400">{r.inputTokens}/{r.outputTokens}</td>
+                        <td className="px-3 py-2 text-slate-400">{r.imagesOut || "—"}</td>
+                        <td className="px-3 py-2 text-slate-500">
+                          {r.sourceId ? <Link href={`/learn/sources/${r.sourceId}`} className="text-cyan-400 hover:underline">{r.sourceId.slice(-6)}</Link> : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-cyan-300 font-mono text-left">{r.errored ? "⚠" : `$${r.usdCost.toFixed(6)}`}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

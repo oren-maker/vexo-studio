@@ -50,8 +50,10 @@ export function validateUrl(url: string): { ok: boolean; reason?: string } {
   // Accept any URL ending in a video extension (generic CDN MP4)
   if (/\.(mp4|webm|mov)(\?|$)/i.test(parsed.pathname + parsed.search)) return { ok: true };
 
-  return {
-    ok: false,
-    reason: `מארח לא מאושר (${host}). מותר: Pexels, Pixabay, Vercel Blob, או URL ישיר ל-MP4/webm`,
-  };
+  // Accept any vercel.app domain (our own projects + trusted)
+  if (host.endsWith(".vercel.app")) return { ok: true };
+
+  // Accept any public website (for guide/article import — not just video)
+  // The pipeline will determine what to extract based on content type.
+  return { ok: true };
 }

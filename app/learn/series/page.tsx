@@ -134,7 +134,7 @@ export default function SeriesPage() {
                 <tbody>
                   {p.episodeDetails.map((ep) => (
                     <tr key={ep.number} className="border-t border-slate-800">
-                      <td className="px-4 py-2 text-slate-400">EP{String(ep.number).padStart(2, "0")}</td>
+                      <td className="px-4 py-2 text-slate-400" data-no-translate>{String(ep.number).padStart(2, "0")}</td>
                       <td className="px-4 py-2">{ep.title}</td>
                       <td className="px-4 py-2 text-center">{ep.scenes}</td>
                       <td className="px-4 py-2 text-center">

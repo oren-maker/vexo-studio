@@ -88,15 +88,44 @@ export default function SyncPage() {
     });
   }
   const [jobId, setJobId] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractStage, setExtractStage] = useState("");
+  const [extractPct, setExtractPct] = useState(0);
+
   async function extractPattern() {
     setErr(""); setResult(null); setJobId(null);
+    setExtracting(true); setExtractPct(10); setExtractStage("🔌 שולח בקשת ניתוח דפוסים…");
     try {
       const res = await learnFetch("/api/v1/learn/pattern-extract", { method: "POST" });
       const j = await res.json();
-      if (!res.ok || !j.ok) { setErr(j.error || `HTTP ${res.status}`); return; }
+      if (!res.ok || !j.ok) { setErr(j.error || `HTTP ${res.status}`); setExtracting(false); return; }
       setJobId(j.jobId);
+      setExtractPct(30); setExtractStage("📊 ניתוח רץ ברקע…");
+
+      // Poll job status
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        try {
+          const sr = await learnFetch(`/api/v1/learn/jobs/${j.jobId}`).then((r) => r.json());
+          const pct = Math.min(95, 30 + (sr.completedItems ?? 0));
+          setExtractPct(pct);
+          setExtractStage(`📊 ${sr.currentStep || "מנתח"} (${sr.completedItems ?? "?"}/${sr.totalItems ?? "?"})…`);
+          if (sr.status === "done" || sr.status === "complete" || sr.status === "completed") {
+            setExtractPct(100); setExtractStage("✅ הושלם!");
+            setResult({ extracted: sr.completedItems, total: sr.totalItems });
+            break;
+          }
+          if (sr.status === "failed" || sr.status === "error") {
+            setErr(sr.errorMessage || "הניתוח נכשל");
+            break;
+          }
+        } catch { /* keep polling */ }
+      }
+      setTimeout(() => { setExtractPct(0); setExtractStage(""); }, 2000);
     } catch (e: any) {
       setErr(e.message || "שגיאה");
+    } finally {
+      setExtracting(false);
     }
   }
 

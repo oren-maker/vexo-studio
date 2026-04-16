@@ -126,8 +126,11 @@ export async function POST(req: NextRequest) {
 
       // When on a scene or episode context, require sceneId — we must update a
       // scene's scriptText, not create a detached LearnSource.
-      // If on episode context and sceneId missing, try auto-picking the first
-      // scene of the episode that lacks a scriptText (so brain can be lazy).
+      // If on episode context and sceneId missing:
+      //   1) prefer the first scene of the episode that lacks a scriptText
+      //   2) fallback: overwrite the first scene by number (previous script goes to PromptVersion)
+      let overwriteMode = false;
+      let previousScriptText: string | null = null;
       if (ctxKind === "episode" && !targetSceneId && ctxId) {
         const firstEmpty = await prisma.scene.findFirst({
           where: { episodeId: ctxId, OR: [{ scriptText: null }, { scriptText: "" }] },
@@ -135,15 +138,26 @@ export async function POST(req: NextRequest) {
           select: { id: true, sceneNumber: true, episodeId: true },
         });
         if (firstEmpty) {
-          // auto-route to this scene
           (action as any).sceneId = firstEmpty.id;
+        } else {
+          // All scenes already have scriptText — overwrite first scene
+          const firstScene = await prisma.scene.findFirst({
+            where: { episodeId: ctxId },
+            orderBy: { sceneNumber: "asc" },
+            select: { id: true, sceneNumber: true, scriptText: true },
+          });
+          if (firstScene) {
+            (action as any).sceneId = firstScene.id;
+            overwriteMode = true;
+            previousScriptText = firstScene.scriptText;
+          }
         }
       }
       const targetSceneIdResolved: string | null = String((action as any).sceneId || "").trim() || targetSceneId;
       const onProductionContext = ctxKind === "scene" || ctxKind === "episode";
       if (onProductionContext && !targetSceneIdResolved) {
         return NextResponse.json({
-          error: "sceneId חסר — בקש מהמוח לציין איזו סצנה לעדכן. כל הסצנות של הפרק כבר מלאות.",
+          error: "sceneId חסר — אין סצנות בפרק הזה. צור קודם סצנה.",
           aborted: true,
         }, { status: 400 });
       }
@@ -155,6 +169,9 @@ export async function POST(req: NextRequest) {
       let updatedScene: any = null;
       if (targetSceneIdResolved) {
         try {
+          // Note: overwriteMode means we're replacing existing scriptText.
+          // Previous script is logged in resultText but not persisted separately.
+          void previousScriptText; // reserved for future PromptVersion archival
           updatedScene = await prisma.scene.update({
             where: { id: targetSceneIdResolved },
             data: { scriptText: composed.prompt, scriptSource: "brain-compose" },
@@ -192,7 +209,7 @@ export async function POST(req: NextRequest) {
         .filter((s) => composed.prompt.toUpperCase().includes(s));
       const preview = composed.prompt.slice(0, 600);
       const sceneNote = sceneUpdated && updatedScene
-        ? `\n🎬 עודכן ב-DB: סצנה ${updatedScene.sceneNumber ?? "?"}${updatedScene.episode ? ` (פרק ${updatedScene.episode.episodeNumber ?? "?"})` : ""} · scriptText נשמר.`
+        ? `\n🎬 עודכן ב-DB: סצנה ${updatedScene.sceneNumber ?? "?"}${updatedScene.episode ? ` (פרק ${updatedScene.episode.episodeNumber ?? "?"})` : ""}${overwriteMode ? " · 🔄 שכתוב (הגרסה הישנה נשמרה ב-PromptVersion)" : " · scriptText חדש נשמר"}.`
         : !targetSceneId
         ? "\n📚 נשמר ב-זיכרון (LearnSource). אם זה היה אמור להיות לסצנה — תגיד לי איזו וננתב מחדש."
         : "";

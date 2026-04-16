@@ -37,10 +37,28 @@ export default function CharacterDetailPage() {
   const [log, setLog] = useState<LogRow[]>([]);
   const [tab, setTab] = useState<"gallery" | "log" | "participation">("gallery");
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [composite, setComposite] = useState<{ fileUrl: string; createdAt: string } | null>(null);
+  const [buildingComposite, setBuildingComposite] = useState(false);
 
   useEffect(() => {
     api<Character>(`/api/v1/characters/${id}`).then(setCharacter).catch(() => setCharacter(null));
+    api<{ composite: { fileUrl: string; createdAt: string } | null }>(`/api/v1/characters/${id}/composite`)
+      .then((r) => setComposite(r.composite))
+      .catch(() => setComposite(null));
   }, [id]);
+
+  async function buildComposite() {
+    if (buildingComposite) return;
+    setBuildingComposite(true);
+    try {
+      const r = await api<{ compositeUrl: string }>(`/api/v1/characters/${id}/composite`, { method: "POST", body: {} });
+      setComposite({ fileUrl: r.compositeUrl, createdAt: new Date().toISOString() });
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setBuildingComposite(false);
+    }
+  }
 
   useEffect(() => {
     if (tab === "participation" && !part) {
@@ -58,7 +76,9 @@ export default function CharacterDetailPage() {
       <Link href={`/projects/${character.project.id}/characters`} className="text-sm text-accent hover:underline">{he ? "→ חזרה לרשימת הדמויות" : "← All characters"}</Link>
 
       <div className="flex items-start gap-4 flex-wrap">
-        {character.media[0] ? (
+        {composite ? (
+          <img src={composite.fileUrl} alt={`${character.name} composite`} className="h-32 w-auto max-w-[300px] rounded-xl object-cover bg-bg-main" title={he ? "תמונת רפרנס מאוחדת" : "Composite reference"} />
+        ) : character.media[0] ? (
           <img src={character.media[0].fileUrl} alt={character.name} className="w-32 h-32 rounded-xl object-cover bg-bg-main" />
         ) : (
           <div className="w-32 h-32 rounded-xl bg-bg-main flex items-center justify-center text-5xl">🎭</div>
@@ -87,18 +107,69 @@ export default function CharacterDetailPage() {
       </div>
 
       {tab === "gallery" && (
-        <Card title={he ? `🖼 גלריית ${character.name}` : `🖼 ${character.name}'s gallery`} subtitle={`${character.media.length} ${he ? "תמונות" : "images"}`}>
+        <Card
+          title={he ? `🖼 גלריית ${character.name}` : `🖼 ${character.name}'s gallery`}
+          subtitle={`${character.media.length} ${he ? "תמונות" : "images"}`}
+        >
           {character.media.length === 0 ? (
             <div className="text-center py-10 text-text-muted">{he ? "אין עדיין תמונות — הפעל את 'צור גלריה' מעמוד הדמויות" : "No images yet — generate a gallery from the characters page"}</div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {character.media.map((m, i) => (
-                <button key={m.id} onClick={() => setLightbox(i)} className="relative aspect-square rounded-lg overflow-hidden bg-bg-main group">
-                  <img src={m.fileUrl} alt="" className="w-full h-full object-cover" />
-                  {m.metadata?.angle && <div className="absolute bottom-1 left-1 right-1 bg-black/60 text-white text-[10px] rounded px-1.5 py-0.5">{m.metadata.angle}</div>}
-                </button>
-              ))}
-            </div>
+            <>
+              {/* Primary view = composite character sheet (the same one Sora/VEO/fal
+                  receive as a single reference). Build/rebuild on demand. */}
+              <div className="mb-5 bg-bg-main rounded-xl p-3">
+                <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                  <div>
+                    <div className="text-xs font-semibold text-accent uppercase tracking-wider">
+                      {he ? "🎨 תמונת רפרנס מאוחדת (לוידאו)" : "🎨 Composite reference sheet (for video)"}
+                    </div>
+                    <div className="text-[11px] text-text-muted mt-0.5">
+                      {he
+                        ? "התמונה הזו נשלחת לסורה / VEO / fal כ-reference יחיד במקום 4 תמונות נפרדות. שומר על עקביות הזהות."
+                        : "Sent to Sora / VEO / fal as a single reference instead of 4 separate portraits. Keeps identity locked."}
+                    </div>
+                  </div>
+                  <button
+                    onClick={buildComposite}
+                    disabled={buildingComposite}
+                    className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-semibold disabled:opacity-50"
+                  >
+                    {buildingComposite ? (he ? "🔄 בונה…" : "🔄 Building…") : composite ? (he ? "🔁 בנה מחדש" : "🔁 Rebuild") : (he ? "🎨 בנה תמונה מאוחדת" : "🎨 Build composite")}
+                  </button>
+                </div>
+                {composite ? (
+                  <a href={composite.fileUrl} target="_blank" rel="noreferrer" className="block">
+                    <img
+                      src={composite.fileUrl}
+                      alt={`${character.name} composite`}
+                      className="w-full max-w-2xl rounded-lg border border-bg-main mx-auto"
+                    />
+                    <div className="text-[10px] text-text-muted text-center mt-1">
+                      {he ? "עודכן ב-" : "updated "} {new Date(composite.createdAt).toLocaleString(he ? "he-IL" : "en")}
+                    </div>
+                  </a>
+                ) : (
+                  <div className="text-center py-6 text-text-muted text-xs">
+                    {he ? "אין עדיין תמונה מאוחדת. לחץ \"בנה\" כדי לייצר אחת מ-4 הזוויות הראשונות." : "No composite yet. Click Build to generate from the first 4 angles."}
+                  </div>
+                )}
+              </div>
+
+              {/* Individual angles below — kept as source material */}
+              <details className="mb-2">
+                <summary className="cursor-pointer text-xs text-text-muted font-semibold mb-2">
+                  {he ? `📐 הצג את ${character.media.length} הזוויות הבודדות (חומר מקור)` : `📐 Show ${character.media.length} individual angles (source)`}
+                </summary>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                  {character.media.map((m, i) => (
+                    <button key={m.id} onClick={() => setLightbox(i)} className="relative aspect-square rounded-lg overflow-hidden bg-bg-main group">
+                      <img src={m.fileUrl} alt="" className="w-full h-full object-cover" />
+                      {m.metadata?.angle && <div className="absolute bottom-1 left-1 right-1 bg-black/60 text-white text-[10px] rounded px-1.5 py-0.5">{m.metadata.angle}</div>}
+                    </button>
+                  ))}
+                </div>
+              </details>
+            </>
           )}
         </Card>
       )}

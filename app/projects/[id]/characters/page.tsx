@@ -83,6 +83,15 @@ export default function CharactersPage() {
     finally { setGenBusy(null); }
   }
 
+  async function buildComposite(cid: string) {
+    setGenBusy(cid);
+    try {
+      await api(`/api/v1/characters/${cid}/composite`, { method: "POST", body: {} });
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setGenBusy(null); }
+  }
+
   async function regenerateAll(cid: string, name: string) {
     if (!confirm(lang === "he"
       ? `למחוק את כל התמונות של ${name} ולייצר 5 חדשות עם זהות נעולה? (~$0.20)`
@@ -231,42 +240,86 @@ export default function CharactersPage() {
                   </div>
                   {c.media.length === 0 ? (
                     <div className="text-xs text-text-muted text-center py-4 bg-bg-card rounded-lg">{lang === "he" ? "אין תמונות עדיין" : "No images yet"}</div>
-                  ) : (
-                    <div className="bg-[#121216] rounded-lg p-3 space-y-2">
-                      <div className="text-center text-white text-[11px] uppercase tracking-widest font-bold">Character Sheet</div>
-                      {/* Top row: front / 3-4 / profile */}
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {["front","three-quarter","profile"].map((angle) => {
-                          const m = c.media.find((x) => x.metadata?.angle === angle);
-                          const idx = m ? c.media.indexOf(m) : -1;
-                          return m ? (
-                            <button key={angle} onClick={() => setLightbox({ character: c, index: idx })} className="relative aspect-[3/4] rounded overflow-hidden bg-bg-card group">
-                              <img src={m.fileUrl} alt={angle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                              <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] py-0.5 text-center">{angle === "front" ? "Front" : angle === "three-quarter" ? "3/4" : "Profile"}</span>
+                  ) : (() => {
+                    const composite = c.media.find((x) => x.metadata?.angle === "composite");
+                    if (composite) {
+                      // Composite reference sheet — single image, all angles, with rebuild button.
+                      return (
+                        <div className="bg-[#121216] rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="text-white text-[11px] uppercase tracking-widest font-bold">{lang === "he" ? "🎨 רפרנס מאוחד" : "🎨 Composite reference"}</div>
+                            <button
+                              onClick={() => buildComposite(c.id)}
+                              disabled={genBusy === c.id}
+                              className="text-[10px] px-2 py-0.5 rounded border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-50"
+                            >
+                              {genBusy === c.id ? "…" : (lang === "he" ? "🔁 בנה מחדש" : "🔁 Rebuild")}
                             </button>
-                          ) : <div key={angle} className="aspect-[3/4] rounded bg-bg-card/50 grid place-items-center text-text-muted text-[10px]">{angle}</div>;
-                        })}
+                          </div>
+                          <button
+                            onClick={() => setLightbox({ character: c, index: c.media.indexOf(composite) })}
+                            className="block w-full rounded overflow-hidden bg-bg-card group"
+                          >
+                            <img src={composite.fileUrl} alt={`${c.name} composite`} className="w-full h-auto object-contain group-hover:scale-[1.02] transition-transform" />
+                          </button>
+                          <div className="text-center">
+                            <span className="text-accent text-sm font-bold">{c.name}</span>
+                            {c.roleType && <span className="text-text-muted text-xs ms-2">— {c.roleType}</span>}
+                          </div>
+                          <details className="text-[10px] text-text-muted">
+                            <summary className="cursor-pointer">{lang === "he" ? `📐 ${c.media.length - 1} זוויות מקור` : `📐 ${c.media.length - 1} source angles`}</summary>
+                            <div className="grid grid-cols-5 gap-1 mt-2">
+                              {c.media.filter((m) => m.metadata?.angle !== "composite").map((m, i) => (
+                                <button key={m.id} onClick={() => setLightbox({ character: c, index: c.media.indexOf(m) })} className="relative aspect-square rounded overflow-hidden bg-bg-card">
+                                  <img src={m.fileUrl} alt="" className="w-full h-full object-cover" />
+                                </button>
+                              ))}
+                            </div>
+                          </details>
+                        </div>
+                      );
+                    }
+                    // No composite yet — show a CTA + the legacy 5-cell grid below.
+                    return (
+                      <div className="bg-[#121216] rounded-lg p-3 space-y-2">
+                        <button
+                          onClick={() => buildComposite(c.id)}
+                          disabled={genBusy === c.id}
+                          className="w-full py-2 rounded bg-accent/10 hover:bg-accent/20 border border-accent/40 text-accent text-xs font-semibold disabled:opacity-50"
+                        >
+                          {genBusy === c.id ? "🔄 בונה…" : (lang === "he" ? "🎨 בנה תמונת רפרנס מאוחדת (לסורה/VEO)" : "🎨 Build composite reference (for Sora/VEO)")}
+                        </button>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {["front","three-quarter","profile"].map((angle) => {
+                            const m = c.media.find((x) => x.metadata?.angle === angle);
+                            const idx = m ? c.media.indexOf(m) : -1;
+                            return m ? (
+                              <button key={angle} onClick={() => setLightbox({ character: c, index: idx })} className="relative aspect-[3/4] rounded overflow-hidden bg-bg-card group">
+                                <img src={m.fileUrl} alt={angle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] py-0.5 text-center">{angle === "front" ? "Front" : angle === "three-quarter" ? "3/4" : "Profile"}</span>
+                              </button>
+                            ) : <div key={angle} className="aspect-[3/4] rounded bg-bg-card/50 grid place-items-center text-text-muted text-[10px]">{angle}</div>;
+                          })}
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {["back","action"].map((angle) => {
+                            const m = c.media.find((x) => x.metadata?.angle === angle);
+                            const idx = m ? c.media.indexOf(m) : -1;
+                            return m ? (
+                              <button key={angle} onClick={() => setLightbox({ character: c, index: idx })} className="relative aspect-video rounded overflow-hidden bg-bg-card group">
+                                <img src={m.fileUrl} alt={angle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] py-0.5 text-center">{angle === "back" ? "Back View" : "Action"}</span>
+                              </button>
+                            ) : <div key={angle} className="aspect-video rounded bg-bg-card/50 grid place-items-center text-text-muted text-[10px]">{angle}</div>;
+                          })}
+                        </div>
+                        <div className="text-center">
+                          <span className="text-accent text-sm font-bold">{c.name}</span>
+                          {c.roleType && <span className="text-text-muted text-xs ms-2">— {c.roleType}</span>}
+                        </div>
                       </div>
-                      {/* Bottom row: back / action */}
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {["back","action"].map((angle) => {
-                          const m = c.media.find((x) => x.metadata?.angle === angle);
-                          const idx = m ? c.media.indexOf(m) : -1;
-                          return m ? (
-                            <button key={angle} onClick={() => setLightbox({ character: c, index: idx })} className="relative aspect-video rounded overflow-hidden bg-bg-card group">
-                              <img src={m.fileUrl} alt={angle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                              <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] py-0.5 text-center">{angle === "back" ? "Back View" : "Action"}</span>
-                            </button>
-                          ) : <div key={angle} className="aspect-video rounded bg-bg-card/50 grid place-items-center text-text-muted text-[10px]">{angle}</div>;
-                        })}
-                      </div>
-                      {/* Name bar */}
-                      <div className="text-center">
-                        <span className="text-accent text-sm font-bold">{c.name}</span>
-                        {c.roleType && <span className="text-text-muted text-xs ms-2">— {c.roleType}</span>}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </li>
             ))}

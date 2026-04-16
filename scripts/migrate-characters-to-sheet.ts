@@ -71,8 +71,8 @@ async function main() {
         aspectRatio: "16:9",
         model: "nano-banana",
       });
-      // 3. Save the new row
-      await p.characterMedia.create({
+      // 3. Save the new row + cost entry so the UI/wallet can see the spend
+      const media = await p.characterMedia.create({
         data: {
           characterId: c.id,
           mediaType: "IMAGE",
@@ -84,6 +84,21 @@ async function main() {
             layout: "8-panel",
             migration: "2026-04",
           } as any,
+        },
+      });
+      const falProvider = await p.provider.findFirst({ where: { name: { contains: "fal", mode: "insensitive" } } });
+      await p.costEntry.create({
+        data: {
+          entityType: "CHARACTER_MEDIA",
+          entityId: media.id,
+          costCategory: "GENERATION",
+          description: `Character sheet: ${c.name}`,
+          unitCost: 0.04,
+          quantity: 1,
+          totalCost: 0.04,
+          sourceType: "GENERATION",
+          projectId: c.projectId,
+          providerId: falProvider?.id ?? null,
         },
       });
       console.log(`✓ deleted=${deleted.count} sheet=${img.imageUrl.slice(-60)}`);

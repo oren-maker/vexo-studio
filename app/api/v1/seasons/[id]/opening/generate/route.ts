@@ -58,9 +58,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     let estUsd: number;
 
     if (isSora) {
-      // Sora 2 — seconds must be "4" | "8" | "12" (strings). Clamp the user's
-      // duration onto that enum.
-      const sec: SoraSeconds = opening.duration <= 5 ? "4" : opening.duration <= 9 ? "8" : "12";
+      // Sora 2 enum: "4" | "8" | "12" | "16" | "20". Snap the requested
+      // duration to the nearest bucket DOWN (so we never overcharge).
+      const sec: SoraSeconds = opening.duration >= 20 ? "20"
+        : opening.duration >= 16 ? "16"
+        : opening.duration >= 12 ? "12"
+        : opening.duration >= 8 ? "8"
+        : "4";
       const size = opening.aspectRatio === "9:16" ? "720x1280" : "1280x720";
       try {
         const submitted = await submitSoraVideo({

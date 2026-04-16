@@ -203,7 +203,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       "google-veo-3.1-fast-generate-preview": 8,
       "google-veo-3.1-generate-preview": 8,
       "google-veo-3.1-lite-generate-preview": 8,
-      "sora-2": 12, "sora-2-pro": 12,
+      "sora-2": 20, "sora-2-pro": 20,
       "vidu-q1": 8,
     };
     const activeModel = body.model ?? existing.model;

@@ -18,14 +18,51 @@ const ACTION_LABEL: Record<string, string> = {
   script_overwritten: "🔄 תסריט שוכתב",
   status_changed: "🔄 סטטוס",
   prompt_added: "✨ פרומפט נוסף",
-  video_generated: "🎬 וידאו נוצר",
+  video_generated: "🎬 וידאו נשלח ליצירה",
+  video_remix: "✨ Remix נשלח",
+  video_ready: "✅ וידאו מוכן",
+  video_set_primary: "⭐ וידאו נקבע כראשי",
   image_generated: "🖼 תמונה נוצרה",
+  critic_review: "🧐 ביקורת AI",
+  sound_notes_generated: "🔊 הערות סאונד נוצרו",
+  remix_suggest: "🎬 הצעת Remix מהבמאי",
+  scene_approved: "✅ סצנה אושרה",
+  storyboard_generated: "🖼 תשריט נוצר",
+  director_sheet_generated: "🎬 דף במאי נוצר",
+  breakdown_generated: "📋 פירוק תסריט",
+  dialogue_generated: "💬 דיאלוג נוצר",
+  lipsync_generated: "👄 ליפ-סינק נוצר",
+  music_generated: "🎵 מוזיקה נוצרה",
 };
 
 function actorLabel(actor: string, name: string | null): string {
   if (actor.startsWith("ai:")) return name || `🤖 ${actor.slice(3)}`;
+  if (actor === "system:backfill") return "⚙ מילוי רטרואקטיבי";
+  if (actor === "system:poll") return name || "⚙ מערכת";
   if (actor.startsWith("user:")) return name || "👤 משתמש";
-  return "⚙ system";
+  return name || "⚙ מערכת";
+}
+
+function formatCost(details: any): string | null {
+  if (!details) return null;
+  const usd = details.estimateUsd ?? details.costUsd ?? details.unitCost ?? null;
+  if (typeof usd === "number" && usd > 0) return `$${usd.toFixed(usd >= 0.01 ? 2 : 4)}`;
+  return null;
+}
+
+function formatDetails(action: string, d: any): string | null {
+  if (!d) return null;
+  const parts: string[] = [];
+  if (d.model) parts.push(d.model);
+  if (d.durationSeconds) parts.push(`${d.durationSeconds}s`);
+  if (d.provider) parts.push(d.provider);
+  if (d.score != null) parts.push(`ציון: ${(d.score * 100).toFixed(0)}%`);
+  if (d.wordCount) parts.push(`${d.wordCount} מילים`);
+  if (d.preview) parts.push(`"${String(d.preview).slice(0, 80)}…"`);
+  if (d.feedbackPreview) parts.push(`"${String(d.feedbackPreview).slice(0, 80)}…"`);
+  if (d.promptPreview) parts.push(`"${String(d.promptPreview).slice(0, 80)}…"`);
+  if (d.framesGenerated) parts.push(`${d.framesGenerated} פריימים`);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 export default function SceneActivityLog({ sceneId }: { sceneId: string }) {
@@ -39,29 +76,34 @@ export default function SceneActivityLog({ sceneId }: { sceneId: string }) {
   }, [sceneId]);
 
   if (err) return <div className="text-xs text-red-400">⚠ {err}</div>;
-  if (!logs) return <div className="text-xs text-text-muted">טוען יומן...</div>;
-  if (logs.length === 0) return <div className="text-xs text-text-muted">אין פעילות עדיין.</div>;
+  if (!logs) return <div className="text-xs text-text-muted">טוען...</div>;
+  if (logs.length === 0) return <div className="text-xs text-text-muted">אין פעילות עדיין בסצנה זו.</div>;
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-text-primary mb-3">📜 יומן פעילות ({logs.length})</h3>
-      {logs.map((log) => {
-        const d = log.details || {};
-        return (
-          <div key={log.id} className="bg-bg-card border border-bg-main rounded-lg px-3 py-2 text-xs">
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-semibold text-text-primary">{ACTION_LABEL[log.action] || log.action}</span>
-              <span className="text-text-muted text-[10px] font-mono">{new Date(log.createdAt).toLocaleString("he-IL")}</span>
+    <div translate="no" className="notranslate">
+      <h3 className="text-sm font-semibold text-text-primary mb-3">📜 יומן פעילות הסצנה</h3>
+      <div className="space-y-2 max-h-[60vh] overflow-y-auto pe-1">
+        {logs.map((log) => {
+          const d = log.details || {};
+          const cost = formatCost(d);
+          const detail = formatDetails(log.action, d);
+          return (
+            <div key={log.id} className="bg-bg-card border border-bg-main rounded-lg px-3 py-2 text-xs">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-semibold text-text-primary">{ACTION_LABEL[log.action] || log.action}</span>
+                <div className="flex items-center gap-2">
+                  {cost && <span className="font-bold text-accent num">{cost}</span>}
+                  <span className="text-text-muted text-[10px] font-mono">{new Date(log.createdAt).toLocaleString("he-IL")}</span>
+                </div>
+              </div>
+              <div className="text-text-muted flex items-center gap-1">
+                {log.actor.startsWith("ai:") || log.actor.startsWith("system:") ? "🤖" : "👤"} {actorLabel(log.actor, log.actorName)}
+              </div>
+              {detail && <div className="text-text-muted mt-1 text-[10px]">{detail}</div>}
             </div>
-            <div className="text-text-muted">
-              {log.actor.startsWith("ai:") ? "🤖" : "👤"} {actorLabel(log.actor, log.actorName)}
-            </div>
-            {d.brief && <div className="text-text-muted mt-1 italic">"{String(d.brief).slice(0, 100)}"</div>}
-            {d.wordCount && <div className="text-text-muted mt-0.5">{d.wordCount} מילים · {d.previousLength ? `${d.previousLength}→${d.newLength} תווים` : `${d.newLength} תווים`}</div>}
-            {d.reason && <div className="text-[10px] text-accent mt-0.5">{d.reason}</div>}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

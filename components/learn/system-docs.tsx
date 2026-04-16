@@ -386,35 +386,33 @@ Character (reusable across episodes) ┘
       </Section>
 
       {/* 10. Recommendations */}
-      <Section id="recommendations" title="10. המלצות לשיפור ושימור">
+      <Section id="recommendations" title="10. המלצות לשיפור ושימור — מצב יישום">
         <ol className="space-y-4 text-sm list-decimal pr-5">
           <li>
-            <b className="text-white">Calibration + Abstention (עדיפות 1)</b> — הוספת שדה <Code>confidence: 0-1</Code> לכל action. אם &lt; 0.65 → המוח מחזיר
-            ”אני לא בטוח, בוא נבדוק X לפני שנבצע“ במקום action. קטן, נקודתי, משפר בטיחות משמעותית.
+            <b className="text-white">Calibration + Abstention</b> <Ok /> — שדה <Code>confidence: 0-1</Code> נכלל עכשיו בכל action שהמוח מחזיר.
+            Executor חוסם אוטומטית פעולות עם confidence &lt; 0.65 ומחזיר ”תצטרך לשאול שאלת הבהרה“.
           </li>
           <li>
-            <b className="text-white">Version history על BrainReference + Guide (עדיפות 2)</b> — הוספת טבלת <Code>ReferenceVersion</Code> עם snapshot
-            לפני כל update. מאפשר rollback + מראה את ההיסטוריה בטאב. המודל קיים כבר עבור <Code>PromptVersion</Code> — אותה תבנית.
+            <b className="text-white">Version history על BrainReference</b> <Ok /> — טבלת <Code>BrainReferenceVersion</Code> נוצרה.
+            כל PATCH שומר snapshot של הגרסה הקודמת. <Code>POST /api/v1/learn/reference/[id]</Code> עם <Code>rollbackToVersion</Code> מחזיר לגרסה היסטורית.
           </li>
           <li>
-            <b className="text-white">Validity intervals (עדיפות 2)</b> — שדות <Code>valid_from</Code> / <Code>valid_to</Code> / <Code>supersedes</Code>
-            על <Code>BrainReference</Code>. מאפשר ”המדיניות הזו הייתה תקפה בין א׳ ל-ב׳“ במקום מחיקה הרסנית.
+            <b className="text-white">Validity intervals</b> <Ok /> — <Code>BrainReference</Code> קיבל <Code>validFrom</Code> / <Code>validTo</Code> / <Code>supersedes</Code> / <Code>version</Code>.
+            DELETE עכשיו soft-delete (מעדכן <Code>validTo=now</Code>). רשימת GET מסננת ארכיון אוטומטית (אלא אם <Code>?includeArchived=1</Code>).
           </li>
           <li>
-            <b className="text-white">Persona ↔ Truth split (עדיפות 3)</b> — פיצול <Code>buildSystemPrompt()</Code> ל-
-            <Code>buildPersonaLayer()</Code> + <Code>buildTruthLayer()</Code>. שינוי טון לא יגע במדיניות.
+            <b className="text-white">TTL + Retention policy</b> <Ok /> — Cron חדש <Code>/api/v1/learn/cron/retention</Code> ב-04:00 UTC יומי.
+            Hot=30 ימים · Passive=90 ימים · Archive=לצמיתות. אחרי 90 ימים, BrainChat ישן מסומן כ-summarized והודעות אמצע נחתכות ל-120 תווים.
           </li>
           <li>
-            <b className="text-white">TTL + Retention policy (עדיפות 3)</b> — הצהרה מפורשת: hot=per-turn · passive=infinite-but-redactable · archive=immutable-1y.
-            סקריפט cron יומי שמעביר BrainMessage ישנים מ-90 יום לארכיון מוצפן.
+            <b className="text-white">Persona ↔ Truth split</b> <Gap>בתהליך</Gap> — פיצול <Code>buildSystemPrompt()</Code> ל-
+            <Code>buildPersonaLayer()</Code> + <Code>buildTruthLayer()</Code>. כרגע השכבות מעורבבות.
           </li>
           <li>
-            <b className="text-white">Eval harness (עדיפות 4)</b> — יצירת eval set של 50 שאלות עם ground-truth, הרצה אחת לשבוע.
-            מודדת grounded precision, citation completeness, stale-fact rate. הסבר את ההרצה ב-<Link href="/learn/insights" className="text-cyan-400 hover:underline">/learn/insights</Link>.
+            <b className="text-white">Eval harness</b> <Gap>לא מיושם</Gap> — 50 שאלות eval עם ground-truth, הרצה שבועית.
           </li>
           <li>
-            <b className="text-white">JSON-LD / PROV-O provenance (עדיפות 5)</b> — ייצוא של Guide/BrainReference בפורמט JSON-LD עם <Code>prov:generatedAtTime</Code>,
-            <Code>supersedes</Code>, <Code>source_refs</Code>. חשוב אם המערכת תפורסם ל-API חיצוני או תעבור audit.
+            <b className="text-white">JSON-LD / PROV-O provenance</b> <Gap>לא מיושם</Gap> — ייצוא <Code>@context</Code> + <Code>prov:generatedAtTime</Code> כשנדרש audit.
           </li>
         </ol>
       </Section>

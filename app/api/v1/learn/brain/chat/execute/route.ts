@@ -41,6 +41,16 @@ export async function POST(req: NextRequest) {
     const { action, chatId, pageContext } = await req.json();
     if (!action?.type) return NextResponse.json({ error: "action.type required" }, { status: 400 });
 
+    // Calibration gate — if the brain is less than 65% confident, don't execute.
+    // This prevents automating actions the brain itself flagged as risky.
+    if (typeof action.confidence === "number" && action.confidence < 0.65) {
+      return NextResponse.json({
+        error: `abstention — המוח סימן ביטחון נמוך (${Math.round(action.confidence * 100)}%). תשאל שאלת הבהרה לפני שתאשר.`,
+        aborted: true,
+        confidence: action.confidence,
+      }, { status: 400 });
+    }
+
     let resultText = "";
     let resultUrl: string | null = null;
     const ctxKind: string | null = pageContext?.kind ?? null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { generateImageAction } from "@/app/learn/sources/[id]/actions";
 
 export default function GenerateImageButton({ sourceId }: { sourceId: string }) {
@@ -9,6 +9,23 @@ export default function GenerateImageButton({ sourceId }: { sourceId: string }) 
   const [err, setErr] = useState("");
   const [url, setUrl] = useState<string | null>(null);
   const [cost, setCost] = useState<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking anywhere outside (including the video button)
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false); }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   function run(engine: "nano-banana" | "imagen-4") {
     setOpen(false);
@@ -26,7 +43,7 @@ export default function GenerateImageButton({ sourceId }: { sourceId: string }) 
   }
 
   return (
-    <div className="relative inline-block">
+    <div ref={rootRef} className="relative inline-block">
       <button
         onClick={() => setOpen(!open)}
         disabled={pending}

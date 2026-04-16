@@ -7,9 +7,13 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   const unauth = await requireAdmin(req);
   if (unauth) return unauth;
-  const kind = new URL(req.url).searchParams.get("kind") || undefined;
+  const url = new URL(req.url);
+  const kind = url.searchParams.get("kind") || undefined;
+  const includeArchived = url.searchParams.get("includeArchived") === "1";
+  const where: any = { ...(kind ? { kind } : {}) };
+  if (!includeArchived) where.validTo = null; // only currently-valid items
   const items = await prisma.brainReference.findMany({
-    where: kind ? { kind } : undefined,
+    where,
     orderBy: [{ kind: "asc" }, { order: "asc" }, { name: "asc" }],
   });
   return NextResponse.json({ items });

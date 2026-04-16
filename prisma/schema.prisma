@@ -1366,17 +1366,43 @@ model KnowledgeNode {
 }
 
 model BrainReference {
-  id        String   @id @default(cuid())
-  kind      String // "emotion" | "sound"
-  name      String
-  shortDesc String
-  longDesc  String
-  tags      String[] @default([])
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(cuid())
+  kind       String // "emotion" | "sound" | "cinematography" | "capability"
+  name       String
+  shortDesc  String
+  longDesc   String
+  tags       String[]  @default([])
+  order      Int       @default(0)
+  // Validity intervals (truth-history pattern from research)
+  validFrom  DateTime  @default(now())
+  validTo    DateTime? // null = currently valid
+  supersedes String? // id of the BrainReference this replaces
+  version    Int       @default(1)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  versions BrainReferenceVersion[]
 
   @@index([kind, order])
+  @@index([validTo])
+}
+
+model BrainReferenceVersion {
+  id          String   @id @default(cuid())
+  referenceId String
+  reference   BrainReference @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+  version     Int
+  kind        String
+  name        String
+  shortDesc   String
+  longDesc    String
+  tags        String[] @default([])
+  changedBy   String? // "user" | "brain-action" | "migration"
+  reason      String? // optional free-text reason
+  createdAt   DateTime @default(now())
+
+  @@index([referenceId, version])
+  @@index([createdAt])
 }
 
 model SubscriberPrompt {

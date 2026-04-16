@@ -18,9 +18,12 @@ import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 30;
 
+// Sora's /remix endpoint accepts up to 2000 chars. We intentionally accept
+// any length here (up to 8000) so the UI isn't hostile to long director
+// notes, then auto-trim before the Sora call.
 const Body = z.object({
   assetId: z.string().min(1),
-  prompt: z.string().min(3).max(2000),
+  prompt: z.string().min(3).max(8000),
 });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

@@ -5,6 +5,37 @@ import { isValidLang, DEFAULT_LANG } from "@/lib/learn/guide-languages";
 
 export const runtime = "nodejs";
 
+export async function GET(req: NextRequest) {
+  const unauth = await requireAdmin(req);
+  if (unauth) return unauth;
+  const take = Math.min(500, Math.max(1, Number(new URL(req.url).searchParams.get("take") || 100)));
+  const guides = await prisma.guide.findMany({
+    orderBy: { createdAt: "desc" },
+    take,
+    select: {
+      id: true, slug: true, status: true, category: true, source: true, coverImageUrl: true,
+      createdAt: true, updatedAt: true, userRating: true, viewCount: true, estimatedMinutes: true,
+      translations: { select: { lang: true, title: true, description: true } },
+      _count: { select: { stages: true } },
+    },
+  });
+  const items = guides.map((g) => ({
+    slug: g.slug,
+    status: g.status,
+    category: g.category,
+    source: g.source,
+    coverImageUrl: g.coverImageUrl,
+    viewCount: g.viewCount,
+    userRating: g.userRating,
+    estimatedMinutes: g.estimatedMinutes,
+    stagesCount: g._count.stages,
+    translations: g.translations,
+    createdAt: g.createdAt,
+    updatedAt: g.updatedAt,
+  }));
+  return NextResponse.json({ items, total: items.length });
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()

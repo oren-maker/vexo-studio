@@ -7,6 +7,7 @@ import StageRenderer from "@/components/learn/guides/stage-renderer";
 import ShareButton from "@/components/learn/guides/share-button";
 import GuideStarRating from "@/components/learn/guides/guide-star-rating";
 import GuideToc from "@/components/learn/guides/guide-toc";
+import PrintButton from "@/components/learn/guides/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,7 @@ export default async function GuideViewPage({
   return (
     <div className="max-w-7xl mx-auto" dir={dir}>
       {/* Top breadcrumb / back links */}
-      <div className="mb-6 flex items-center justify-between gap-4 flex-wrap text-xs">
+      <div className="no-print mb-6 flex items-center justify-between gap-4 flex-wrap text-xs">
         <div className="flex items-center gap-3">
           <Link href="/learn/guides" className="text-slate-400 hover:text-cyan-400">
             ← חזרה לזיכרון
@@ -72,6 +73,7 @@ export default async function GuideViewPage({
         <div className="flex items-center gap-2 flex-wrap">
           <LanguagePicker current={lang} size="sm" />
           <ShareButton slug={guide.slug} title={trans?.title || ""} />
+          <PrintButton />
           <Link
             href={`/learn/guides/${guide.slug}/edit`}
             className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded"

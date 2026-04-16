@@ -16,3 +16,17 @@ body {
 }
 
 .num { font-family: "Inter", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+
+/* Print / Save as PDF — strip everything except the guide body */
+@media print {
+  aside, nav, header button, .no-print { display: none !important; }
+  body { background: white !important; color: #111 !important; }
+  main { max-width: 100% !important; padding: 0 !important; }
+  article { max-width: 100% !important; }
+  .bg-slate-950, .bg-slate-900, .bg-slate-900\/60, .bg-slate-900\/40, .bg-slate-800 { background: white !important; }
+  h1, h2, h3, h4, p, li, span, div, pre, code { color: #111 !important; }
+  a { color: #0066cc !important; text-decoration: underline; }
+  pre, code { background: #f4f4f4 !important; border: 1px solid #ddd !important; }
+  section { break-inside: avoid; page-break-inside: avoid; border: 1px solid #eee !important; margin-bottom: 12px !important; }
+  img { max-width: 100% !important; page-break-inside: avoid; }
+}

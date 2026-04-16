@@ -53,6 +53,9 @@ export default async function GuidesLibraryPage({ searchParams }: { searchParams
         <div className="flex items-center gap-2 flex-wrap">
           <LanguagePicker current={lang} />
           <TranslateLibraryButton />
+          <Link href="/learn/guides/enrich" className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/40 font-semibold px-4 py-2 rounded-lg text-sm">
+            ✨ העשר הכל עם Gemini
+          </Link>
           <Link href="/learn/guides/new" className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm">
             ➕ מדריך חדש
           </Link>

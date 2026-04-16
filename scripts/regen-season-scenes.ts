@@ -142,8 +142,20 @@ Return JSON only.`;
   }
   await p.scene.deleteMany({ where: { episodeId } });
 
-  // Insert new
+  // Insert new + detect which cast actually appears per scene so Sora's
+  // cast filter in /generate-video passes only those to the model.
+  const castList = ep.characters.map((c: any) => c.character.name);
   for (const s of parsed.scenes) {
+    const text = [s.title, s.summary, s.scriptText].filter(Boolean).join(" ").toLowerCase();
+    const present = castList.filter((name: string) => {
+      const parts = name.toLowerCase().split(/\s+/);
+      if (text.includes(name.toLowerCase())) return true;
+      if (parts.length >= 2) {
+        if (parts[0].length >= 3 && text.includes(parts[0])) return true;
+        if (parts[parts.length - 1].length >= 3 && text.includes(parts[parts.length - 1])) return true;
+      }
+      return false;
+    });
     await p.scene.create({
       data: {
         parentType: "episode", parentId: episodeId, episodeId,
@@ -151,6 +163,7 @@ Return JSON only.`;
         scriptSource: "brain-10-scene-autogen",
         targetDurationSeconds: SCENE_DURATION_SEC,
         status: "STORYBOARD_APPROVED",
+        memoryContext: { characters: present } as any,
       },
     });
   }

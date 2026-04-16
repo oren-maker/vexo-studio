@@ -232,13 +232,39 @@ export default function CharactersPage() {
                   {c.media.length === 0 ? (
                     <div className="text-xs text-text-muted text-center py-4 bg-bg-card rounded-lg">{lang === "he" ? "אין תמונות עדיין" : "No images yet"}</div>
                   ) : (
-                    <div className="grid grid-cols-5 gap-1">
-                      {c.media.slice(0, 5).map((m, i) => (
-                        <button key={m.id} onClick={() => setLightbox({ character: c, index: i })} className="relative aspect-square rounded overflow-hidden bg-bg-card group">
-                          <img src={m.fileUrl} alt={m.metadata?.angle ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                          <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5 num opacity-0 group-hover:opacity-100 transition-opacity">${(m.cost ?? 0).toFixed(3)}</span>
-                        </button>
-                      ))}
+                    <div className="bg-[#121216] rounded-lg p-3 space-y-2">
+                      <div className="text-center text-white text-[11px] uppercase tracking-widest font-bold">Character Sheet</div>
+                      {/* Top row: front / 3-4 / profile */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {["front","three-quarter","profile"].map((angle) => {
+                          const m = c.media.find((x) => x.metadata?.angle === angle);
+                          const idx = m ? c.media.indexOf(m) : -1;
+                          return m ? (
+                            <button key={angle} onClick={() => setLightbox({ character: c, index: idx })} className="relative aspect-[3/4] rounded overflow-hidden bg-bg-card group">
+                              <img src={m.fileUrl} alt={angle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] py-0.5 text-center">{angle === "front" ? "Front" : angle === "three-quarter" ? "3/4" : "Profile"}</span>
+                            </button>
+                          ) : <div key={angle} className="aspect-[3/4] rounded bg-bg-card/50 grid place-items-center text-text-muted text-[10px]">{angle}</div>;
+                        })}
+                      </div>
+                      {/* Bottom row: back / action */}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {["back","action"].map((angle) => {
+                          const m = c.media.find((x) => x.metadata?.angle === angle);
+                          const idx = m ? c.media.indexOf(m) : -1;
+                          return m ? (
+                            <button key={angle} onClick={() => setLightbox({ character: c, index: idx })} className="relative aspect-video rounded overflow-hidden bg-bg-card group">
+                              <img src={m.fileUrl} alt={angle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] py-0.5 text-center">{angle === "back" ? "Back View" : "Action"}</span>
+                            </button>
+                          ) : <div key={angle} className="aspect-video rounded bg-bg-card/50 grid place-items-center text-text-muted text-[10px]">{angle}</div>;
+                        })}
+                      </div>
+                      {/* Name bar */}
+                      <div className="text-center">
+                        <span className="text-accent text-sm font-bold">{c.name}</span>
+                        {c.roleType && <span className="text-text-muted text-xs ms-2">— {c.roleType}</span>}
+                      </div>
                     </div>
                   )}
                 </div>

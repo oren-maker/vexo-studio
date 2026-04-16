@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { remixSoraVideo, priceSora, type SoraModel } from "@/lib/providers/openai-sora";
 import { chargeUsd } from "@/lib/billing";
+import { logUsage } from "@/lib/learn/usage-tracker";
 import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 30;
@@ -100,6 +101,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         providerName: "OpenAI", category: "GENERATION",
         description: `Sora remix · ${submitted.model} · ${sec}s`,
         unitCost: cost, quantity: 1, userId: ctx.user.id,
+      }).catch(() => {});
+      // Mirror to ApiUsage so /admin/wallets + /learn/tokens show remix
+      // spend under the unified openai-video engine, same as fresh generations.
+      void logUsage({
+        model: submitted.model,
+        operation: "video-gen",
+        videoSeconds: sec,
+        sourceId: scene.id,
+        meta: {
+          engine: "openai-video",
+          sceneId: scene.id,
+          episodeId: scene.episodeId,
+          seasonId: scene.episode?.seasonId,
+          title: `Remix scene ${scene.sceneNumber ?? ""}`,
+          purpose: "scene-remix",
+          jobId: submitted.id,
+          sourceAssetId: asset.id,
+        },
       }).catch(() => {});
     }
 

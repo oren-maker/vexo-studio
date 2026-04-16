@@ -9,7 +9,8 @@ type ProjectSummary = {
   hasOpening: boolean;
   episodeDetails: { number: number; title: string; scenes: number; status: string }[];
 };
-type Snapshot = { id: string; takenAt: string; summary: string | null; data: ProjectSummary[] | null };
+type Delta = { period?: string; learnings?: string[]; sourcesAdded?: number; nodesAdded?: number; seriesChanges?: { name: string; scenesDelta: number; costDelta: number; readyDelta: number }[] };
+type Snapshot = { id: string; takenAt: string; summary: string | null; data: ProjectSummary[] | null; delta: Delta | null };
 
 const PAGE_SIZE = 20;
 
@@ -20,7 +21,7 @@ export default function SeriesArchivePage() {
 
   useEffect(() => {
     learnFetch("/api/v1/learn/series-history").then((r) => r.json()).then((d) => {
-      setSnapshots((d.snapshots ?? []).map((s: any) => ({ id: s.id, takenAt: s.takenAt, summary: s.summary, data: s.data })));
+      setSnapshots((d.snapshots ?? []).map((s: any) => ({ id: s.id, takenAt: s.takenAt, summary: s.summary, data: s.data, delta: s.delta })));
     }).catch(() => {});
   }, []);
 
@@ -53,6 +54,33 @@ export default function SeriesArchivePage() {
               </button>
               {isOpen && (
                 <div className="px-4 pb-4 border-t border-slate-800 space-y-3">
+                  {/* Delta — what changed since previous sync */}
+                  {s.delta?.learnings && s.delta.learnings.length > 0 && (
+                    <div className="mt-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3">
+                      <div className="text-xs font-semibold text-cyan-300 mb-2">📈 מה השתנה {s.delta.period ? `(${s.delta.period})` : ""}</div>
+                      <ul className="space-y-1">
+                        {s.delta.learnings.map((l, i) => (
+                          <li key={i} className="text-sm text-slate-200 flex items-start gap-2">
+                            <span className="text-cyan-400 mt-0.5">•</span>
+                            <span>{l}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {s.delta.seriesChanges && s.delta.seriesChanges.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-cyan-500/10 grid grid-cols-2 gap-2 text-xs">
+                          {s.delta.seriesChanges.map((sc) => (
+                            <div key={sc.name} className="text-slate-400">
+                              <span className="text-slate-200 font-semibold">{sc.name}:</span>{" "}
+                              {sc.scenesDelta !== 0 && <span>{sc.scenesDelta > 0 ? "+" : ""}{sc.scenesDelta} סצנות · </span>}
+                              {sc.readyDelta !== 0 && <span>{sc.readyDelta > 0 ? "+" : ""}{sc.readyDelta} מוכנות · </span>}
+                              {sc.costDelta !== 0 && <span>{sc.costDelta > 0 ? "+" : ""}${sc.costDelta}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {s.summary && (
                     <div className="text-sm text-slate-200 whitespace-pre-wrap mt-3 leading-relaxed bg-slate-900/40 rounded-lg p-3">{s.summary}</div>
                   )}

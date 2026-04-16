@@ -62,9 +62,16 @@ export default function SeriesPage() {
           <h1 className="text-3xl font-bold">🎬 סדרות — ניתוח מקצועי</h1>
           <p className="text-sm text-slate-400 mt-1">סנכרון נתוני הפקה + ניתוח מקצועי. כל ריצה נשמרת בארכיון.</p>
         </div>
-        <button onClick={runSync} disabled={syncing} className="px-4 py-2 rounded-lg bg-cyan-500 text-white font-semibold disabled:opacity-50">
-          {syncing ? "🔄 מסנכרן…" : "🔄 סנכרן עכשיו"}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={runSync} disabled={syncing} className="px-4 py-2 rounded-lg bg-cyan-500 text-white font-semibold disabled:opacity-50">
+            {syncing ? "🔄 מסנכרן…" : "🔄 סנכרן עכשיו"}
+          </button>
+          {snapshots.length > 1 && (
+            <a href="/learn/series/archive" className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 text-sm font-semibold hover:bg-slate-800">
+              📁 ארכיון ({snapshots.length - 1})
+            </a>
+          )}
+        </div>
       </header>
 
       {/* Progress */}
@@ -79,12 +86,6 @@ export default function SeriesPage() {
 
       {err && <div className="bg-red-500/10 border border-red-500/30 text-red-300 rounded-lg p-3 text-sm">{err}</div>}
 
-      {/* Archive link */}
-      {snapshots.length > 1 && (
-        <a href="/learn/series/archive" className="text-xs text-slate-400 hover:text-cyan-300 border border-slate-700 rounded-lg px-3 py-1.5 inline-block">
-          📁 ארכיון ({snapshots.length - 1})
-        </a>
-      )}
 
       {/* Stats cards */}
       {projects.length > 0 && (

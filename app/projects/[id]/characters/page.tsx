@@ -68,7 +68,7 @@ export default function CharactersPage() {
   async function generateOne(cid: string) {
     setGenBusy(cid);
     try {
-      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: { count: 1 } });
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: {} });
       load();
     } catch (e) { alert((e as Error).message); }
     finally { setGenBusy(null); }
@@ -77,7 +77,7 @@ export default function CharactersPage() {
   async function generateRest(cid: string) {
     setGenBusy(cid);
     try {
-      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: { count: "rest" } });
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: {} });
       load();
     } catch (e) { alert((e as Error).message); }
     finally { setGenBusy(null); }
@@ -94,11 +94,11 @@ export default function CharactersPage() {
 
   async function regenerateAll(cid: string, name: string) {
     if (!confirm(lang === "he"
-      ? `למחוק את כל התמונות של ${name} ולייצר 5 חדשות עם זהות נעולה? (~$0.20)`
-      : `Delete all images for ${name} and generate 5 new ones with locked identity? (~$0.20)`)) return;
+      ? `למחוק את הגיליון הקיים של ${name} ולייצר גיליון דמות חדש בתמונה אחת? (~$0.04)`
+      : `Delete ${name}'s current sheet and generate a fresh single-image character sheet? (~$0.04)`)) return;
     setGenBusy(cid);
     try {
-      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: { count: "rest", regenerate: true } });
+      await api(`/api/v1/characters/${cid}/generate-gallery`, { method: "POST", body: { regenerate: true } });
       load();
     } catch (e) { alert((e as Error).message); }
     finally { setGenBusy(null); }
@@ -136,8 +136,8 @@ export default function CharactersPage() {
   async function generateAll() {
     const missing = chars.filter((c) => c.media.length === 0).length;
     if (missing === 0) return alert(lang === "he" ? "לכל הדמויות כבר יש תמונות" : "All characters already have images");
-    const est = (missing * 5 * 0.039).toFixed(2);
-    if (!confirm(lang === "he" ? `לייצר 5 תמונות לכל ${missing} דמויות חסרות גלריה? עלות משוערת: $${est}` : `Generate 5 images for ${missing} characters missing galleries? Estimated: $${est}`)) return;
+    const est = (missing * 0.039).toFixed(2);
+    if (!confirm(lang === "he" ? `לייצר גיליון דמות לכל ${missing} דמויות חסרות? עלות משוערת: $${est} (תמונה אחת לדמות)` : `Generate a character sheet for ${missing} characters? Estimated: $${est} (one image each)`)) return;
     setBulkBusy(true);
     try {
       let remaining = missing;
@@ -164,7 +164,7 @@ export default function CharactersPage() {
         <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
           <div className="min-w-0">
             <div className="text-lg font-bold">{lang === "he" ? "דמויות" : "Characters"} <span className="text-text-muted text-sm font-normal">· {chars.length}</span></div>
-            <div className="text-xs text-text-muted">{lang === "he" ? "ראשיות חוזרות · 5 תמונות בזוויות לכל דמות" : "Recurring main · 5 angle images per character"}</div>
+            <div className="text-xs text-text-muted">{lang === "he" ? "גיליון דמות אחד לכל דמות — תמונה יחידה עם כל הזוויות, הבעות ופרטי תלבושת" : "One character sheet per character — single image with all angles, expressions and wardrobe details"}</div>
           </div>
           <div className="flex gap-2 flex-wrap">
             <button disabled={populateBusy} onClick={autoPopulate} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50">
@@ -219,28 +219,49 @@ export default function CharactersPage() {
 
                 <div>
                   <div className="flex justify-between items-center mb-2 gap-2">
-                    <span className="text-xs font-semibold">{lang === "he" ? "גלריה" : "Gallery"} ({c.media.length}/5) · <span className="num text-text-muted">${c.media.reduce((s, m) => s + (m.cost ?? 0), 0).toFixed(3)}</span></span>
+                    <span className="text-xs font-semibold">
+                      {(() => {
+                        const sheet = c.media.find((m) => m.metadata?.angle === "sheet");
+                        if (sheet) return lang === "he" ? "✅ גיליון דמות" : "✅ Character sheet";
+                        return lang === "he" ? "דמות" : "Character";
+                      })()}
+                      {c.media.length > 0 && <span className="num text-text-muted ms-2">${c.media.reduce((s, m) => s + (m.cost ?? 0), 0).toFixed(3)}</span>}
+                    </span>
                     <div className="flex gap-1">
                       {c.media.length === 0 && (
                         <button disabled={genBusy === c.id} onClick={() => generateOne(c.id)} className="text-xs px-2 py-1 rounded-lg bg-accent text-white disabled:opacity-50">
-                          {genBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (lang === "he" ? "✨ תמונה ראשונה" : "✨ First image")}
-                        </button>
-                      )}
-                      {c.media.length > 0 && c.media.length < 5 && (
-                        <button disabled={genBusy === c.id} onClick={() => generateRest(c.id)} className="text-xs px-2 py-1 rounded-lg border border-accent text-accent disabled:opacity-50">
-                          {genBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (lang === "he" ? `✨ השאר (${5 - c.media.length})` : `✨ Rest (${5 - c.media.length})`)}
+                          {genBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (lang === "he" ? "✨ בנה גיליון דמות" : "✨ Build character sheet")}
                         </button>
                       )}
                       {c.media.length > 0 && (
-                        <button disabled={genBusy === c.id} onClick={() => regenerateAll(c.id, c.name)} className="text-xs px-2 py-1 rounded-lg border border-status-errText text-status-errText disabled:opacity-50" title={lang === "he" ? "מוחק הכל ומייצר 5 חדשות עם זהות נעולה" : "Wipe + regenerate all 5 with locked identity"}>
+                        <button disabled={genBusy === c.id} onClick={() => regenerateAll(c.id, c.name)} className="text-xs px-2 py-1 rounded-lg border border-status-errText text-status-errText disabled:opacity-50" title={lang === "he" ? "מוחק הכל ומייצר גיליון דמות חדש בתמונה אחת" : "Wipe + regenerate a fresh single-image character sheet"}>
                           {genBusy === c.id ? (lang === "he" ? "מייצר…" : "…") : (lang === "he" ? "🔄 ייצר מחדש" : "🔄 Regenerate")}
                         </button>
                       )}
                     </div>
                   </div>
                   {c.media.length === 0 ? (
-                    <div className="text-xs text-text-muted text-center py-4 bg-bg-card rounded-lg">{lang === "he" ? "אין תמונות עדיין" : "No images yet"}</div>
+                    <div className="text-xs text-text-muted text-center py-6 bg-bg-card rounded-lg">
+                      <div className="text-3xl mb-2">🎭</div>
+                      <div>{lang === "he" ? "אין גיליון דמות עדיין" : "No character sheet yet"}</div>
+                      <div className="text-[10px] text-text-muted mt-1">{lang === "he" ? "לחץ \"בנה גיליון דמות\" — תמונה אחת עם כל הזוויות, בניגוד למערכת הישנה של 5 תמונות נפרדות" : "Click \"Build\" — one image with all angles, not 5 separate ones"}</div>
+                    </div>
                   ) : (() => {
+                    // Prefer sheet (new single-image format) → composite (built post-hoc)
+                    // → fallback to first media
+                    const sheet = c.media.find((m) => m.metadata?.angle === "sheet");
+                    if (sheet) {
+                      return (
+                        <div className="bg-[#121216] rounded-lg p-2">
+                          <button
+                            onClick={() => setLightbox({ character: c, index: c.media.indexOf(sheet) })}
+                            className="block w-full rounded overflow-hidden bg-bg-card group"
+                          >
+                            <img src={sheet.fileUrl} alt={`${c.name} sheet`} className="w-full h-auto object-contain group-hover:scale-[1.01] transition-transform" />
+                          </button>
+                        </div>
+                      );
+                    }
                     const composite = c.media.find((x) => x.metadata?.angle === "composite");
                     if (composite) {
                       // Composite reference sheet — single image, all angles, with rebuild button.

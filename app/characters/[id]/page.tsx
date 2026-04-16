@@ -76,13 +76,18 @@ export default function CharacterDetailPage() {
       <Link href={`/projects/${character.project.id}/characters`} className="text-sm text-accent hover:underline">{he ? "→ חזרה לרשימת הדמויות" : "← All characters"}</Link>
 
       <div className="flex items-start gap-4 flex-wrap">
-        {composite ? (
-          <img src={composite.fileUrl} alt={`${character.name} composite`} className="h-32 w-auto max-w-[300px] rounded-xl object-cover bg-bg-main" title={he ? "תמונת רפרנס מאוחדת" : "Composite reference"} />
-        ) : character.media[0] ? (
-          <img src={character.media[0].fileUrl} alt={character.name} className="w-32 h-32 rounded-xl object-cover bg-bg-main" />
-        ) : (
-          <div className="w-32 h-32 rounded-xl bg-bg-main flex items-center justify-center text-5xl">🎭</div>
-        )}
+        {(() => {
+          // Prefer the new single-image "sheet" → composite (legacy) → first media
+          const sheet = character.media.find((m) => m.metadata?.angle === "sheet");
+          const primary = sheet ?? composite ?? null;
+          if (primary) {
+            return <img src={primary.fileUrl} alt={character.name} className="h-32 w-auto max-w-[300px] rounded-xl object-cover bg-bg-main" title={he ? "גיליון דמות" : "Character sheet"} />;
+          }
+          if (character.media[0]) {
+            return <img src={character.media[0].fileUrl} alt={character.name} className="w-32 h-32 rounded-xl object-cover bg-bg-main" />;
+          }
+          return <div className="w-32 h-32 rounded-xl bg-bg-main flex items-center justify-center text-5xl">🎭</div>;
+        })()}
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold">{character.name}</h1>
           <div className="flex gap-2 flex-wrap mt-1">

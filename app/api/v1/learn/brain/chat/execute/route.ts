@@ -119,15 +119,22 @@ export async function POST(req: NextRequest) {
     } else if (action.type === "compose_prompt") {
       const brief = String(action.brief || action.topic || "").trim();
       if (!brief) return NextResponse.json({ error: "brief/topic required" }, { status: 400 });
-      const composed = await composePrompt(brief);
 
       // Resolve target Scene: explicit action.sceneId wins, else page context
-      // when on a scene page. If we have a sceneId we update the production DB
-      // INSTEAD of polluting the prompt library with another LearnSource —
-      // that's what was happening when Oren worked on episodes/scenes and got
-      // detached prompts. We still create a LearnSource only when no scene
-      // target exists (e.g. explicit "create a prompt" with no scene).
+      // when on a scene page.
       const targetSceneId: string | null = String(action.sceneId || "").trim() || (ctxKind === "scene" ? ctxId : null);
+
+      // When on a scene context, require sceneId. For episode/season, allow
+      // detached LearnSource (user may just want a prompt in the library).
+      const onSceneContext = ctxKind === "scene";
+      if (onSceneContext && !targetSceneId) {
+        return NextResponse.json({
+          error: "sceneId חסר — אתה בתוך סצנה. המוח חייב לכלול sceneId מפורש ב-action.",
+          aborted: true,
+        }, { status: 400 });
+      }
+
+      const composed = await composePrompt(brief);
 
       let sceneUpdated = false;
       let sceneUrl: string | null = null;

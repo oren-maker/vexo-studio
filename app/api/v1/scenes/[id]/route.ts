@@ -62,11 +62,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             where: { id: scene.episodeId! },
             select: { season: { select: { series: { select: { projectId: true } } } } },
           })).season.series.projectId;
+          // Compute cost so the scene "סה"כ" subtitle populates without a
+          // CostEntry round-trip. Sora $0.10/s (sora-2) or $0.30/s (sora-2-pro);
+          // VEO variable — we pick priceSora for openai and fall back to 0 for
+          // google (the fal path stamps its own cost via webhook).
+          let costUsd: number | null = null;
+          if (pending.provider === "openai") {
+            const rate = pending.model === "sora-2-pro" ? 0.30 : 0.10;
+            costUsd = +(rate * (pending.durationSeconds ?? 0)).toFixed(4);
+          }
           await prisma.asset.create({
             data: {
               projectId: projectIdForAsset, entityType: "SCENE", entityId: scene.id, assetType: "VIDEO",
               fileUrl: proxyUrl, mimeType: "video/mp4", status: "READY",
-              metadata: { provider: pending.provider, model: pending.model, durationSeconds: pending.durationSeconds } as object,
+              metadata: { provider: pending.provider, model: pending.model, durationSeconds: pending.durationSeconds, costUsd } as object,
             },
           });
           const { pendingVideoJob: _p, ...rest } = memRaw;

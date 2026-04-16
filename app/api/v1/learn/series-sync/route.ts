@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
       synced: summaries.length,
       projects: summaries.map((s) => ({ name: s.name, episodes: s.episodes, scenes: s.scenes, cost: s.totalCostUsd })),
       summaryLength: summary.length,
-      date: today,
+      date: new Date().toISOString().split("T")[0],
     });
   } catch (e) { return handleError(e); }
 }

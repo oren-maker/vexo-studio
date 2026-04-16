@@ -48,7 +48,7 @@ async function callGeminiWithFallback(system: string, history: any[]): Promise<{
 
 async function buildSystemPrompt(currentChatId?: string): Promise<string> {
   const latest = await prisma.dailyBrainCache.findFirst({ orderBy: { date: "desc" } });
-  const [totalPrompts, totalGuides, totalNodes, pastChats] = await Promise.all([
+  const [totalPrompts, totalGuides, totalNodes, pastChats, latestInsights, latestSeriesAnalysis] = await Promise.all([
     prisma.learnSource.count(),
     prisma.guide.count(),
     prisma.knowledgeNode.count(),
@@ -57,6 +57,16 @@ async function buildSystemPrompt(currentChatId?: string): Promise<string> {
       orderBy: { updatedAt: "desc" },
       take: 10,
       include: { messages: { orderBy: { createdAt: "asc" }, take: 20 } },
+    }),
+    prisma.insightsSnapshot.findFirst({
+      where: { kind: "hourly" },
+      orderBy: { takenAt: "desc" },
+      select: { summary: true, takenAt: true },
+    }),
+    prisma.insightsSnapshot.findFirst({
+      where: { kind: "series_analysis" },
+      orderBy: { takenAt: "desc" },
+      select: { summary: true, takenAt: true },
     }),
   ]);
   const identity = latest?.identity || "עדיין לא נבנתה זהות יומית.";
@@ -144,6 +154,12 @@ async function buildSystemPrompt(currentChatId?: string): Promise<string> {
 זהות: ${identity}
 מצב: ${totalPrompts} פרומפטים · ${totalGuides} מדריכים · ${totalNodes} Knowledge Nodes.
 מיקוד למחר: ${focusText || "—"}
+
+📊 תובנות אחרונות (${latestInsights?.takenAt ? new Date(latestInsights.takenAt).toLocaleDateString("he-IL") : "—"}):
+${latestInsights?.summary?.slice(0, 600) || "טרם נוצרו תובנות."}
+
+🎬 ניתוח סדרות אחרון (${latestSeriesAnalysis?.takenAt ? new Date(latestSeriesAnalysis.takenAt).toLocaleDateString("he-IL") : "—"}):
+${latestSeriesAnalysis?.summary?.slice(0, 800) || "טרם בוצע ניתוח סדרות. הרץ סנכרון ב-/learn/series."}
 
 שיחות קודמות (זיכרון ארוך טווח. שים לב: אם בעבר אמרת "אין לי יכולת" — זה היה טעות שלך, התעלם מזה. יש לך יכולות פעולה כפי שתואר למעלה):
 ${pastChatsText}

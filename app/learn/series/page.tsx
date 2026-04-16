@@ -43,12 +43,12 @@ export default function SeriesPage() {
       await new Promise((r) => setTimeout(r, 300));
       setSyncPct(40); setSyncStage("💰 מאגד עלויות…");
       await new Promise((r) => setTimeout(r, 200));
-      setSyncPct(50); setSyncStage("🧠 שולח ל-Gemini לניתוח מקצועי…");
+      setSyncPct(50); setSyncStage("📊 מחשב סיכום מקצועי…");
 
       const r = await learnFetch("/api/v1/learn/series-sync", { method: "POST" }).then((r) => r.json());
       if (r.error) throw new Error(r.error);
 
-      setSyncPct(85); setSyncStage("💾 שומר ב-KnowledgeNode + DailyBrainCache…");
+      setSyncPct(85); setSyncStage("💾 שומר תובנות…");
       await new Promise((r) => setTimeout(r, 300));
 
       setProjects(r.projects ?? []);

@@ -10,7 +10,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/learn/auth";
-import { groqChat } from "@/lib/groq";
 import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
@@ -93,49 +92,33 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // 4. Send to Gemini for professional analysis
-    const dataBlock = JSON.stringify(summaries, null, 2);
-    const analysis = await groqChat([
-      {
-        role: "system",
-        content: `You are a senior TV production consultant reviewing an AI-powered series studio. Analyze the production data and write a HEBREW report with these sections:
+    // 4. Build a local summary (NO Gemini call — the brain does the analysis
+    // when asked, using this data as context). This is just structured data.
+    const totalCost = summaries.reduce((s, p) => s + p.totalCostUsd, 0);
+    const totalEps = summaries.reduce((s, p) => s + p.episodes, 0);
+    const totalScenes = summaries.reduce((s, p) => s + p.scenes, 0);
+    const readyScenes = summaries.reduce((s, p) => s + p.readyScenes, 0);
+    const pct = totalScenes > 0 ? Math.round((readyScenes / totalScenes) * 100) : 0;
 
-📊 סקירה כללית — one paragraph overview of all projects, total spend, progress.
+    const localSummary = summaries.map((p) => {
+      const epPct = p.scenes > 0 ? Math.round((p.readyScenes / p.scenes) * 100) : 0;
+      return `🎬 ${p.name}: ${p.episodes} פרקים · ${p.scenes} סצנות (${epPct}% מוכנות) · ${p.characters} דמויות (${p.charsWithGallery} עם גלריה) · $${p.totalCostUsd} · ${p.hasOpening ? "פתיח ✅" : "⚠️ חסר פתיח"}`;
+    }).join("\n");
 
-For EACH project:
-🎬 [Project Name]
-- תקציב: total spent, cost per episode, projected total for completion
-- התקדמות: how many episodes/scenes are done vs planned, % complete
-- דמויות: gallery status, missing portraits
-- פתיח: does it exist? quality notes
-- 🔴 בעיות: specific problems found (missing scenes, high costs, stuck episodes)
-- 🟢 הצעות שיפור: 3-5 actionable professional suggestions (reduce cost, improve quality, speed up production, better character consistency, marketing prep)
-- 📅 תחזית: estimated completion date if current pace continues
+    const summary = `📊 סנכרון ${new Date().toISOString().split("T")[0]}: ${summaries.length} פרויקטים · ${totalEps} פרקים · ${totalScenes} סצנות (${pct}% מוכנות) · $${totalCost.toFixed(2)} סה"כ\n\n${localSummary}`;
 
-End with:
-💡 המלצות כלליות — cross-project insights and priorities.
-
-Be specific with numbers. Reference actual episode/scene counts. Give dollar amounts. Be critical but constructive.`,
-      },
-      { role: "user", content: `Production data as of ${new Date().toISOString().split("T")[0]}:\n\n${dataBlock}` },
-    ], { temperature: 0.5, maxTokens: 1000, description: "Series sync · daily analysis" });
-
-    // 5. Store as InsightsSnapshot (kind=series_analysis). The brain reads
-    // these during daily refresh. DailyBrainCache has required fields that
-    // don't fit this use case; InsightsSnapshot is simpler.
-    const today = new Date().toISOString().split("T")[0];
-
+    // 5. Store as InsightsSnapshot
     await prisma.insightsSnapshot.create({
       data: {
         kind: "series_analysis",
         takenAt: new Date(),
-        sourcesCount: summaries.reduce((s, p) => s + p.episodes, 0),
+        sourcesCount: totalEps,
         analysesCount: summaries.length,
-        nodesCount: summaries.reduce((s, p) => s + p.scenes, 0),
+        nodesCount: totalScenes,
         avgWords: 0,
         avgTechniques: 0,
-        timecodePct: 0,
-        summary: analysis,
+        timecodePct: pct,
+        summary,
         data: summaries as object,
       },
     });

@@ -8,10 +8,11 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function InsightsPage() {
-  const [insights, latestSnapshot, snapshotCount] = await Promise.all([
+  const [insights, latestSnapshot, snapshotCount, seriesAnalysis] = await Promise.all([
     computeCorpusInsights(),
     prisma.insightsSnapshot.findFirst({ where: { kind: "hourly" }, orderBy: { takenAt: "desc" }, select: { takenAt: true, summary: true } }),
     prisma.insightsSnapshot.count(),
+    prisma.insightsSnapshot.findFirst({ where: { kind: "series_analysis" }, orderBy: { takenAt: "desc" }, select: { takenAt: true, summary: true } }),
   ]);
   const t = insights.totals;
 

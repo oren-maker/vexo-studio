@@ -12,8 +12,27 @@ export function AiAssistant() {
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [err, setErr] = useState<string | null>(null);
-  const [chatId, setChatId] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("vexo-brain-chatId");
+  });
   const endRef = useRef<HTMLDivElement>(null);
+
+  // Persist chatId so bubble survives page refresh — same brain, same log
+  useEffect(() => {
+    if (chatId) localStorage.setItem("vexo-brain-chatId", chatId);
+  }, [chatId]);
+
+  // Load existing messages if we have a persisted chatId
+  useEffect(() => {
+    if (!chatId || messages.length > 0) return;
+    api<{ chat?: { messages?: { id: string; role: string; content: string }[] } }>(`/api/v1/learn/brain/chats/${chatId}`)
+      .then((r) => {
+        const msgs = r.chat?.messages ?? [];
+        if (msgs.length > 0) setMessages(msgs.map((m) => ({ id: m.id, role: m.role === "user" ? "user" : "director", content: m.content })));
+      })
+      .catch(() => {});
+  }, [chatId]);
 
   useEffect(() => { if (open) endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, open]);
 
@@ -54,7 +73,7 @@ export function AiAssistant() {
     finally { setBusy(false); }
   }
 
-  function clearChat() { setMessages([]); setErr(null); }
+  function clearChat() { setMessages([]); setErr(null); setChatId(null); localStorage.removeItem("vexo-brain-chatId"); }
 
   return (
     <>
@@ -75,7 +94,8 @@ export function AiAssistant() {
                 <div className="text-[11px] text-text-muted">{he ? "צ'אט במאי · Gemini" : "Director chat · Gemini"}</div>
               </div>
               <div className="flex items-center gap-2">
-                {messages.length > 0 && <button onClick={clearChat} className="text-xs text-text-muted hover:text-status-errText" title={he ? "נקה צ'אט" : "Clear chat"}>🗑</button>}
+                <a href="/learn/brain/chat/logs" className="text-xs text-text-muted hover:text-accent" title={he ? "לוגים" : "Logs"}>📜</a>
+                {messages.length > 0 && <button onClick={clearChat} className="text-xs text-text-muted hover:text-status-errText" title={he ? "שיחה חדשה" : "New chat"}>✨</button>}
                 <button onClick={() => setOpen(false)} className="text-text-muted hover:text-text-primary">✕</button>
               </div>
             </div>

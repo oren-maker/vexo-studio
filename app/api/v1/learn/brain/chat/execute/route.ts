@@ -124,12 +124,26 @@ export async function POST(req: NextRequest) {
       // when on a scene page.
       const targetSceneId: string | null = String(action.sceneId || "").trim() || (ctxKind === "scene" ? ctxId : null);
 
-      // When on a scene context, require sceneId. For episode/season, allow
-      // detached LearnSource (user may just want a prompt in the library).
-      const onSceneContext = ctxKind === "scene";
-      if (onSceneContext && !targetSceneId) {
+      // When on a scene or episode context, require sceneId — we must update a
+      // scene's scriptText, not create a detached LearnSource.
+      // If on episode context and sceneId missing, try auto-picking the first
+      // scene of the episode that lacks a scriptText (so brain can be lazy).
+      if (ctxKind === "episode" && !targetSceneId && ctxId) {
+        const firstEmpty = await prisma.scene.findFirst({
+          where: { episodeId: ctxId, OR: [{ scriptText: null }, { scriptText: "" }] },
+          orderBy: { sceneNumber: "asc" },
+          select: { id: true, sceneNumber: true, episodeId: true },
+        });
+        if (firstEmpty) {
+          // auto-route to this scene
+          (action as any).sceneId = firstEmpty.id;
+        }
+      }
+      const targetSceneIdResolved: string | null = String((action as any).sceneId || "").trim() || targetSceneId;
+      const onProductionContext = ctxKind === "scene" || ctxKind === "episode";
+      if (onProductionContext && !targetSceneIdResolved) {
         return NextResponse.json({
-          error: "sceneId חסר — אתה בתוך סצנה. המוח חייב לכלול sceneId מפורש ב-action.",
+          error: "sceneId חסר — בקש מהמוח לציין איזו סצנה לעדכן. כל הסצנות של הפרק כבר מלאות.",
           aborted: true,
         }, { status: 400 });
       }
@@ -139,10 +153,10 @@ export async function POST(req: NextRequest) {
       let sceneUpdated = false;
       let sceneUrl: string | null = null;
       let updatedScene: any = null;
-      if (targetSceneId) {
+      if (targetSceneIdResolved) {
         try {
           updatedScene = await prisma.scene.update({
-            where: { id: targetSceneId },
+            where: { id: targetSceneIdResolved },
             data: { scriptText: composed.prompt, scriptSource: "brain-compose" },
             include: { episode: { select: { id: true, seasonId: true, episodeNumber: true } } },
           });
@@ -152,7 +166,7 @@ export async function POST(req: NextRequest) {
           }
         } catch (e: any) {
           return NextResponse.json({
-            error: `scene ${targetSceneId} not found — ${String(e?.message || e).slice(0, 150)}`,
+            error: `scene ${targetSceneIdResolved} not found — ${String(e?.message || e).slice(0, 150)}`,
           }, { status: 404 });
         }
       }
@@ -160,7 +174,7 @@ export async function POST(req: NextRequest) {
       // Only create a LearnSource when the prompt isn't bound to a scene —
       // otherwise it just clutters the library with duplicates of scene scripts.
       let source: any = null;
-      if (!targetSceneId) {
+      if (!targetSceneIdResolved) {
         source = await prisma.learnSource.create({
           data: {
             type: "upload",

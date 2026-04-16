@@ -194,11 +194,17 @@ export default function SyncPage() {
           >
             <button
               onClick={extractPattern}
-              disabled={pending}
+              disabled={extracting}
               className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-medium px-5 py-2.5 rounded-lg text-sm disabled:opacity-50"
             >
-              {pending ? "מנתח..." : "⚡ הרץ ניתוח דפוסים"}
+              {extracting ? "⏳ מנתח..." : "⚡ הרץ ניתוח דפוסים"}
             </button>
+            {extracting && extractStage && (
+              <div className="mt-3 space-y-1">
+                <div className="flex justify-between text-xs"><span>{extractStage}</span><span className="text-cyan-300 font-bold">{extractPct}%</span></div>
+                <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden"><div className="h-full bg-cyan-500 transition-all" style={{ width: `${extractPct}%` }} /></div>
+              </div>
+            )}
             <div className="text-[11px] text-slate-500 mt-3">
               מיידי · בטוח להפעלה חוזרת · יעדכן analyses קיימים שהם רזים מדי (פחות techniques).
             </div>

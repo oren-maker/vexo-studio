@@ -5,7 +5,7 @@ import { extractInstagram } from "@/lib/learn/instagram";
 import { extractPromptFromVideo } from "@/lib/learn/gemini-prompt-from-video";
 import { generatePromptWithClaude } from "@/lib/learn/claude-prompt";
 import { generateImageFromPrompt } from "@/lib/learn/gemini-image";
-import { startVideoGeneration, runVideoGeneration, type VeoModel } from "@/lib/learn/gemini-video-gen";
+import { startSoraGeneration, runSoraGeneration } from "@/lib/learn/sora-video-gen";
 import { adaptPromptForVEO } from "@/lib/learn/adapt-for-veo";
 import { snapshotCurrentVersion, computeTextDiff } from "@/lib/learn/prompt-versioning";
 import { revalidatePath } from "next/cache";
@@ -38,20 +38,22 @@ export async function deleteVideoAction(videoId: string, sourceId: string) {
 
 export async function generateVideoAction(
   sourceId: string,
-  opts: { fast?: boolean; durationSec?: number; aspectRatio?: "16:9" | "9:16"; customPrompt?: string } = {},
+  opts: { durationSec?: number; aspectRatio?: "16:9" | "9:16"; customPrompt?: string } = {},
 ) {
   const source = await prisma.learnSource.findUnique({ where: { id: sourceId } });
   if (!source) return { ok: false as const, error: "source not found" };
-  const model: VeoModel = opts.fast === false ? "veo-3.1-generate-preview" : "veo-3.1-fast-generate-preview";
   const duration = opts.durationSec || 8;
+  // Sora's prompt rewriter is more permissive than VEO's. We still run the
+  // "adapt for VEO" step because it also trims / structures the prompt — the
+  // output is perfectly usable as a Sora prompt.
   const finalPrompt = opts.customPrompt?.trim() || (await adaptPromptForVEO(source.prompt, sourceId));
   try {
-    const videoId = await startVideoGeneration(finalPrompt, sourceId, {
-      model,
+    const videoId = await startSoraGeneration(finalPrompt, sourceId, {
+      model: "sora-2", // per user directive: always regular Sora, never sora-2-pro
       durationSec: duration,
       aspectRatio: opts.aspectRatio || "16:9",
     });
-    waitUntil(runVideoGeneration(videoId, finalPrompt).catch(() => {}));
+    waitUntil(runSoraGeneration(videoId, finalPrompt).catch(() => {}));
     return { ok: true as const, videoId };
   } catch (e: any) {
     return { ok: false as const, error: String(e.message || e).slice(0, 300) };

@@ -1,19 +1,35 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { computeCorpusInsights } from "@/lib/learn/corpus-insights";
 import { prisma } from "@/lib/learn/db";
 import InsightsFreshness from "@/components/learn/insights-freshness";
 import ModuleHeader from "@/components/learn/module-header";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Page is heavy (scans all LearnSource + VideoAnalysis rows). Cache the
+// computation for 10 minutes — the hourly cron snapshot already refreshes
+// the stored data on its own cadence, so a 10-minute read cache is fine.
+export const revalidate = 600;
+
+const getInsights = unstable_cache(
+  async () => computeCorpusInsights(),
+  ["learn-insights-v1"],
+  { revalidate: 600, tags: ["learn-insights"] }
+);
 
 export default async function InsightsPage() {
-  const [insights, latestSnapshot, snapshotCount, seriesAnalysis] = await Promise.all([
-    computeCorpusInsights(),
+  const [insights, latestSnapshot, snapshotCount, seriesAnalysis, references] = await Promise.all([
+    getInsights(),
     prisma.insightsSnapshot.findFirst({ where: { kind: "hourly" }, orderBy: { takenAt: "desc" }, select: { takenAt: true, summary: true } }),
     prisma.insightsSnapshot.count(),
     prisma.insightsSnapshot.findFirst({ where: { kind: "series_analysis" }, orderBy: { takenAt: "desc" }, select: { takenAt: true, summary: true } }),
+    prisma.brainReference.findMany({
+      where: { kind: { in: ["emotion", "sound", "cinematography", "capability"] } },
+      orderBy: [{ kind: "asc" }, { order: "asc" }],
+      select: { kind: true, name: true, shortDesc: true, tags: true },
+    }),
   ]);
+  const byKind: Record<string, typeof references> = { emotion: [], sound: [], cinematography: [], capability: [] };
+  for (const r of references) (byKind[r.kind] ??= []).push(r);
   const t = insights.totals;
 
   if (t.sources === 0) {
@@ -72,6 +88,39 @@ export default async function InsightsPage() {
         <Kpi value={`${Math.round((t.promptsWithTimecodes / t.sources) * 100)}%`} label="עם timecodes" accent="emerald" />
         <Kpi value={t.knowledgeNodes} label="Knowledge Nodes" accent="amber" />
       </div>
+
+      {/* Director capabilities — the full cross-domain stack the brain uses */}
+      <Section
+        title="🎬 יכולות הבמאי"
+        subtitle="כל שכבות הידע מצטלבות — רגשות × סאונד × צילום × יכולות = המפיק/במאי/עורך/סאונדמן ביחד. המוח קורא אותן בכל שיחה."
+      >
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <CapabilityCard emoji="😊" label="רגשות" count={byKind.emotion.length} accent="emerald" sample={byKind.emotion.slice(0, 4).map((r) => r.name)} href="/learn/knowledge?tab=emotion" />
+          <CapabilityCard emoji="🔊" label="סאונד" count={byKind.sound.length} accent="cyan" sample={byKind.sound.slice(0, 4).map((r) => r.name)} href="/learn/knowledge?tab=sound" />
+          <CapabilityCard emoji="🎥" label="צילום" count={byKind.cinematography.length} accent="purple" sample={byKind.cinematography.slice(0, 4).map((r) => r.name)} href="/learn/knowledge?tab=cinematography" />
+          <CapabilityCard emoji="⚙️" label="יכולות מערכת" count={byKind.capability.length} accent="amber" sample={byKind.capability.slice(0, 4).map((r) => r.name)} href="/learn/knowledge?tab=capability" />
+        </div>
+        <div className="bg-gradient-to-br from-purple-500/10 to-cyan-500/5 border border-purple-500/30 rounded-xl p-5">
+          <div className="text-[11px] text-purple-300 uppercase tracking-wider mb-2 font-semibold">סינתזה — איך כל השכבות מייצרות תובנות חדשות</div>
+          <ul className="space-y-2 text-sm text-slate-200 leading-relaxed">
+            <li>
+              <b className="text-emerald-300">רגשות × צילום:</b> {byKind.emotion.length * byKind.cinematography.length} צירופים אפשריים. לכל רגש מותאמת קומפוזיציה (כעס → Low Angle + Dutch, חמלה → Close-Up רך + Medium Shot, פחד → POV + Shallow DoF).
+            </li>
+            <li>
+              <b className="text-cyan-300">סאונד × רגש:</b> {byKind.sound.length * byKind.emotion.length} שילובים. הסאונד אחראי על ~40% מעוצמת הרגש — לחישה + מוזיקה נמוכה מעצימה פחד, Sidechain Duck שומר דיאלוג רגיש על מוזיקה.
+            </li>
+            <li>
+              <b className="text-purple-300">צילום × סאונד:</b> מעבר Whip Pan + Whoosh מחברים בין סצנות; L-Cut של דיאלוג לתוך Close-Up יוצר רציפות רגשית; Dolly In איטי + Score עולה = רגע שיא.
+            </li>
+            <li>
+              <b className="text-amber-300">יכולות × הכל:</b> {byKind.capability.length} פעולות מערכת ({byKind.capability.filter((c) => c.tags?.includes("וידאו")).length} וידאו · {byKind.capability.filter((c) => c.tags?.includes("brain")).length} מוח · {byKind.capability.filter((c) => c.tags?.includes("מדריך")).length} מדריך) מחברות את הידע לפעולה — compose_prompt יודע לשלב את כל השכבות באותו פרומפט.
+            </li>
+            <li className="pt-2 border-t border-purple-500/20 text-slate-300 italic">
+              סה״כ: <b className="text-white">{byKind.emotion.length + byKind.sound.length + byKind.cinematography.length + byKind.capability.length} פריטי ידע מובנה</b> שמוזרמים לכל שיחה עם המוח. זה ההבדל בין "צ'אטבוט שכותב פרומפט" ל"במאי/מפיק/עורך סאונד/יוצר ראשי שמחלק לעצמו את העבודה".
+            </li>
+          </ul>
+        </div>
+      </Section>
 
       {/* Derived rules - THE learning */}
       <Section title="כללים שנגזרו מהנתונים" subtitle="מה המאגר מלמד אותנו על איך נראה פרומפט טוב">
@@ -321,6 +370,29 @@ function UpgradeKpi({ value, label, hint, accent }: { value: any; label: string;
       <div className="text-xs text-slate-300 mt-0.5">{label}</div>
       {hint && <div className="text-[10px] text-slate-500 mt-0.5">{hint}</div>}
     </div>
+  );
+}
+
+function CapabilityCard({ emoji, label, count, accent, sample, href }: { emoji: string; label: string; count: number; accent: "emerald" | "cyan" | "purple" | "amber"; sample: string[]; href: string }) {
+  const accentMap = {
+    emerald: "text-emerald-300 border-emerald-500/30",
+    cyan: "text-cyan-300 border-cyan-500/30",
+    purple: "text-purple-300 border-purple-500/30",
+    amber: "text-amber-300 border-amber-500/30",
+  };
+  return (
+    <Link href={href} className={`bg-slate-900/60 border rounded-xl p-4 hover:bg-slate-900/80 transition block ${accentMap[accent]}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-2xl">{emoji}</div>
+        <div className={`text-3xl font-black ${accentMap[accent].split(" ")[0]}`}>{count}</div>
+      </div>
+      <div className="text-sm text-white font-semibold mb-2">{label}</div>
+      <div className="flex flex-wrap gap-1">
+        {sample.map((s) => (
+          <span key={s} className="text-[10px] bg-slate-800/80 text-slate-300 px-2 py-0.5 rounded truncate max-w-[120px]">{s}</span>
+        ))}
+      </div>
+    </Link>
   );
 }
 

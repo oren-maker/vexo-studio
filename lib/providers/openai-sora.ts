@@ -25,7 +25,6 @@ export type SoraModel = "sora-2" | "sora-2-pro";
 // Web Storyboard feature, not exposed as a single API call.
 export type SoraSeconds = "4" | "8" | "12" | "16" | "20";
 export type SoraSize = "1280x720" | "720x1280" | "1792x1024" | "1024x1792";
-export type SoraSeconds = "4" | "8" | "12";
 
 function key(): string {
   const k = process.env.OPENAI_API_KEY;

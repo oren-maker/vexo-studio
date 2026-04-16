@@ -5,8 +5,8 @@ import { adminHeaders } from "@/lib/learn/admin-key";
 import { useState, useTransition, useEffect } from "react";
 import { generateVideoAction, adaptPromptForVEOAction } from "@/app/learn/sources/[id]/actions";
 
-const FAST_COST_PER_SEC = 0.40;
-const PRO_COST_PER_SEC = 0.75;
+const SORA_COST_PER_SEC = 0.10;
+const ALLOWED_DURATIONS = [4, 8, 12, 16, 20] as const;
 
 type Status = {
   id: string;
@@ -21,7 +21,6 @@ type Status = {
 
 export default function GenerateVideoButton({ sourceId }: { sourceId: string }) {
   const [open, setOpen] = useState(false);
-  const [fast, setFast] = useState(true);
   const [duration, setDuration] = useState(8);
   const [aspect, setAspect] = useState<"16:9" | "9:16">("16:9");
   const [pending, startTransition] = useTransition();
@@ -33,8 +32,7 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
   const [originalPrompt, setOriginalPrompt] = useState<string>("");
   const [step, setStep] = useState<"config" | "edit-prompt">("config");
 
-  const perSec = fast ? FAST_COST_PER_SEC : PRO_COST_PER_SEC;
-  const estimate = perSec * duration;
+  const estimate = SORA_COST_PER_SEC * duration;
 
   useEffect(() => {
     if (!videoId) return;
@@ -74,11 +72,11 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
   }
 
   function run() {
-    if (!confirm(`יצירת וידאו VEO 3 תעלה כ-$${estimate.toFixed(2)}. להמשיך?`)) return;
+    if (!confirm(`יצירת וידאו Sora 2 (${duration}s) תעלה כ-$${estimate.toFixed(2)}. להמשיך?`)) return;
     setErr(""); setStatus(null); setOpen(false); setStep("config");
     startTransition(async () => {
       const r = await generateVideoAction(sourceId, {
-        fast, durationSec: duration, aspectRatio: aspect,
+        durationSec: duration, aspectRatio: aspect,
         customPrompt: adaptedPrompt,
       });
       if (!r.ok) setErr(r.error);
@@ -96,35 +94,37 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
       {!videoId && !pending && (
         <button
           onClick={() => { setOpen(!open); setStep("config"); }}
-          className="bg-gradient-to-l from-red-500 to-pink-500 hover:opacity-90 text-white font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap"
+          className="bg-gradient-to-l from-emerald-500 to-cyan-500 hover:opacity-90 text-white font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap"
         >
-          🎬 צור וידאו (VEO 3)
+          🎬 צור וידאו (Sora 2)
         </button>
       )}
 
       {pending && !videoId && (
-        <button disabled className="bg-gradient-to-l from-red-500 to-pink-500 text-white font-bold px-4 py-2 rounded-lg text-sm opacity-70">
+        <button disabled className="bg-gradient-to-l from-emerald-500 to-cyan-500 text-white font-bold px-4 py-2 rounded-lg text-sm opacity-70">
           🎬 מאתחל…
         </button>
       )}
 
       {open && !pending && !videoId && step === "config" && (
         <div className="absolute top-full mt-2 left-0 bg-slate-900 border border-slate-700 rounded-xl p-4 w-80 shadow-2xl z-20">
-          <h3 className="text-sm font-bold text-white mb-3">הגדרות VEO 3</h3>
-          <div className="mb-3">
-            <div className="text-xs text-slate-400 mb-1">מודל</div>
-            <div className="flex gap-1 bg-slate-950 rounded-lg p-1">
-              <button onClick={() => setFast(true)} className={`flex-1 text-xs py-1.5 rounded transition ${fast ? "bg-pink-500 text-white" : "text-slate-400"}`}>
-                ⚡ Fast (${FAST_COST_PER_SEC}/sec)
-              </button>
-              <button onClick={() => setFast(false)} className={`flex-1 text-xs py-1.5 rounded transition ${!fast ? "bg-red-500 text-white" : "text-slate-400"}`}>
-                💎 Pro (${PRO_COST_PER_SEC}/sec)
-              </button>
-            </div>
+          <h3 className="text-sm font-bold text-white mb-3">הגדרות Sora 2</h3>
+          <div className="mb-3 text-[11px] text-slate-500 leading-relaxed">
+            Sora 2 (OpenAI) · ${SORA_COST_PER_SEC}/שנייה · אודיו מסונכרן אוטומטית · סינון תוכן מתון יותר מ-VEO.
           </div>
           <div className="mb-3">
-            <div className="text-xs text-slate-400 mb-1">משך (שניות): {duration}</div>
-            <input type="range" min={4} max={15} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full accent-pink-500" />
+            <div className="text-xs text-slate-400 mb-1">משך (שניות)</div>
+            <div className="flex gap-1 bg-slate-950 rounded-lg p-1">
+              {ALLOWED_DURATIONS.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDuration(d)}
+                  className={`flex-1 text-xs py-1.5 rounded transition ${duration === d ? "bg-emerald-500 text-slate-950 font-semibold" : "text-slate-400"}`}
+                >
+                  {d}s
+                </button>
+              ))}
+            </div>
           </div>
           <div className="mb-3">
             <div className="text-xs text-slate-400 mb-1">יחס</div>
@@ -140,9 +140,9 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
           <button
             onClick={goToEditStep}
             disabled={adaptPending}
-            className="w-full bg-gradient-to-l from-red-500 to-pink-500 hover:opacity-90 text-white font-bold py-2 rounded-lg text-sm disabled:opacity-50"
+            className="w-full bg-gradient-to-l from-emerald-500 to-cyan-500 hover:opacity-90 text-white font-bold py-2 rounded-lg text-sm disabled:opacity-50"
           >
-            {adaptPending ? "🧠 מתאים פרומפט…" : "המשך → ערוך פרומפט ל-VEO"}
+            {adaptPending ? "🧠 מתאים פרומפט…" : "המשך → ערוך פרומפט"}
           </button>
           <button onClick={() => setOpen(false)} className="w-full mt-2 text-slate-400 hover:text-slate-200 text-xs">ביטול</button>
           {err && <div className="mt-2 text-[11px] text-red-400">{err}</div>}
@@ -150,10 +150,10 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
       )}
 
       {open && !pending && !videoId && step === "edit-prompt" && (
-        <div className="absolute top-full mt-2 left-0 bg-slate-900 border border-pink-500/40 rounded-xl p-4 w-[440px] shadow-2xl z-20">
+        <div className="absolute top-full mt-2 left-0 bg-slate-900 border border-emerald-500/40 rounded-xl p-4 w-[440px] shadow-2xl z-20">
           <h3 className="text-sm font-bold text-white mb-2">פרומפט לוידאו</h3>
           <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
-            VEO יקבל את הפרומפט המלא. <b className="text-cyan-300">תחילה תיווצר תמונת reference</b> עם nano-banana (+$0.04 אם אין תמונה קיימת), ואז VEO ינפיש אותה לפי הפרומפט. ערוך חופשי.
+            Sora 2 יקבל את הפרומפט. אם לפרומפט יש תמונה — הוא יתחיל ממנה (i2v); אחרת יצירה חופשית (t2v). אודיו נוצר אוטומטית.
           </p>
 
           <textarea
@@ -187,7 +187,7 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
             <span className="text-amber-400">עלות: </span>
             <span className="text-amber-300 font-bold">${estimate.toFixed(2)}</span>
             <span className="text-slate-500 mx-2">·</span>
-            <span className="text-slate-400">{fast ? "⚡ Fast" : "💎 Pro"} · {duration}s · {aspect}</span>
+            <span className="text-slate-400">Sora 2 · {duration}s · {aspect}</span>
           </div>
 
           <div className="flex gap-2">
@@ -200,9 +200,9 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
             <button
               onClick={run}
               disabled={adaptedPrompt.trim().length < 20}
-              className="flex-1 bg-gradient-to-l from-red-500 to-pink-500 hover:opacity-90 text-white font-bold py-2 rounded text-sm disabled:opacity-50"
+              className="flex-1 bg-gradient-to-l from-emerald-500 to-cyan-500 hover:opacity-90 text-white font-bold py-2 rounded text-sm disabled:opacity-50"
             >
-              🚀 שלח ל-VEO 3
+              🚀 שלח ל-Sora 2
             </button>
           </div>
         </div>
@@ -231,9 +231,9 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
 
 function ProgressPanel({ status }: { status: Status }) {
   const steps: Array<{ key: string; label: string }> = [
-    { key: "submitting", label: "שולח ל-VEO 3" },
-    { key: "rendering", label: "מרנדר (1-3 דקות)" },
-    { key: "downloading", label: "מוריד מ-VEO" },
+    { key: "submitting", label: "שולח ל-Sora 2" },
+    { key: "rendering", label: "מרנדר (1-4 דקות)" },
+    { key: "downloading", label: "מוריד מ-OpenAI" },
     { key: "uploading", label: "שומר ל-Blob" },
     { key: "complete", label: "הושלם" },
   ];

@@ -1,5 +1,7 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
+import { adminHeaders } from "@/lib/learn/admin-key";
 import { useEffect, useState } from "react";
 
 type JobStatus = {
@@ -33,7 +35,7 @@ export default function SyncProgress({
     let done = false;
     async function poll() {
       try {
-        const res = await fetch(`/api/v1/learn/jobs/${jobId}`, { cache: "no-store" });
+        const res = await learnFetch(`/api/v1/learn/jobs/${jobId}`, { cache: "no-store" });
         if (!res.ok) return;
         const s = (await res.json()) as JobStatus;
         setStatus(s);

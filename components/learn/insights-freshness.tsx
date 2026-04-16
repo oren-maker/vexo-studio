@@ -1,5 +1,7 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
+import { adminHeaders } from "@/lib/learn/admin-key";
 import { useState, useEffect } from "react";
 import SyncProgress from "./sync-progress";
 
@@ -37,7 +39,7 @@ export default function InsightsFreshness({
     if (!confirm("ליצור snapshot חדש עכשיו + להריץ Auto-Improve על 3 פרומפטים?")) return;
     setErr(""); setStarting(true);
     try {
-      const res = await fetch("/api/v1/learn/snapshot-now", { method: "POST" });
+      const res = await learnFetch("/api/v1/learn/snapshot-now", { method: "POST" });
       const j = await res.json();
       if (!res.ok || !j.ok) { setErr(j.error || `HTTP ${res.status}`); return; }
       setJobId(j.jobId);

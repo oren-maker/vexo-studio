@@ -1,3 +1,4 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
 import { useState } from "react";
@@ -117,7 +118,7 @@ export default function MergeWorkflow() {
     setErr(""); setRunning(true); setProgressPct(0); setProgressMsg("יוצר פרויקט…");
     try {
       // 1. Create the job
-      const createRes = await fetch("/api/v1/learn/video/jobs", {
+      const createRes = await learnFetch("/api/v1/learn/video/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({
@@ -137,7 +138,7 @@ export default function MergeWorkflow() {
       const jobId: string = j.job.id;
 
       // 2. Apply per-clip trim/transition settings via PATCH
-      await fetch(`/api/v1/learn/video/jobs/${jobId}`, {
+      await learnFetch(`/api/v1/learn/video/jobs/${jobId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({
@@ -152,7 +153,7 @@ export default function MergeWorkflow() {
       });
 
       // 3. Trigger run
-      const runRes = await fetch(`/api/v1/learn/video/jobs/${jobId}/run`, {
+      const runRes = await learnFetch(`/api/v1/learn/video/jobs/${jobId}/run`, {
         method: "POST",
         headers: adminHeaders(),
       });
@@ -195,7 +196,7 @@ export default function MergeWorkflow() {
           }),
         ]);
         setProgressMsg(`🤖 AI transition ${k + 1}/${aiIndices.length} — Luma מרנדר (~30s)`);
-        const genRes = await fetch("/api/v1/learn/video/transitions/generate", {
+        const genRes = await learnFetch("/api/v1/learn/video/transitions/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...adminHeaders() },
           body: JSON.stringify({
@@ -216,7 +217,7 @@ export default function MergeWorkflow() {
         let lumaUrl: string | null = null;
         while (Date.now() < deadline) {
           await new Promise((r) => setTimeout(r, 4000));
-          const sRes = await fetch(`/api/v1/learn/video/transitions/${transitionId}`);
+          const sRes = await learnFetch(`/api/v1/learn/video/transitions/${transitionId}`);
           if (!sRes.ok) continue;
           const sJson = await sRes.json();
           if (sJson.status === "complete" && sJson.outputUrl) { lumaUrl = sJson.outputUrl; break; }
@@ -268,7 +269,7 @@ export default function MergeWorkflow() {
       });
 
       // 6. Tell the server we're done
-      await fetch(`/api/v1/learn/video/jobs/${jobId}/wasm-complete`, {
+      await learnFetch(`/api/v1/learn/video/jobs/${jobId}/wasm-complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ outputUrl: outBlob.url, outputDuration: totalDur }),
@@ -436,7 +437,7 @@ export default function MergeWorkflow() {
                     onClick={async () => {
                       setNarrationGenerating(true); setErr("");
                       try {
-                        const res = await fetch("/api/v1/learn/video/tts", {
+                        const res = await learnFetch("/api/v1/learn/video/tts", {
                           method: "POST",
                           headers: { "Content-Type": "application/json", ...adminHeaders() },
                           body: JSON.stringify({ text: narrationText, voice: narrationVoice }),

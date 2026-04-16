@@ -1,3 +1,4 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
 import { useState, useTransition } from "react";
@@ -26,7 +27,7 @@ export default function ClipReorder({ jobId, initialClips }: { jobId: string; in
     setError(null);
     startSaving(async () => {
       try {
-        const res = await fetch(`/api/v1/learn/video/jobs/${jobId}`, {
+        const res = await learnFetch(`/api/v1/learn/video/jobs/${jobId}`, {
           method: "PATCH",
           headers: adminHeaders({ "content-type": "application/json" }),
           body: JSON.stringify({
@@ -50,7 +51,7 @@ export default function ClipReorder({ jobId, initialClips }: { jobId: string; in
     setRendering(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/learn/video/jobs/${jobId}/run`, {
+      const res = await learnFetch(`/api/v1/learn/video/jobs/${jobId}/run`, {
         method: "POST",
         headers: adminHeaders({ "content-type": "application/json" }),
       });

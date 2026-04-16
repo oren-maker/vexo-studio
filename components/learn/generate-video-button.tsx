@@ -1,5 +1,7 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
+import { adminHeaders } from "@/lib/learn/admin-key";
 import { useState, useTransition, useEffect } from "react";
 import { generateVideoAction, adaptPromptForVEOAction } from "@/app/learn/sources/[id]/actions";
 
@@ -40,7 +42,7 @@ export default function GenerateVideoButton({ sourceId }: { sourceId: string }) 
     if (isDone) return;
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/v1/learn/videos/${videoId}/status`, { cache: "no-store" });
+        const res = await learnFetch(`/api/v1/learn/videos/${videoId}/status`, { cache: "no-store" });
         if (!res.ok) return;
         const s = (await res.json()) as Status;
         setStatus(s);

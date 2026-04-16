@@ -1,3 +1,4 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
 import { useState } from "react";
@@ -50,7 +51,7 @@ export default function TrimWorkflow() {
       // AI mode: hand off to server, polling SyncJob takes over
       if (detectMode === "ai") {
         setPhase("detecting"); setProgressPct(25); setProgressMsg("Gemini מנתח את הוידאו…");
-        const res = await fetch("/api/v1/learn/video/trim/ai-detect", {
+        const res = await learnFetch("/api/v1/learn/video/trim/ai-detect", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...adminHeaders() },
           body: JSON.stringify({ inputBlobUrl: blob.url, filename: f.name }),
@@ -91,7 +92,7 @@ export default function TrimWorkflow() {
 
       // 4. Persist session
       setProgressPct(92); setProgressMsg("שומר סשן…");
-      const createRes = await fetch("/api/v1/learn/video/trim/sessions", {
+      const createRes = await learnFetch("/api/v1/learn/video/trim/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({
@@ -117,7 +118,7 @@ export default function TrimWorkflow() {
     if (!sessionId) return;
     setErr(""); setPhase("rating");
     try {
-      const res = await fetch(`/api/v1/learn/video/trim/sessions/${sessionId}/rate`, { method: "POST", headers: adminHeaders() });
+      const res = await learnFetch(`/api/v1/learn/video/trim/sessions/${sessionId}/rate`, { method: "POST", headers: adminHeaders() });
       const j = await res.json();
       if (!res.ok || !j.ok) throw new Error(j.error || "rating failed");
       if (j.jobId) setRatingJobId(j.jobId);
@@ -129,7 +130,7 @@ export default function TrimWorkflow() {
 
   async function reloadSession() {
     if (!sessionId) return;
-    const res = await fetch(`/api/v1/learn/video/trim/sessions/${sessionId}`);
+    const res = await learnFetch(`/api/v1/learn/video/trim/sessions/${sessionId}`);
     if (!res.ok) return;
     const s = await res.json();
     setScenes(s.scenes);
@@ -149,12 +150,12 @@ export default function TrimWorkflow() {
     setPhase("exporting"); setErr("");
     try {
       // Persist current selection
-      await fetch(`/api/v1/learn/video/trim/sessions/${sessionId}`, {
+      await learnFetch(`/api/v1/learn/video/trim/sessions/${sessionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ scenes: scenes.map((s) => ({ id: s.id, selected: s.selected })) }),
       });
-      const res = await fetch(`/api/v1/learn/video/trim/sessions/${sessionId}/export`, { method: "POST", headers: adminHeaders() });
+      const res = await learnFetch(`/api/v1/learn/video/trim/sessions/${sessionId}/export`, { method: "POST", headers: adminHeaders() });
       const j = await res.json();
       if (!res.ok || !j.ok) throw new Error(j.error || "export failed");
       router.push(`/video/jobs/${j.jobId}`);
@@ -215,7 +216,7 @@ export default function TrimWorkflow() {
             setAiDetectJobId(null);
             if (result?.sessionId) {
               setSessionId(result.sessionId);
-              const r = await fetch(`/api/v1/learn/video/trim/sessions/${result.sessionId}`);
+              const r = await learnFetch(`/api/v1/learn/video/trim/sessions/${result.sessionId}`);
               if (r.ok) {
                 const s = await r.json();
                 setScenes(s.scenes);

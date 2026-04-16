@@ -1,5 +1,7 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
+import { adminHeaders } from "@/lib/learn/admin-key";
 import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -27,7 +29,7 @@ export default function FileUpload() {
         onUploadProgress: (p) => setProgress(Math.round(p.percentage)),
       });
 
-      const res = await fetch("/api/v1/learn/sources", {
+      const res = await learnFetch("/api/v1/learn/sources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

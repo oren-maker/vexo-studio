@@ -1,3 +1,4 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
 import { useState } from "react";
@@ -15,7 +16,7 @@ export default function TranslateLibraryButton() {
     if (!confirm("Gemini יתרגם לעברית את כל המדריכים שעוד לא תורגמו. להמשיך?")) return;
     setErr(""); setStarting(true);
     try {
-      const res = await fetch("/api/v1/learn/guides/translate-library-to-hebrew", {
+      const res = await learnFetch("/api/v1/learn/guides/translate-library-to-hebrew", {
         method: "POST",
         headers: adminHeaders(),
       });

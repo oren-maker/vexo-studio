@@ -1,3 +1,4 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
 import { useState, useTransition } from "react";
@@ -28,7 +29,7 @@ export default function StarRating({
     setErr("");
     startTransition(async () => {
       try {
-        const res = await fetch("/api/v1/learn/rate", {
+        const res = await learnFetch("/api/v1/learn/rate", {
           method: "POST",
           headers: adminHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ sourceId, rating: newRating }),

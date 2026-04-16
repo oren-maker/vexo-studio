@@ -1,3 +1,4 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
 import { useState } from "react";
@@ -14,7 +15,7 @@ export default function BrainRefreshButton() {
     if (!confirm("Gemini 2.5 Pro יחבר זהות חדשה ליום (~$0.005). להמשיך?")) return;
     setErr(""); setStarting(true);
     try {
-      const res = await fetch("/api/v1/learn/brain/refresh", { method: "POST", headers: adminHeaders() });
+      const res = await learnFetch("/api/v1/learn/brain/refresh", { method: "POST", headers: adminHeaders() });
       const j = await res.json();
       if (!res.ok || !j.ok) { setErr(j.error || `HTTP ${res.status}`); return; }
       setJobId(j.jobId);

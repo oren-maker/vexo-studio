@@ -1,3 +1,4 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
 import { useState } from "react";
@@ -19,7 +20,7 @@ export default function SuggestSimilar({ sourceId, sourceTitle }: { sourceId: st
   async function generate() {
     setErr(""); setItems([]); setSavedIds(new Map()); setActiveTab(0); setStarting(true);
     try {
-      const res = await fetch("/api/v1/learn/suggest-similar", {
+      const res = await learnFetch("/api/v1/learn/suggest-similar", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ sourceId, count: 3 }),

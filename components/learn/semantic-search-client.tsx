@@ -1,3 +1,4 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
 import { useState } from "react";
@@ -27,7 +28,7 @@ export default function SemanticSearchClient() {
     if (query.trim().length < 2) return;
     setSearching(true); setErr("");
     try {
-      const res = await fetch("/api/v1/learn/search/semantic", {
+      const res = await learnFetch("/api/v1/learn/search/semantic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, limit: 20 }),
@@ -48,7 +49,7 @@ export default function SemanticSearchClient() {
     if (!confirm(`Backfill ${force ? "כולל מקורות שכבר embedded" : "רק חדשים"} — להמשיך?`)) return;
     setErr("");
     try {
-      const res = await fetch("/api/v1/learn/embeddings/backfill", {
+      const res = await learnFetch("/api/v1/learn/embeddings/backfill", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({ force }),

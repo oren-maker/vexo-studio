@@ -1,3 +1,5 @@
+import { learnFetch } from "@/lib/learn/fetch";
+import { adminHeaders } from "@/lib/learn/admin-key";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { headers } from "next/headers";

@@ -1,3 +1,4 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
 import Link from "next/link";
@@ -93,7 +94,7 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
 
   useEffect(() => {
     if (!chatId) return;
-    fetch(`/api/v1/learn/brain/chats/${chatId}`)
+    learnFetch(`/api/v1/learn/brain/chats/${chatId}`, { headers: adminHeaders() })
       .then((r) => r.json())
       .then((d) => {
         if (d.chat?.messages) setMessages(d.chat.messages);
@@ -114,7 +115,7 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
       setExecutingStage((s) => Math.min(s + 1, stages.length - 1));
     }, action.type === "generate_video" ? 18000 : 4000);
     try {
-      const res = await fetch("/api/v1/learn/brain/chat/execute", {
+      const res = await learnFetch("/api/v1/learn/brain/chat/execute", {
         method: "POST",
         headers: adminHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({ action, chatId }),
@@ -144,7 +145,7 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
     setMessages((m) => [...m, { id: tempId, role: "user", content: text }]);
     setInput("");
     try {
-      const res = await fetch("/api/v1/learn/brain/chat", {
+      const res = await learnFetch("/api/v1/learn/brain/chat", {
         method: "POST",
         headers: adminHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({ chatId, message: text }),

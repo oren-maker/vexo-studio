@@ -1,5 +1,7 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
+import { adminHeaders } from "@/lib/learn/admin-key";
 import { useState } from "react";
 import SyncProgress from "@/components/learn/sync-progress";
 
@@ -13,7 +15,7 @@ export default function TriggerImprovementButton({ snapshotId }: { snapshotId: s
     if (!confirm("להפעיל auto-improvement? זה יקרא ל-Gemini על עד 5 פרומפטים (~$0.005) ויעדכן אותם עם שמירת גרסה קודמת.")) return;
     setErr(""); setDone(null); setStarting(true);
     try {
-      const res = await fetch("/api/v1/learn/auto-improve", {
+      const res = await learnFetch("/api/v1/learn/auto-improve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ snapshotId, max: 5 }),

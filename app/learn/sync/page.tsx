@@ -1,5 +1,7 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
+import { adminHeaders } from "@/lib/learn/admin-key";
 import { useState, useTransition } from "react";
 import SyncProgress from "@/components/learn/sync-progress";
 import {
@@ -89,7 +91,7 @@ export default function SyncPage() {
   async function extractPattern() {
     setErr(""); setResult(null); setJobId(null);
     try {
-      const res = await fetch("/api/v1/learn/pattern-extract", { method: "POST" });
+      const res = await learnFetch("/api/v1/learn/pattern-extract", { method: "POST" });
       const j = await res.json();
       if (!res.ok || !j.ok) { setErr(j.error || `HTTP ${res.status}`); return; }
       setJobId(j.jobId);

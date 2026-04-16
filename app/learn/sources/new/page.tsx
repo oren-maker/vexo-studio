@@ -1,5 +1,7 @@
+import { learnFetch } from "@/lib/learn/fetch";
 "use client";
 
+import { adminHeaders } from "@/lib/learn/admin-key";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import FileUpload from "@/components/learn/file-upload";
@@ -26,7 +28,7 @@ export default function AddSource() {
   async function onUrlSubmit(e: React.FormEvent) {
     e.preventDefault();
     setUrlBusy(true); setUrlErr("");
-    const res = await fetch("/api/v1/learn/sources", {
+    const res = await learnFetch("/api/v1/learn/sources", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, prompt }),

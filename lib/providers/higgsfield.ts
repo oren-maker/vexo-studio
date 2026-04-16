@@ -1,54 +1,55 @@
 /**
- * Higgsfield Cloud API — text-to-video + image-to-video.
+ * Higgsfield Cloud API — image-to-video + text-to-video.
  *
- * Base: https://api.higgsfield.ai/v1/generations
- * Auth: Bearer token (HIGGSFIELD_API_KEY env var)
- * Flow: POST → 202 + generation ID → poll GET until done → download MP4
+ * Docs: https://docs.higgsfield.ai/
+ * Base: https://platform.higgsfield.ai
+ * Auth: Key {API_KEY_ID}:{API_KEY_SECRET}
  *
- * Models available via Higgsfield: seedance-2, kling-3, veo-3, sora-2, wan-2.5
- * Cinema Studio presets add optical physics (lens, focal length, camera body).
+ * Submit:  POST /{model_path}  → { request_id }
+ * Poll:    GET  /requests/{request_id}/status → { status, video: { url } }
+ * Cancel:  POST /requests/{request_id}/cancel
+ *
+ * Models:
+ *   higgsfield-ai/dop/preview         — Higgsfield DOP Preview (fast)
+ *   higgsfield-ai/dop/standard        — Higgsfield DOP Standard (quality)
+ *   bytedance/seedance/v1/pro/image-to-video  — Seedance via Higgsfield
+ *   kling-video/v2.1/pro/image-to-video       — Kling via Higgsfield
  */
 
-const BASE = "https://api.higgsfield.ai/v1";
+const BASE = "https://platform.higgsfield.ai";
 
 export type HiggsModel =
-  | "seedance-2.0"
-  | "kling-3.0"
-  | "wan-2.5"
-  | "higgsfield-default";
+  | "higgsfield-ai/dop/preview"
+  | "higgsfield-ai/dop/standard"
+  | "bytedance/seedance/v1/pro/image-to-video"
+  | "kling-video/v2.1/pro/image-to-video";
 
-export type HiggsTask = "text-to-video" | "image-to-video";
-
-function key(): string {
-  const k = process.env.HIGGSFIELD_API_KEY;
-  if (!k) throw new Error("HIGGSFIELD_API_KEY not set");
-  return k;
+function authHeader(): string {
+  const id = process.env.HIGGSFIELD_API_ID;
+  const secret = process.env.HIGGSFIELD_API_KEY;
+  if (!id || !secret) throw new Error("HIGGSFIELD_API_ID and HIGGSFIELD_API_KEY must be set");
+  return `Key ${id}:${secret}`;
 }
 
 export async function submitHiggsVideo(opts: {
   prompt: string;
-  task?: HiggsTask;
   model?: HiggsModel;
   durationSeconds?: number;
   aspectRatio?: "16:9" | "9:16" | "1:1";
   imageUrl?: string;
-  motionIntensity?: "low" | "medium" | "high";
 }): Promise<{ id: string; status: string }> {
+  const model = opts.model ?? "higgsfield-ai/dop/standard";
   const body: Record<string, unknown> = {
-    task: opts.imageUrl ? "image-to-video" : (opts.task ?? "text-to-video"),
-    model: opts.model ?? "higgsfield-default",
     prompt: opts.prompt.slice(0, 2000),
     duration: opts.durationSeconds ?? 20,
-    fps: 30,
-    motion_intensity: opts.motionIntensity ?? "medium",
+    aspect_ratio: opts.aspectRatio ?? "16:9",
   };
-  if (opts.aspectRatio) body.aspect_ratio = opts.aspectRatio;
-  if (opts.imageUrl) body.input_image = opts.imageUrl;
+  if (opts.imageUrl) body.image_url = opts.imageUrl;
 
-  const res = await fetch(`${BASE}/generations`, {
+  const res = await fetch(`${BASE}/${model}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${key()}`,
+      Authorization: authHeader(),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -59,47 +60,37 @@ export async function submitHiggsVideo(opts: {
   }
   const data = await res.json();
   return {
-    id: data.id ?? data.generation_id ?? data.job_id ?? "",
+    id: data.request_id ?? data.id ?? "",
     status: data.status ?? "queued",
   };
 }
 
-export async function pollHiggsVideo(generationId: string): Promise<{
-  status: "queued" | "processing" | "completed" | "failed";
+export async function pollHiggsVideo(requestId: string): Promise<{
+  status: "queued" | "in_progress" | "completed" | "failed" | "nsfw";
   progress?: number;
   videoUrl?: string;
   error?: string;
 }> {
-  const res = await fetch(`${BASE}/generations/${generationId}`, {
-    headers: { Authorization: `Bearer ${key()}` },
+  const res = await fetch(`${BASE}/requests/${requestId}/status`, {
+    headers: { Authorization: authHeader() },
   });
   if (!res.ok) {
     throw new Error(`Higgsfield poll ${res.status}: ${(await res.text()).slice(0, 400)}`);
   }
   const data = await res.json();
   return {
-    status: data.status ?? "processing",
+    status: data.status ?? "in_progress",
     progress: data.progress ?? undefined,
-    videoUrl: data.output?.video_url ?? data.video_url ?? data.result?.url ?? undefined,
-    error: data.error ?? undefined,
+    videoUrl: data.video?.url ?? undefined,
+    error: data.status === "nsfw" ? "Content flagged as NSFW" : (data.error ?? undefined),
   };
 }
 
-export async function downloadHiggsVideo(generationId: string): Promise<ArrayBuffer> {
-  const res = await fetch(`${BASE}/generations/${generationId}/download`, {
-    headers: { Authorization: `Bearer ${key()}` },
-  });
-  if (!res.ok) {
-    throw new Error(`Higgsfield download ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  }
-  return res.arrayBuffer();
-}
-
 export const HIGGS_PRICING: Record<string, number> = {
-  "seedance-2.0": 0.05,
-  "kling-3.0": 0.06,
-  "wan-2.5": 0.04,
-  "higgsfield-default": 0.05,
+  "higgsfield-ai/dop/preview": 0.04,
+  "higgsfield-ai/dop/standard": 0.05,
+  "bytedance/seedance/v1/pro/image-to-video": 0.06,
+  "kling-video/v2.1/pro/image-to-video": 0.06,
 };
 
 export function priceHiggs(model: string, seconds: number): number {

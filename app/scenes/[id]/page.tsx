@@ -300,10 +300,6 @@ export default function ScenePage() {
   if (!scene) return <div className="text-text-muted">{he ? "טוען…" : "Loading…"}</div>;
 
   return (
-    // translate="no" across the whole scene page: text is ALREADY rendered in
-    // the user's chosen language (he/en) via useLang(). Chrome's auto-translator
-    // would re-translate Hebrew→Hebrew, causing truncation ("הסצ" instead of
-    // "הסצנה") and word mangling ("EP06" → "פורטוגזית06"). notranslate disables it.
     <div translate="no" className="notranslate space-y-4">
       {scene.episodeId && (
         <Link href={`/episodes/${scene.episodeId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">
@@ -638,14 +634,15 @@ export default function ScenePage() {
               {scene.criticReviews.map((r) => {
                 const typeMap: Record<string, string> = { NARRATIVE: "עלילה", CONTINUITY: "רצף", THUMBNAIL: "תמונת מפתח", DIALOGUE: "דיאלוג", VISUAL: "ויזואלי" };
                 return (
-                <li key={r.id} className="text-sm">
-                  <div className="flex justify-between mb-1">
-                    <span className="font-semibold" data-no-translate>{he ? (typeMap[r.contentType] ?? r.contentType) : r.contentType}</span>
-                    <span className="num font-bold" style={{ color: r.score > 0.7 ? "#1db868" : r.score > 0.4 ? "#f0a500" : "#e03a4e" }}>{(r.score * 100).toFixed(0)}%</span>
-                  </div>
-                  <div className="text-text-secondary text-xs" data-no-translate>{r.feedback ?? "—"}</div>
-                </li>);
-              ))}
+                  <li key={r.id} className="text-sm">
+                    <div className="flex justify-between mb-1">
+                      <span className="font-semibold" data-no-translate>{he ? (typeMap[r.contentType] ?? r.contentType) : r.contentType}</span>
+                      <span className="num font-bold" style={{ color: r.score > 0.7 ? "#1db868" : r.score > 0.4 ? "#f0a500" : "#e03a4e" }}>{(r.score * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="text-text-secondary text-xs" data-no-translate>{r.feedback ?? "—"}</div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>

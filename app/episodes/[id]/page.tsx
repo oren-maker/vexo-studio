@@ -89,8 +89,6 @@ export default function EpisodePage() {
   if (!ep) return <div className="text-text-muted">Loading…</div>;
 
   return (
-    // translate="no" — prevent Chrome auto-translator from re-translating Hebrew
-    // content (which truncates words and mangles English tokens).
     <div translate="no" className="notranslate space-y-6">
       {ep.seasonId && (
         <Link href={`/seasons/${ep.seasonId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">{lang === "he" ? "→ חזרה לעונה" : "← Back to season"}</Link>

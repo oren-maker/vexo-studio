@@ -194,11 +194,30 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       });
     }
 
+    // Model-specific hard caps — Sora tops at 12s, VEO at 8s, Kling at 10s,
+    // seedance/vidu at 12s/8s. Clamp the stored duration to the active model's
+    // max so the UI can't display "20s" while the clip only ever generates 12.
+    const MODEL_MAX: Record<string, number> = {
+      "seedance": 12, "kling": 10,
+      "veo3-fast": 8, "veo3-pro": 8,
+      "google-veo-3.1-fast-generate-preview": 8,
+      "google-veo-3.1-generate-preview": 8,
+      "google-veo-3.1-lite-generate-preview": 8,
+      "sora-2": 12, "sora-2-pro": 12,
+      "vidu-q1": 8,
+    };
+    const activeModel = body.model ?? existing.model;
+    const cap = MODEL_MAX[activeModel] ?? 12;
+
     const updateData: Record<string, unknown> = {};
     if (body.prompt !== undefined) updateData.currentPrompt = body.prompt;
-    if (body.duration !== undefined) updateData.duration = body.duration;
+    if (body.duration !== undefined) updateData.duration = Math.min(body.duration, cap);
     if (body.aspectRatio !== undefined) updateData.aspectRatio = body.aspectRatio;
-    if (body.model !== undefined) updateData.model = body.model;
+    if (body.model !== undefined) {
+      updateData.model = body.model;
+      // Changing model while keeping an out-of-range duration → snap duration.
+      if (body.duration === undefined && existing.duration > cap) updateData.duration = cap;
+    }
     if (body.includeCharacters !== undefined) updateData.includeCharacters = body.includeCharacters;
     if (body.characterIds !== undefined) updateData.characterIds = body.characterIds;
     if (body.styleLabel !== undefined) updateData.styleLabel = body.styleLabel;

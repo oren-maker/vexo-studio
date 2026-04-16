@@ -17,7 +17,7 @@ const Body = z.object({
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent";
 
 function hash(s: string, lang: string): string {
   return crypto.createHash("sha256").update(`${lang}::${s}`).digest("hex").slice(0, 32);

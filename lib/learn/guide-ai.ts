@@ -5,7 +5,7 @@ import { logUsage } from "./usage-tracker";
 import { langName } from "./guide-languages";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-3-flash";
+const MODEL = "gemini-3-flash-preview";
 
 function genAI() {
   if (!API_KEY) throw new Error("GEMINI_API_KEY missing");

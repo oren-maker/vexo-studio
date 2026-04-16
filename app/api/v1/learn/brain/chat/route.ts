@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODELS = ["gemini-3-flash"];
+const MODELS = ["gemini-3-flash-preview", "gemini-flash-latest", "gemini-2.5-flash"];
 
 async function callGeminiWithFallback(system: string, history: any[]): Promise<{ reply: string; usage: any; model: string }> {
   let lastErr: any = null;

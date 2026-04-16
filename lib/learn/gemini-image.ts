@@ -7,7 +7,7 @@ import { prisma } from "./db";
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const MODEL = "gemini-2.5-flash-image";
-const TEXT_MODEL = "gemini-3-flash";
+const TEXT_MODEL = "gemini-3-flash-preview";
 
 // Based on the 6-layer image prompt framework (Subject → Action → Environment → Style → Lighting → Technical).
 // Word order matters: earlier layers dominate. Transform an arbitrary video prompt into a structured image prompt.

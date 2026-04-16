@@ -19,7 +19,7 @@ async function pickDailyTopic(): Promise<string> {
   const nodes = recentNodes.map((n) => `${n.title}: ${n.body?.slice(0, 60) || ""}`).slice(0, 15).join(" | ");
   const recent = recentSources.map((s) => s.title).filter(Boolean).join(" | ");
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${API_KEY}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },

@@ -8,8 +8,8 @@ import { logUsage } from "./usage-tracker";
 
 const API_KEY = process.env.GEMINI_API_KEY;
 // Use the lite model so we don't burn through Pro quota; fall back to flash if pro is busy
-const PRO_MODEL = "gemini-3-flash";
-const FALLBACK_MODEL = "gemini-3-flash";
+const PRO_MODEL = "gemini-3-flash-preview";
+const FALLBACK_MODEL = "gemini-3-flash-preview";
 
 const SYSTEM = `You are the meta-cognition layer of a self-improving AI video-prompt curation system called vexo-learn.
 

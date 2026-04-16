@@ -11,7 +11,7 @@ import { computeCorpusInsights } from "./corpus-insights";
 import { updateJob } from "./sync-jobs";
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-3-flash";
+const MODEL = "gemini-3-flash-preview";
 
 const SYSTEM = `You upgrade existing Seedance 2.0 / Sora video prompts so they meet the FULL cinematic prompt standard. English prompts only.
 

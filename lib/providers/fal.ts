@@ -239,8 +239,8 @@ export const FAL_PRICING_USD = {
   "vidu-q1":   { perSecond: 0.08 },
 
   // Text — Gemini 2.5 Flash via fal-ai/any-llm. Per 1M tokens (passthrough).
-  "gemini-3-flash": { perMillionInput: 0.075, perMillionOutput: 0.30 },
-  "gemini-3-flash":   { perMillionInput: 1.25,  perMillionOutput: 10.00 },
+  "gemini-3-flash-preview": { perMillionInput: 0.075, perMillionOutput: 0.30 },
+  "gemini-3-flash-preview":   { perMillionInput: 1.25,  perMillionOutput: 10.00 },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -258,14 +258,14 @@ const ANY_LLM_URL = `${FAL_RUN}/fal-ai/any-llm`;
 
 export async function chatGeminiViaFal(opts: {
   messages: { role: "system" | "user" | "assistant"; content: string }[];
-  model?: "gemini-3-flash" | "gemini-3-flash";
+  model?: "gemini-3-flash-preview" | "gemini-3-flash-preview";
   temperature?: number;
   maxTokens?: number;
   responseFormat?: "json" | "text";
   timeoutMs?: number;
 }): Promise<GeminiChatResult> {
-  const model = opts.model ?? "gemini-3-flash";
-  const falModel = model === "gemini-3-flash" ? "google/gemini-3-flash" : "google/gemini-3-flash";
+  const model = opts.model ?? "gemini-3-flash-preview";
+  const falModel = model === "gemini-3-flash-preview" ? "google/gemini-3-flash-preview" : "google/gemini-3-flash-preview";
 
   // any-llm wants a prompt + optional system_prompt + history
   const system = opts.messages.filter((m) => m.role === "system").map((m) => m.content).join("\n") || undefined;

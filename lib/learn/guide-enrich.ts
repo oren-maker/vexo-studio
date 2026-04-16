@@ -7,7 +7,7 @@ import { logUsage } from "./usage-tracker";
 import { langName } from "./guide-languages";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODELS = ["gemini-3-flash"];
+const MODELS = ["gemini-3-flash-preview", "gemini-flash-latest", "gemini-2.5-flash"];
 
 export type EnrichedStage = {
   type: "start" | "middle" | "end";

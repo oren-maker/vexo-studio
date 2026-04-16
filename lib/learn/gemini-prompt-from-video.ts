@@ -5,7 +5,7 @@ import path from "path";
 import os from "os";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-3-flash";
+const MODEL = "gemini-3-flash-preview";
 
 export type ExtractedFromVideo = {
   title: string;

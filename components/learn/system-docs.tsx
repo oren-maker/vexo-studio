@@ -169,7 +169,7 @@ export default function SystemDocs({ data }: { data: DocsData }) {
 └──────────────────────────┬──────────────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ LLM: Gemini 2.5 Flash (fallback: gemini-3-flash, 2.5-flash-lite)   │
+│ LLM: Gemini 2.5 Flash (fallback: gemini-3-flash-preview, 2.5-flash-lite)   │
 │ • Returns text reply                                                    │
 │ • Optionally embeds \`\`\`action { "type": "...", … } \`\`\` block            │
 └──────────────────────────┬──────────────────────────────────────────────┘

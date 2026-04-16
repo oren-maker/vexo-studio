@@ -41,7 +41,7 @@ export async function GET() {
 כתוב "מפת תודעה יומית" קצרה בעברית (3-5 משפטים): על מה שווה לשים לב, איזה מדדים עלו/ירדו, מה זה אומר על המערכת היום.`;
 
       try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${API_KEY}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${API_KEY}`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
@@ -53,7 +53,7 @@ export async function GET() {
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (text) summary = text;
         await logUsage({
-          model: "gemini-3-flash",
+          model: "gemini-3-flash-preview",
           operation: "insights-snapshot" as any,
           inputTokens: data.usageMetadata?.promptTokenCount || 0,
           outputTokens: data.usageMetadata?.candidatesTokenCount || 0,

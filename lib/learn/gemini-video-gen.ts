@@ -82,7 +82,7 @@ async function sanitizePromptForVeo(prompt: string): Promise<string> {
 
 Output ONLY the rewritten prompt as one flowing text, same language as input, same length. No prefix, no quotes, no commentary.`;
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${API_KEY}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },

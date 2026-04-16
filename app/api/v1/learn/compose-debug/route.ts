@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({
-    model: "gemini-3-flash",
+    model: "gemini-3-flash-preview",
     systemInstruction: `You output JSON only. Schema: { "prompt": "string", "rationale": "string" }`,
     generationConfig: { responseMimeType: "application/json", temperature: 0.8, maxOutputTokens: 4096 },
   });

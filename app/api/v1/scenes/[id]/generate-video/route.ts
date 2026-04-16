@@ -11,6 +11,7 @@ import { generateSoundNotes } from "@/lib/sound-notes";
 import { buildCharacterSheet, describeSheetLayout } from "@/lib/character-sheet";
 import { put as putBlob } from "@vercel/blob";
 import { handleError, ok } from "@/lib/route-utils";
+import { logUsage } from "@/lib/learn/usage-tracker";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
@@ -318,6 +319,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       await prisma.scene.update({ where: { id: scene.id }, data: { status: "STORYBOARD_REVIEW" } }).catch(() => {});
       throw Object.assign(new Error(`${provider! ?? "provider"} submit failed: ${(submitErr as Error).message}`), { statusCode: 502 });
     }
+
+    // Mirror to ApiUsage so /admin/wallets unified spend + /learn/tokens
+    // can include scene-side video generations (otherwise they show only on
+    // the provider wallet via CreditTransaction and the unified picture is split).
+    void logUsage({
+      model: displayModel,
+      operation: "video-gen",
+      videoSeconds: duration,
+      sourceId: scene.id,
+      meta: {
+        engine: provider === "openai" ? "openai-video" : provider === "google" ? "gemini-video" : "fal-video",
+        sceneId: scene.id,
+        episodeId: scene.episodeId,
+        seasonId: scene.episode?.seasonId,
+        title: scene.title || `Scene ${scene.sceneNumber}`,
+        purpose: "scene-video",
+        jobId,
+      },
+    }).catch(() => {});
 
     // Track pending provider-side jobs (Sora/Google) in scene.memoryContext —
     // the fal path writes through a webhook and doesn't need this; for Sora

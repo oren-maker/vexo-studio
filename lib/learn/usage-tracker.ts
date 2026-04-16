@@ -11,10 +11,16 @@ export const PRICING = {
     outputPer1M: 0.30,
     imagePer: 0,
   },
-  "gemini-3-flash-preview": {
+  "gemini-flash-latest": {
     engine: "gemini" as const,
-    inputPer1M: 0.30,
-    outputPer1M: 2.50,
+    inputPer1M: 0.075,
+    outputPer1M: 0.30,
+    imagePer: 0,
+  },
+  "gemini-2.5-flash": {
+    engine: "gemini" as const,
+    inputPer1M: 0.075,
+    outputPer1M: 0.30,
     imagePer: 0,
   },
   "gemini-2.5-flash-image": {
@@ -76,6 +82,23 @@ export const PRICING = {
     imagePer: 0,
     secondPerUsd: 0.40,
   },
+  // OpenAI Sora 2 — videos created via lib/learn/sora-video-gen.
+  // engine="openai-video" so the Wallets dashboard shows them under OpenAI,
+  // not lumped with Gemini.
+  "sora-2": {
+    engine: "openai-video" as const,
+    inputPer1M: 0,
+    outputPer1M: 0,
+    imagePer: 0,
+    secondPerUsd: 0.10,
+  },
+  "sora-2-pro": {
+    engine: "openai-video" as const,
+    inputPer1M: 0,
+    outputPer1M: 0,
+    imagePer: 0,
+    secondPerUsd: 0.30,
+  },
 } as const;
 
 export type ModelKey = keyof typeof PRICING;
@@ -83,12 +106,14 @@ export type Operation =
   | "compose"
   | "improve"
   | "video-analysis"
+  | "video-gen"
   | "image-gen"
   | "knowledge-extract"
   | "translate"
   | "reference-search"
   | "image-prompt-build"
-  | "brain-chat";
+  | "brain-chat"
+  | "insights-snapshot";
 
 export function calcCost(model: string, inputTokens: number, outputTokens: number, imagesOut: number, videoSeconds = 0): number {
   const p = (PRICING as any)[model];

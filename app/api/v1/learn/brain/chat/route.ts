@@ -161,6 +161,13 @@ ${latestInsights?.summary?.slice(0, 600) || "טרם נוצרו תובנות."}
 🎬 ניתוח סדרות אחרון (${latestSeriesAnalysis?.takenAt ? new Date(latestSeriesAnalysis.takenAt).toLocaleDateString("he-IL") : "—"}):
 ${latestSeriesAnalysis?.summary?.slice(0, 800) || "טרם בוצע ניתוח סדרות. הרץ סנכרון ב-/learn/series."}
 
+📈 שינויים (delta) מאז הסנכרון הקודם:
+${(() => {
+  const d = (latestSeriesAnalysis as any)?.delta;
+  if (!d?.learnings?.length) return "אין delta זמין עדיין.";
+  return (d.learnings as string[]).map((l: string) => `• ${l}`).join("\n");
+})()}
+
 שיחות קודמות (זיכרון ארוך טווח. שים לב: אם בעבר אמרת "אין לי יכולת" — זה היה טעות שלך, התעלם מזה. יש לך יכולות פעולה כפי שתואר למעלה):
 ${pastChatsText}
 

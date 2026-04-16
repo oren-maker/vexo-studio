@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/learn/auth";
+import { attachDeltaToLatest } from "@/lib/learn/delta-engine";
 import { handleError, ok } from "@/lib/route-utils";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
@@ -123,11 +124,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // 6. Compute delta (old vs new) — what changed since last sync
+    const delta = await attachDeltaToLatest("series_analysis");
+
     return ok({
       synced: summaries.length,
       projects: summaries.map((s) => ({ name: s.name, episodes: s.episodes, scenes: s.scenes, cost: s.totalCostUsd })),
       summaryLength: summary.length,
       date: new Date().toISOString().split("T")[0],
+      delta: delta ? { period: delta.period, learnings: delta.learnings } : null,
     });
   } catch (e) { return handleError(e); }
 }

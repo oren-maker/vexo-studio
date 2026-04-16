@@ -232,7 +232,7 @@ export default async function TokensPage() {
                 <tbody className="divide-y divide-slate-800">
                   {recent
                     .map((r) => ({ r, topic: topicFor(r), project: projectFor(r) }))
-                    .filter((x) => x.topic !== "—" || x.project !== "כללי")
+                    .filter((x) => x.topic !== "—") // hide every row we can't name
                     .map(({ r, topic, project }) => {
                     return (
                       <tr key={r.id} className={r.errored ? "bg-red-500/5" : ""}>

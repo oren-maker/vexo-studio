@@ -13,10 +13,17 @@ type Wallet = {
   lowBalanceThreshold: number | null; criticalBalanceThreshold: number | null;
 };
 type Tx = { id: string; transactionType: string; amount: number; unitType: string; description: string | null; createdAt: string };
+type LearningSummary = {
+  totals: { callCount: number; usdCost: number; inputTokens: number; outputTokens: number; imagesOut: number };
+  byEngine: Array<{ engine: string; callCount: number; usdCost: number; tokens: number; imagesOut: number }>;
+  byOperation: Array<{ operation: string; callCount: number; usdCost: number }>;
+  last7days: Array<{ day: string; usd: number; calls: number }>;
+};
 
 export default function BudgetsTokensPage() {
   const lang = useLang();
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [learning, setLearning] = useState<LearningSummary | null>(null);
   const [creatingProvider, setCreatingProvider] = useState(false);
   const [providerForm, setProviderForm] = useState({ name: "", category: "VIDEO", apiUrl: "", apiKey: "" });
   const [topup, setTopup] = useState<{ provider: Provider; mode: "add" | "reduce" } | null>(null);
@@ -25,6 +32,10 @@ export default function BudgetsTokensPage() {
   const [busySync, setBusySync] = useState<string | null>(null);
   const placeholderAmount = useTr("Amount");
   const placeholderNote = useTr("Note (optional)");
+
+  useEffect(() => {
+    api<LearningSummary>("/api/v1/learn/tokens-summary").then(setLearning).catch(() => {});
+  }, []);
 
   async function load() {
     try {
@@ -112,21 +123,70 @@ export default function BudgetsTokensPage() {
         const totalAdded = providers.reduce((s, p) => s + (p.wallet?.totalCreditsAdded ?? 0), 0);
         const totalAvail = providers.reduce((s, p) => s + (p.wallet?.availableCredits ?? 0), 0);
         const totalSpent = providers.reduce((s, p) => s + (p.totalSpent ?? 0), 0);
+        const learningSpent = learning?.totals.usdCost ?? 0;
+        const unifiedTotal = totalSpent + learningSpent;
         return (
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="bg-bg-main rounded-lg p-3 text-center">
-              <div className="text-[11px] text-text-muted uppercase tracking-wider">{lang === "he" ? "סך הכל הוטען" : "Total topped up"}</div>
-              <div className="text-2xl font-bold num mt-1">${totalAdded.toFixed(2)}</div>
+          <>
+            {/* Unified system spend (providers + learning) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="bg-bg-main rounded-lg p-3 text-center">
+                <div className="text-[11px] text-text-muted uppercase tracking-wider">{lang === "he" ? "סך הכל הוטען" : "Total topped up"}</div>
+                <div className="text-2xl font-bold num mt-1">${totalAdded.toFixed(2)}</div>
+              </div>
+              <div className="bg-status-okBg rounded-lg p-3 text-center">
+                <div className="text-[11px] text-status-okText uppercase tracking-wider">{lang === "he" ? "נשאר זמין" : "Remaining available"}</div>
+                <div className="text-2xl font-bold num mt-1 text-status-okText">${totalAvail.toFixed(2)}</div>
+              </div>
+              <div className="bg-status-errBg rounded-lg p-3 text-center">
+                <div className="text-[11px] text-status-errText uppercase tracking-wider">{lang === "he" ? "ספקים — בוזבז" : "Providers — spent"}</div>
+                <div className="text-2xl font-bold num mt-1 text-status-errText">−${totalSpent.toFixed(4)}</div>
+                <div className="text-[10px] text-text-muted mt-1">{lang === "he" ? "וידאו · תמונות · TTS" : "video · image · TTS"}</div>
+              </div>
+              <div className="bg-purple-500/10 rounded-lg p-3 text-center border border-purple-500/30">
+                <div className="text-[11px] text-purple-300 uppercase tracking-wider">{lang === "he" ? "למידה — בוזבז" : "Learning — spent"}</div>
+                <div className="text-2xl font-bold num mt-1 text-purple-300">−${learningSpent.toFixed(4)}</div>
+                <div className="text-[10px] text-text-muted mt-1">{learning?.totals.callCount ?? 0} {lang === "he" ? "קריאות" : "calls"}</div>
+              </div>
             </div>
-            <div className="bg-status-okBg rounded-lg p-3 text-center">
-              <div className="text-[11px] text-status-okText uppercase tracking-wider">{lang === "he" ? "נשאר זמין" : "Remaining available"}</div>
-              <div className="text-2xl font-bold num mt-1 text-status-okText">${totalAvail.toFixed(2)}</div>
+
+            {/* Unified total — single number for the whole system */}
+            <div className="bg-gradient-to-l from-cyan-500/10 to-purple-500/10 border border-cyan-500/30 rounded-lg p-4 mb-4 text-center">
+              <div className="text-[11px] text-cyan-300 uppercase tracking-wider font-semibold">{lang === "he" ? "סה״כ הוצאת מערכת מאוחדת (ספקים + למידה)" : "Unified system spend (providers + learning)"}</div>
+              <div className="text-4xl font-black num mt-2 text-white">−${unifiedTotal.toFixed(4)}</div>
+              <div className="text-xs text-text-muted mt-2">
+                {lang === "he" ? "ספקים" : "Providers"}: <span className="text-status-errText">${totalSpent.toFixed(4)}</span>
+                <span className="mx-2 text-slate-600">·</span>
+                {lang === "he" ? "למידה" : "Learning"}: <span className="text-purple-300">${learningSpent.toFixed(4)}</span>
+              </div>
             </div>
-            <div className="bg-status-errBg rounded-lg p-3 text-center">
-              <div className="text-[11px] text-status-errText uppercase tracking-wider">{lang === "he" ? "סך הכל בוזבז" : "Total spent"}</div>
-              <div className="text-2xl font-bold num mt-1 text-status-errText">−${totalSpent.toFixed(4)}</div>
-            </div>
-          </div>
+
+            {/* Learning breakdown — only if learning has data */}
+            {learning && learning.byEngine.length > 0 && (
+              <div className="bg-bg-main rounded-lg p-4 mb-4">
+                <div className="text-[11px] text-text-muted uppercase tracking-wider mb-3 font-semibold">
+                  💡 {lang === "he" ? "פירוט עלויות למידה (Gemini / Claude / nano-banana)" : "Learning costs breakdown"}
+                  {" "}— <a href="/learn/tokens" className="text-cyan-500 hover:underline">{lang === "he" ? "פתח דף תובנות" : "open detailed view"}</a>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {learning.byEngine
+                    .sort((a, b) => b.usdCost - a.usdCost)
+                    .map((e) => (
+                      <div key={e.engine} className="bg-white rounded p-2 border border-bg-main">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold capitalize">{e.engine.replace("-", " ")}</span>
+                          <span className="text-sm font-bold text-purple-600 num">${e.usdCost.toFixed(4)}</span>
+                        </div>
+                        <div className="text-[10px] text-text-muted mt-0.5">
+                          {e.callCount} {lang === "he" ? "קריאות" : "calls"}
+                          {e.tokens > 0 && ` · ${(e.tokens / 1000).toFixed(0)}K tokens`}
+                          {e.imagesOut > 0 && ` · ${e.imagesOut} ${lang === "he" ? "תמונות" : "imgs"}`}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </>
         );
       })()}
 

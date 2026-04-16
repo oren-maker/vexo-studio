@@ -635,14 +635,16 @@ export default function ScenePage() {
             <div className="text-text-muted text-sm">{he ? "אין ביקורות עדיין." : "No reviews yet."}</div>
           ) : (
             <ul className="space-y-3">
-              {scene.criticReviews.map((r) => (
+              {scene.criticReviews.map((r) => {
+                const typeMap: Record<string, string> = { NARRATIVE: "עלילה", CONTINUITY: "רצף", THUMBNAIL: "תמונת מפתח", DIALOGUE: "דיאלוג", VISUAL: "ויזואלי" };
+                return (
                 <li key={r.id} className="text-sm">
                   <div className="flex justify-between mb-1">
-                    <span className="font-semibold">{r.contentType}</span>
+                    <span className="font-semibold" data-no-translate>{he ? (typeMap[r.contentType] ?? r.contentType) : r.contentType}</span>
                     <span className="num font-bold" style={{ color: r.score > 0.7 ? "#1db868" : r.score > 0.4 ? "#f0a500" : "#e03a4e" }}>{(r.score * 100).toFixed(0)}%</span>
                   </div>
-                  <div className="text-text-secondary text-xs">{r.feedback ?? "—"}</div>
-                </li>
+                  <div className="text-text-secondary text-xs" data-no-translate>{r.feedback ?? "—"}</div>
+                </li>);
               ))}
             </ul>
           )}

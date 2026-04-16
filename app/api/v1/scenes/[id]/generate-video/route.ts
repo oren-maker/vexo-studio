@@ -6,6 +6,7 @@ import { CostStrategy } from "@/lib/services";
 import { submitVideo, type VideoModel } from "@/lib/providers/fal";
 import { submitSoraVideo, type SoraModel, type SoraSeconds } from "@/lib/providers/openai-sora";
 import { submitVeoVideo, type GoogleVeoModel } from "@/lib/providers/google-veo";
+import { submitHiggsVideo, priceHiggs } from "@/lib/providers/higgsfield";
 import { fetchReferencePrompts, buildReferenceContext } from "@/lib/providers/vexo-learn";
 import { generateSoundNotes } from "@/lib/sound-notes";
 import { buildCharacterSheet, describeSheetLayout } from "@/lib/character-sheet";
@@ -24,6 +25,7 @@ const Body = z.object({
     "google-veo-3.1-fast-generate-preview",
     "google-veo-3.1-generate-preview",
     "google-veo-3.1-lite-generate-preview",
+    "higgsfield", "higgs-seedance", "higgs-kling", "higgs-wan",
   ]).default("sora-2"),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).default("16:9"),
   durationSeconds: z.number().int().min(1).max(20).default(20),
@@ -237,10 +239,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const modelKey = body.videoModel ?? "veo3-fast";
     const isSora = modelKey === "sora-2" || modelKey === "sora-2-pro";
     const isGoogleVeo = modelKey.startsWith("google-veo-");
-    const isFal = !isSora && !isGoogleVeo;
+    const isHiggs = modelKey === "higgsfield" || modelKey.startsWith("higgs-");
+    const isFal = !isSora && !isGoogleVeo && !isHiggs;
 
     let jobId: string;
-    let provider: "fal" | "openai" | "google";
+    let provider: "fal" | "openai" | "google" | "higgsfield";
     let displayModel: string;
 
     // Shared character-sheet logic — every video model has trouble juggling
@@ -326,6 +329,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           referenceImageUrls: veoRefs,
         });
         jobId = s.operationName; provider = "google"; displayModel = veoModel;
+      } else if (isHiggs) {
+        const higgsModel = modelKey === "higgs-seedance" ? "seedance-2.0"
+          : modelKey === "higgs-kling" ? "kling-3.0"
+          : modelKey === "higgs-wan" ? "wan-2.5"
+          : "higgsfield-default";
+        const higgsPrompt = identityClause ? `${identityClause}\n\n${prompt}` : prompt;
+        const s = await submitHiggsVideo({
+          prompt: higgsPrompt,
+          model: higgsModel as any,
+          durationSeconds: duration,
+          aspectRatio: (body.aspectRatio ?? "16:9") as "16:9" | "9:16" | "1:1",
+          imageUrl: firstFrameImg ?? sheetCast[0]?.portraitUrl ?? undefined,
+        });
+        jobId = s.id; provider = "higgsfield"; displayModel = `higgs:${higgsModel}`;
       } else {
         const falPrompt = identityClause ? `${identityClause}\n\n${prompt}` : prompt;
         // Same logic for fal — composite when available, else individual portraits.
@@ -402,14 +419,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // only ApiUsage was written — the UI reads CostEntry.
     const videoCostUsd = isSora
       ? priceSora(displayModel as SoraModelType, duration)
-      : 0; // fal/VEO cost is stamped via webhook; Sora has no webhook
+      : isHiggs
+        ? priceHiggs(displayModel.replace("higgs:", ""), duration)
+        : 0; // fal/VEO cost is stamped via webhook
     if (videoCostUsd > 0) {
       await chargeUsd({
         organizationId: ctx.organizationId,
         projectId,
         entityType: "SCENE",
         entityId: scene.id,
-        providerName: "OpenAI",
+        providerName: isHiggs ? "Higgsfield" : "OpenAI",
         category: "GENERATION",
         description: `Scene video · ${displayModel} · ${duration}s`,
         unitCost: videoCostUsd,

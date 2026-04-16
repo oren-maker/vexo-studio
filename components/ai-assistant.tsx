@@ -73,7 +73,25 @@ export function AiAssistant() {
     api<{ chat?: { messages?: { id: string; role: string; content: string }[] } }>(`/api/v1/learn/brain/chats/${chatId}`)
       .then((r) => {
         const msgs = r.chat?.messages ?? [];
-        if (msgs.length > 0) setMessages(msgs.map((m) => ({ id: m.id, role: m.role === "user" ? "user" : "director", content: m.content })));
+        if (msgs.length > 0) {
+          setMessages(msgs.map((m) => {
+            if (m.role === "user") return { id: m.id, role: "user" as const, content: m.content };
+            // Parse action block from brain message so the button renders
+            const actionMatch = m.content.match(/```action\s*([\s\S]*?)```/);
+            let action: { type: string; [k: string]: unknown } | null = null;
+            let cleanContent = m.content;
+            if (actionMatch) {
+              try {
+                const parsed = JSON.parse(actionMatch[1].trim()) as { type?: string; [k: string]: unknown };
+                if (parsed && typeof parsed.type === "string" && VALID_ACTION_TYPES.has(parsed.type)) {
+                  action = parsed as { type: string; [k: string]: unknown };
+                }
+              } catch {}
+              cleanContent = m.content.replace(/```action[\s\S]*?```/, "").trim();
+            }
+            return { id: m.id, role: "director" as const, content: cleanContent || "(אין תגובה)", action };
+          }));
+        }
       })
       .catch(() => {});
   }, [chatId]);

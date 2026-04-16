@@ -238,42 +238,42 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     let provider: "fal" | "openai" | "google";
     let displayModel: string;
 
+    // Shared character-sheet logic — every video model has trouble juggling
+    // 5 separate character portraits, so when 2+ characters appear in the
+    // scene we pre-compose them into a single 1280x720 reference image and
+    // describe the layout in the prompt. Sora, Google VEO, and fal all use
+    // this same pre-baked sheet.
+    const sheetCast = inScene
+      .map((c) => {
+        const front = c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0];
+        return front?.fileUrl ? { name: c.name, portraitUrl: front.fileUrl } : null;
+      })
+      .filter((x): x is { name: string; portraitUrl: string } => !!x);
+
+    let compositeSheetUrl: string | null = null;
+    let identityClause = "";
+    if (sheetCast.length >= 2) {
+      try {
+        const sheetBuf = await buildCharacterSheet(sheetCast);
+        const blob = await putBlob(`character-sheets/${scene.id}-${Date.now()}.jpg`, sheetBuf, {
+          access: "public", contentType: "image/jpeg", addRandomSuffix: true,
+        });
+        compositeSheetUrl = blob.url;
+        identityClause = describeSheetLayout(sheetCast);
+      } catch (e) {
+        console.warn("[character-sheet] build failed, falling back to single portraits:", (e as Error).message);
+      }
+    } else if (sheetCast.length === 1) {
+      identityClause = describeSheetLayout(sheetCast);
+    }
+
     try {
       if (isSora) {
         // Bucket onto the Sora API enum (4/8/12/16/20). Anything over 20s
         // would need Storyboard chaining, which is Web-only — we cap here.
         const sec: SoraSeconds = duration <= 5 ? "4" : duration <= 9 ? "8" : duration <= 13 ? "12" : duration <= 17 ? "16" : "20";
         const size = body.aspectRatio === "9:16" ? "720x1280" : "1280x720";
-        // Build a composite character sheet whenever 2+ scene characters have
-        // portraits — Sora gets ALL identities locked in one reference image
-        // and the prompt tells it who is where. For 1 char (or none) fall back
-        // to the single portrait → storyboard frame chain.
-        let soraSeed: string | undefined;
-        let identityClause = "";
-        const sheetCast = inScene
-          .map((c) => {
-            const front = c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0];
-            return front?.fileUrl ? { name: c.name, portraitUrl: front.fileUrl } : null;
-          })
-          .filter((x): x is { name: string; portraitUrl: string } => !!x);
-
-        if (sheetCast.length >= 2) {
-          try {
-            const sheetBuf = await buildCharacterSheet(sheetCast);
-            const blob = await putBlob(`character-sheets/${scene.id}-${Date.now()}.jpg`, sheetBuf, {
-              access: "public", contentType: "image/jpeg", addRandomSuffix: true,
-            });
-            soraSeed = blob.url;
-            identityClause = describeSheetLayout(sheetCast);
-          } catch (e) {
-            console.warn("[character-sheet] build failed, falling back to single portrait:", (e as Error).message);
-            soraSeed = sheetCast[0].portraitUrl;
-          }
-        } else {
-          soraSeed = sheetCast[0]?.portraitUrl ?? characterRefImgs[0] ?? firstFrameImg ?? undefined;
-          if (sheetCast.length === 1) identityClause = describeSheetLayout(sheetCast);
-        }
-
+        const soraSeed = compositeSheetUrl ?? sheetCast[0]?.portraitUrl ?? characterRefImgs[0] ?? firstFrameImg ?? undefined;
         const soraPrompt = identityClause ? `${identityClause}\n\n${prompt}` : prompt;
         const s = await submitSoraVideo({
           prompt: soraPrompt, model: modelKey as SoraModel, seconds: sec, size,
@@ -282,24 +282,35 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         jobId = s.id; provider = "openai"; displayModel = modelKey;
       } else if (isGoogleVeo) {
         const veoModel = modelKey.replace(/^google-/, "") as GoogleVeoModel;
+        const veoPrompt = identityClause ? `${identityClause}\n\n${prompt}`.slice(0, 1000) : prompt.slice(0, 1000);
+        // If we built a composite sheet, send it as the SOLE reference (1 image
+        // with N faces beats N images of 1 face each). Else fall back to up
+        // to 3 individual portraits.
+        const veoRefs = compositeSheetUrl ? [compositeSheetUrl] : characterRefImgs.slice(0, 3);
         const s = await submitVeoVideo({
-          prompt: prompt.slice(0, 1000),
+          prompt: veoPrompt,
           model: veoModel,
           durationSeconds: duration,
           aspectRatio: (body.aspectRatio ?? "16:9") as "16:9" | "9:16" | "1:1",
-          imageUrl: firstFrameImg ?? undefined,
-          referenceImageUrls: characterRefImgs.slice(0, 3),
+          imageUrl: firstFrameImg ?? compositeSheetUrl ?? undefined,
+          referenceImageUrls: veoRefs,
         });
         jobId = s.operationName; provider = "google"; displayModel = veoModel;
       } else {
+        const falPrompt = identityClause ? `${identityClause}\n\n${prompt}` : prompt;
+        // Same logic for fal — composite when available, else individual portraits.
+        // vidu-q1 is the exception: it actually accepts 7 separate refs cleanly.
+        const falRefs = compositeSheetUrl
+          ? [compositeSheetUrl]
+          : (modelKey === "vidu-q1" ? characterRefImgs.slice(0, 7) : characterRefImgs.slice(0, 3));
         const s = await submitVideo({
-          prompt,
+          prompt: falPrompt,
           model: modelKey as VideoModel,
           durationSeconds: duration,
           aspectRatio: body.aspectRatio,
           webhookUrl,
-          imageUrl: firstFrameImg ?? undefined,
-          referenceImageUrls: modelKey === "vidu-q1" ? characterRefImgs.slice(0, 7) : characterRefImgs.slice(0, 3),
+          imageUrl: firstFrameImg ?? compositeSheetUrl ?? undefined,
+          referenceImageUrls: falRefs,
         });
         jobId = s.requestId; provider = "fal"; displayModel = s.model;
       }

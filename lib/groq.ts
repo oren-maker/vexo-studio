@@ -136,7 +136,7 @@ async function callGroq(messages: ChatMessage[], opts: AiOptions): Promise<strin
     model: opts.model ?? GROQ_MODEL,
     messages,
     temperature: opts.temperature ?? 0.7,
-    max_tokens: opts.maxTokens ?? 1024,
+    max_tokens: opts.maxTokens ?? 512,
   };
   if (opts.responseFormat === "json") body.response_format = { type: "json_object" };
   const ctl = new AbortController();

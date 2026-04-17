@@ -187,7 +187,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
       const epChars = await prisma.episodeCharacter.findMany({
         where: { episodeId: scene.episodeId ?? "__none__" },
-        include: { character: { include: { media: { take: 1, orderBy: { createdAt: "asc" } } } } },
+        include: { character: { include: { media: { take: 1, orderBy: { createdAt: "asc" }, select: { id: true, fileUrl: true, mediaType: true } } } } },
       });
 
       const candidateNames = new Set<string>([
@@ -198,7 +198,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
       const all = await prisma.character.findMany({
         where: { projectId },
-        include: { media: { take: 1, orderBy: { createdAt: "asc" } } },
+        include: { media: { take: 1, orderBy: { createdAt: "asc" }, select: { id: true, fileUrl: true, mediaType: true } } },
       });
       const matched = all.filter((c) => {
         const n = c.name.toLowerCase().trim();

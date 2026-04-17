@@ -72,12 +72,22 @@ async function extractLastFramesToBlob(opts: {
       for (const w of windows) {
         const out = path.join(os.tmpdir(), `approve-${ts}-${w.label}.jpg`);
         // -sseof -W.start seeks to W.start seconds before end.
-        // `thumbnail=30` samples 30 keyframes in the ~1s window and
-        // picks the sharpest. `unsharp` compensates for Sora softness.
-        execSync(
-          `"${ffmpegBin}" -sseof -${w.start} -skip_frame nokey -i "${tmp}" -vf "thumbnail=30,unsharp=5:5:1.5:5:5:0" -frames:v 1 -q:v 1 "${out}" -y`,
-          { stdio: ["ignore", "ignore", "pipe"] },
-        );
+        // First try keyframe-only (sharpest, no motion blur). If that
+        // window has no keyframe (can happen near clip end for some
+        // encoders), retry without the filter so we always get a frame.
+        try {
+          execSync(
+            `"${ffmpegBin}" -sseof -${w.start} -skip_frame nokey -i "${tmp}" -vf "thumbnail=30,unsharp=5:5:1.5:5:5:0" -frames:v 1 -q:v 1 "${out}" -y`,
+            { stdio: ["ignore", "ignore", "pipe"] },
+          );
+          await fs.access(out);
+        } catch {
+          execSync(
+            `"${ffmpegBin}" -sseof -${w.start} -i "${tmp}" -vf "unsharp=5:5:1.5:5:5:0" -frames:v 1 -q:v 1 "${out}" -y`,
+            { stdio: ["ignore", "ignore", "pipe"] },
+          );
+          await fs.access(out);
+        }
         framePaths.push(out);
       }
     } catch (e: any) {

@@ -1,0 +1,423 @@
+[
+  {
+    "id": "cmo2a2phj0001g5qgcw3xljv8",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 1,
+    "title": "Dawn Descent",
+    "summary": "מבט מהאוויר יורד אל בית בפרברים בשעת דמדומים, המצלמה חודרת פנימה עד למפגש עם מאיה מול המראה.",
+    "scriptText": "1. Visual Style: Photorealistic live-action, 35mm film grain, cinematic psychological thriller, shallow depth of field. 2. Lens & Camera: Opening with a high-altitude aerial drone descent, transitioning into a smooth stabilized tracking shot through a window. 3. Lighting: Early dawn 'blue hour' light, cold and desaturated, with soft interior tungsten lamps. 4. Color Palette: Steely blues, muted greys, and pale amber. 5. Character: Maya Ellis, 33, olive skin, subtle freckles, sharp jawline, dark brown wavy hair in a messy bun, wearing a charcoal oversized silk robe. 6. Environment: A quiet suburban house exterior transitioning to a dimly lit hallway and a sterile, white-tiled bathroom. 7. Audio: Low-frequency cello drone (60 BPM, melancholic). A gravelly narrator voice reads 'Season One, Episode One'. Foley includes distant wind, the hum of a refrigerator, and the soft padding of bare feet on wood. 8. Timeline: 0-3s: Aerial view with white serif text 'SEASON 1 · EPISODE 1' centered. 3-10s: Rapid descent and entry through the second-floor window. 10-15s: Moving through the dark hallway. 15-18s: Maya stares into the bathroom mirror, her expression vacant. 18-20s: Maya reaches out to touch the cold glass. The camera focuses on her fingertip contact. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "VIDEO_REVIEW",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא דרון צ'לו בתדר נמוך (60 BPM), מלנכולי, הנמשך לאורך כל הסצנה, ומעביר אווירה של עצב ומתח. המוזיקה נכנסת בשנייה 0 ובונה את האווירה עד לסוף הסצנה.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 0-3s: רוח רחוקה\n* 3-5s: המהמה של מקרר\n* 5-8s: צעדי רגליים יחפות על רצפת עץ\n* 8-10s: צליל מים נוטפים מקרני מים\n\n🌫 אמביינס/רעש סביבה: \n* רוח רחוקה בעוצמה נמוכה (20%) בצד שמאל\n* המהמה של מקרר בעוצמה נמוכה (15%) בצד ימין\n* צליל רקע של בית שקט (10%) במרכז\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* קריין: \"עונה 1 · פרק 1\" (0-3s) - קול גרוני, רגוע\n* שאיפותיה של מאיה (8-10s) - שאיפות רדודות, קצביות\n\n🎚 מעברי סאונד וצמצומים (Mix moves): \n* 0-3s: המוזיקה והאמביינס נכנסים במקביל\n* 3-5s: האמביינס מתחיל להיעלם והמוזיקה מתחילה לתפוס את המרכז\n* 8-10s: המוזיקה והאמביינס מתמזגים יחד עם שאיפותיה של מאיה\n\n⚡ רגעים מיוחדים: \n* 8s: צליל מים נוטפים מקרני מים - רגע של מתח ו",
+      "directorSheet": {
+        "audio": "Low-frequency drone ambience with the faint sound of wind, transitioning to the rhythmic, sharp sound of a dripping faucet and Maya's shallow, rhythmic breathing. No dialogue.",
+        "scene": "A quiet suburban exterior at dawn transitioning into a dimly lit hallway and a sterile, white-tiled bathroom. Lighting is a mix of cold natural dawn light and soft, warm tungsten interior lamps creating high-contrast shadows.",
+        "shots": "[00:00-00:04] — High-altitude aerial drone descent over a silent suburban neighborhood during the blue hour. [00:04-00:08] — Smooth stabilized tracking shot pushing through a second-story window into a dark hallway. [00:08-00:12] — Close-up on Maya Ellis in the bathroom mirror, her expression weary and professional yet deeply suspicious.",
+        "style": "Cold, desaturated 'blue hour' palette with 35mm film grain and shallow depth of field to evoke a sense of sterile paranoia. The visual signature emphasizes steely blues and muted greys, reflecting Maya's internal isolation and the series' theme of identity erosion.",
+        "camera": "A continuous, fluid descent from a wide aerial to a tight, intimate close-up to create a sense of being watched or 'zoomed in' on by an external force.",
+        "effects": "Subtle lens flares from the tungsten lamps and a slight handheld shake once the camera enters the bathroom to heighten the psychological tension.",
+        "character": "Maya Ellis (33): Olive skin, subtle freckles, sharp jawline, dark brown wavy hair in a messy bun, wearing a charcoal oversized silk robe. She appears weary and unsettled, staring into her reflection as if searching for a truth that has been edited away.",
+        "technical": "2.39:1 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for Maya Ellis across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:17:34.325Z"
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:21.029Z",
+    "updatedAt": "2026-04-17T02:32:48.218Z"
+  },
+  {
+    "id": "cmo2a2pra0003g5qgfw2kqd6b",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 2,
+    "title": "The Forgotten Photo",
+    "summary": "מאיה מוצאת תמונה ישנה במגירה שמעוררת בה זיכרון מודחק ותחושת זרות.",
+    "scriptText": "1. Visual Style: Intimate realism, handheld camera movement for a sense of unease. 2. Lens & Camera: 50mm prime lens, tight close-up on Maya's hands and face. 3. Lighting: Natural morning light filtering through linen curtains, creating sharp shadows. 4. Color Palette: Warm beige, charcoal, and a sudden pop of aged sepia from a photograph. 5. Character: Maya Ellis, 33, olive skin, messy bun, charcoal robe, looking weary. 6. Environment: A cluttered bedroom with a mahogany dresser. 7. Audio: Atmospheric synth pad (70 BPM, unsettling). Foley: The sliding sound of a wooden drawer, the crisp rustle of paper, and Maya’s sharp intake of breath. 8. Timeline: 0-2s: Carrying over the touch from the previous scene, Maya pulls her hand back from the dresser. 2-8s: She opens the top drawer, searching for a watch but finding a hidden envelope. 8-15s: She pulls out a sepia photo of herself as a child, but the background is a laboratory she doesn't remember. 15-18s: Her hands begin to tremble. 18-20s: Close-up on her dilated pupils reflecting the photo. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "VIDEO_REVIEW",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: \nהמוזיקה היא פאד סינתטי אטמוספירי (70 BPM) המעביר אווירה מעוררת ולא נוחה. המוזיקה נכנסת בתחילת הסצנה (0-2s) ובונה לאורך הסצנה, עם שיא ברגע שמאיה מוצאת את התמונה (8-15s). המוזיקה מעבירה תחושת זרות ואי-נוחות.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 2-8s: קול הדלתות העץ נפתחות\n* 4-6s: קול נייר מרוכך\n* 8-10s: קול מאיה נושמת פתאום\n* 15-18s: קול ידי מאיה מרטטות\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע עמום של תנועה מחוץ לחדר (20% מהווליום)\n* זמזום עמום של פלואורסצנט (60Hz, 15% מהווליום)\n* רעש רוח חלש דרך החלון (10% מהווליום)\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* מאיה: \"מה זה?\" (15-18s, קול רך ומבוהל)\n* מאיה: \"איפה צולמתי?\" (18-20s, קול שבור ומלא פחד)\n\n🎚 מעברי סאונד וצמצומים (Mix moves): \n* 8-10s: המוזיקה דועכת כדי לאפשר לקולות הפולי להישמע בבירור\n* 15-18s: המוזיקה בונה לאורך עם קולות הפולי\n\n⚡ רגעים מיוחדים: \n* 8-10s: קול מאיה נושמת פתאום, מפתיע את הצופה\n* 15-18s: קול ידי מ",
+      "directorSheet": {
+        "audio": "Unsettling 70 BPM synth pad. Foreground SFX: the heavy slide of a wooden drawer, the crisp rustle of old paper, and Maya’s sharp, audible intake of breath.",
+        "scene": "A cluttered bedroom featuring a mahogany dresser in the midground. Natural light filters through linen curtains, illuminating dust motes and the textured surface of the wooden drawer.",
+        "shots": "[00:00-00:02] — Close-up on Maya's hands as they slide open the heavy mahogany drawer with a tactile wooden friction. [00:02-00:04] — Tight close-up on Maya's face as her weary expression shifts to shock. [00:04-00:06] — Extreme close-up on the aged sepia photograph resting among modern items.",
+        "style": "Intimate realism with a paranoid edge. High-contrast natural morning light creates sharp shadows against a warm beige and charcoal palette, shifting to aged sepia when the photo is revealed.",
+        "camera": "Handheld 50mm prime lens to create a sense of organic unease, tightening into a claustrophobic close-up as Maya reacts to the photo.",
+        "effects": "Subtle dust motes dancing in the light beams; slight motion blur on the hand movement to emphasize the frantic nature of the discovery.",
+        "character": "Maya Ellis (33, olive skin, messy bun, charcoal robe, weary eyes). She appears physically drained and emotionally vulnerable as she transitions from routine searching to sudden, sharp realization.",
+        "technical": "16:9 aspect ratio, 6 seconds total, 24fps. Lock identity to the reference images for Maya Ellis across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:18:10.489Z"
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:21.382Z",
+    "updatedAt": "2026-04-17T02:33:19.462Z"
+  },
+  {
+    "id": "cmo2a2pvt0005g5qgikpaa1k2",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 3,
+    "title": "Newsroom Secrets",
+    "summary": "מאיה מגיעה למערכת העיתון ופוגשת את איתן קים, שמבחין במצוקתה.",
+    "scriptText": "1. Visual Style: High-contrast professional setting, fast-paced editing. 2. Lens & Camera: Wide-angle lens to capture the scale of the newsroom, moving into an Over-The-Shoulder (OTS) shot. 3. Lighting: Harsh overhead fluorescent office lights, cool-toned. 4. Color Palette: Navy blues, corporate whites, and industrial greys. 5. Character: Maya Ellis in a navy blazer, hair still in a bun but more polished. Dr. Ethan Kim, 50s, intelligent, slightly disheveled in a corduroy jacket. 6. Environment: A bustling modern newsroom with digital screens and glass partitions. 7. Audio: Busy newsroom ambience (Walla), clicking keyboards, muffled phones. Score: Rhythmic electronic pulse (110 BPM, urgent). 8. Timeline: 0-2s: Maya walks through the glass doors, the reflection of the photo still in her mind. 2-10s: She navigates the desks, avoiding eye contact. 10-15s: Ethan Kim stops her, placing a hand on her shoulder. 15-18s: Ethan whispers, 'You look like you've seen a ghost.' 18-20s: Maya stares at him, her blazer sleeve catching the light as she grips her bag. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "VIDEO_REVIEW",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis",
+        "Dr. Ethan Kim"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא פולס אלקטרוני קצבי (110 BPM, דחוף) המורכב מפסנתר, צ'לו וסינתיסייזר בס. המוזיקה נכנסת בשנייה 0, ובונה עצמה בהדרגה עד לשנייה 10, שם היא מגיעה לשיא. המוזיקה מעבירה תחושת מתח ודחיפות, ומשקפת את מצוקתה של מאיה.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 0s: צעדים על רצפת העיתון (משטח קשה)\n* 2s: דלת זכוכית נפתחת (נפתחת בקלות)\n* 5s: לחיצות על מקלדות (מהירות ורצופות)\n* 10s: טלפון מושתק (צליל דממה)\n* 12s: נייר מוחלף (רעש קל)\n* 15s: יד נוגעת בכתף (רעש קל)\n* 18s: שפתיים נושמות (רעש נשימה)\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע של חדר עיתון (40dB, פנים): מחשבים, מקלדות, וקולות מרוחקים\n* רעש תנועה של אנשים (30dB, פנים): הליכה, דיבור, ותנועות קלות\n* רעש אורות פלואורסצנט (20dB, פנים): זוהר קבוע\n* רעש מכונות (10dB, פנים): הדפסה, סריקה, ותנועות מכונות קלות\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* מאיה: \"...\" (שתיקה, 10s)\n* איתן: \"את לא נראית טוב\" (לחש, 15s,",
+      "directorSheet": {
+        "audio": "Layered newsroom walla with clicking keyboards and muffled phones. A rhythmic electronic pulse at 110 BPM drives the tension. Dialogue between Maya and Ethan is crisp and dry.",
+        "scene": "A bustling modern newsroom under harsh, cool-toned overhead fluorescent lighting. Foreground features glass partitions and glowing digital screens, midground contains active workstations, and background shows a sprawling, sterile office floor.",
+        "shots": "[00:00-00:03] — Wide-angle establishing shot of the high-scale newsroom as Maya enters, looking overwhelmed. [00:03-00:06] — Mid-shot of Maya walking past glass partitions, her reflection flickering. [00:06-00:09] — Over-the-shoulder (OTS) shot from Maya's perspective as she approaches Ethan Kim. [00:09-00:12] — Tight close-up on Maya's face as Ethan notices her distress, capturing her weary eyes.",
+        "style": "Sterile, high-contrast corporate aesthetic with a paranoid edge. Cold navy and industrial grey palette with sharp digital clarity to reflect the theme of corporate gaslighting and the erosion of truth.",
+        "camera": "Wide-angle lens for scale transitioning into a tight, handheld OTS shot to heighten the sense of claustrophobia and personal intrusion during the encounter.",
+        "effects": "Subtle digital jitter on the background screens to suggest the instability of the environment; otherwise none.",
+        "character": "Maya Ellis: Understated, professional, weary eyes, wearing a navy blazer with her hair in a polished bun; she appears visibly distressed and on edge. Dr. Ethan Kim: 50s, intelligent, slightly disheveled in a corduroy jacket; he projects a calm but observant and suspicious demeanor.",
+        "technical": "16:9 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:18:33.400Z"
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:21.545Z",
+    "updatedAt": "2026-04-17T02:35:00.481Z"
+  },
+  {
+    "id": "cmo2a2q0c0007g5qgkj6wyius",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 4,
+    "title": "Archive Anomalies",
+    "summary": "מאיה מחטטת בארכיון העיתון ומגלה קובץ אישי שמעורר סימני שאלה לגבי זהותה.",
+    "scriptText": "1. Visual Style: Moody, film noir influence, high shadows. 2. Lens & Camera: Macro lens for text details, slow dolly-in on Maya's face. 3. Lighting: Single desk lamp providing a pool of warm light in a dark room. 4. Color Palette: Deep blacks, mustard yellows, and paper ivory. 5. Character: Maya Ellis, navy blazer, hair starting to fray from the bun, sweat on her forehead. 6. Environment: A basement archive filled with floor-to-ceiling filing cabinets. 7. Audio: Score: Suspenseful strings (80 BPM, rising tension). Foley: Heavy metal drawer sliding, the rhythmic flip of manila folders, and the hum of an old computer monitor. 8. Timeline: 0-2s: Picking up from the grip on her bag, she pulls a folder labeled 'PROJECT ECHO'. 2-12s: She flips through documents, finding a medical report with her name but a different birthdate. 12-18s: She finds a photo of another woman who looks identical to her. 18-20s: Maya drops the folder, the papers scattering on the floor. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "VIDEO_GENERATING",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: \nהמוזיקה היא מוזיקת מתח מלודית עם כלים כגון כינור, צ'לו ובס סינתטי. ה-BPM עומד על 80, עם עלייה הדרגתית במתח. המוזיקה נכנסת בשנייה 0, ובונה מתח עד שנייה 12, אז היא מגיעה לשיא. המוזיקה מעבירה תחושה של חרדה וסקרנות, ומלווה את מאיה בחיפושה בארכיון.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 0-2s: צליל זרימת הידית של התיק\n* 2-12s: צליל גלישת הדרוור המטאלי, צליל קפיצת התיקים, וצליל ההדרן של המסך\n* 12-18s: צליל עליית הניירות\n* 18-20s: צליל נפילת התיק, וצליל הניירות המתפזרים על הרצפה\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע של מסך י",
+      "directorSheet": {
+        "audio": "Suspenseful strings at 80 BPM rising in tension; foley includes the heavy metallic slide of the drawer, the crisp snap of folders, and a low-frequency electrical hum. No dialogue, only Maya's sharp, shallow breathing.",
+        "scene": "A dark basement archive with floor-to-ceiling filing cabinets. A single desk lamp creates a pool of warm light on a desk in the midground, while the background remains swallowed in heavy shadow.",
+        "shots": "[00:00-00:03] — Close-up on Maya's hands as she pulls a heavy metal drawer open and begins the rhythmic flip of manila folders. [00:03-00:06] — Macro lens detail of text on a personal file that causes Maya to freeze. [00:06-00:09] — Slow dolly-in on Maya's face as she stares at the file, the desk lamp highlighting the sweat on her brow.",
+        "style": "High-contrast film noir aesthetic with a sterile, paranoid edge. The palette is dominated by deep blacks and mustard yellows, utilizing a shallow depth of field to emphasize Maya's isolation and the claustrophobic weight of the archives.",
+        "camera": "Macro lens for tactile paper details transitioning to a slow, tension-building dolly-in on Maya's face to capture her internal realization.",
+        "effects": "Subtle dust motes dancing in the beam of the desk lamp; slight screen flicker from an old computer monitor in the background.",
+        "character": "Maya Ellis: Understated and professional, wearing a navy blazer with her dark hair starting to fray from its bun. She has weary eyes and visible sweat on her forehead, projecting a state of mounting anxiety and desperate focus as she uncovers the file.",
+        "technical": "2.39:1 aspect ratio, 9 seconds total, 24fps. Lock identity to the reference images for Maya Ellis across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:18:50.105Z"
+      },
+      "pendingVideoJob": {
+        "jobId": "video_69e19a8ca10881918b0c855752124e23022cf008027ad169",
+        "model": "sora-2",
+        "provider": "openai",
+        "submittedAt": "2026-04-17T02:27:24.996Z",
+        "durationSeconds": 20
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:21.708Z",
+    "updatedAt": "2026-04-17T02:27:24.997Z"
+  },
+  {
+    "id": "cmo2a2q4t0009g5qg34m31oyg",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 5,
+    "title": "The Agent's Visit",
+    "summary": "הסוכנת רייצ'ל מורס מופיעה במפתיע ומנסה להפחיד את מאיה.",
+    "scriptText": "1. Visual Style: Sharp, sterile, intimidating. 2. Lens & Camera: Low angle on the antagonist to show power, 85mm lens for compression. 3. Lighting: Silhouette lighting from a large window behind the antagonist. 4. Color Palette: Monochromatic blacks and sharp whites. 5. Character: Maya Ellis, looking small in her chair. Agent Rachel Morse, 40, polished, intimidating, wearing a sharp black suit. 6. Environment: Maya’s glass-walled office. 7. Audio: Score: Industrial bass (50 BPM, heavy). Foley: The click of high heels on marble, the sound of a leather briefcase opening. 8. Timeline: 0-2s: Maya is looking at the scattered papers on the floor from the previous scene. 2-8s: Rachel Morse enters without knocking, her presence filling the room. 8-15s: Rachel leans over the desk, her face inches from Maya’s. 15-18s: Rachel says, 'Some stories are better left unwritten, Maya.' 18-20s: Rachel places a cold hand on the desk, the camera focusing on her silver signet ring. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis",
+        "Agent Rachel Morse"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא בסתיו התעשייתי כבד (50 BPM) המורכב מפסנתר, צ'לו וסינתיסייזר בס. המוזיקה נכנסת בשנייה 0 ובונה טנסיה קצבית לאורך הסצנה. היא נותנת תחושה של איום וחרדה, ומדגישה את התחושה האיומה של רייצ'ל מורס. המוזיקה מגיעה לשיא בשנייה 15, כאשר רייצ'ל אומרת \"יש סיפורים שעדיף להשאירם בלתי כתובים, מאיה\".\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 2-8s: צעדי עקבים גבוהים על רצפת שיש\n* 8-10s: קול פתיחת מזוודת עור\n* 10-12s: קול נעילת מזוודת העור\n* 15s: קול יד קרה נוגעת בשולחן\n* 18s: קול טבעת הכסף של רייצ'ל נוגעת בשולחן\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע של משרד: מקלדות מרוחקות, טלוויזיות ברקע, רחש של אנשים מדברים\n* רעש רקע של רוח חודרת דרך החלונות\n* רעש רקע של מערכות האוורור\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* 15-18s: רייצ'ל מורס → \"יש סיפורים שעדיף להשאירם בלתי כתובים, מאיה\" → קול רגוע אך איומי → סינכרון פה-קול צמוד\n* 18-20s: מאיה אליס → [שתיקה] →",
+      "directorSheet": {
+        "audio": "Heavy industrial bass at 50 BPM creates a rhythmic tension. Foreground SFX include the sharp, echoing click of high heels on marble and the tactile creak of a leather briefcase opening.",
+        "scene": "Maya’s glass-walled office, dominated by a large window that casts the antagonist in a sharp silhouette. The midground features scattered papers on the floor, contrasting with the cold, polished marble surfaces.",
+        "shots": "[00:00-00:02] — Close-up on Maya looking down at the scattered papers on the floor, her expression weary. [00:02-00:08] — Low-angle wide shot as Agent Rachel Morse enters the glass office, her silhouette framed against the bright window. [00:08-00:12] — Medium shot of Rachel Morse opening her leather briefcase with precise, intimidating movements.",
+        "style": "Sterile, monochromatic visual signature with high-contrast blacks and sharp whites. The palette emphasizes a paranoid, claustrophobic atmosphere through 85mm lens compression that flattens the space between the characters.",
+        "camera": "Low-angle framing on Rachel Morse to establish dominance, using an 85mm lens to create a sense of sterile compression and psychological pressure.",
+        "effects": "None.",
+        "character": "Maya Ellis (understated, weary eyes, professional attire) appears small and vulnerable in her chair. Agent Rachel Morse (40, polished, intimidating, sharp black suit) maintains a cold, dominant posture that suggests corporate authority.",
+        "technical": "2.39:1 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:19:17.739Z"
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:21.869Z",
+    "updatedAt": "2026-04-17T02:19:38.926Z"
+  },
+  {
+    "id": "cmo2a2q9c000bg5qgsn7pyi7u",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 6,
+    "title": "Gallery Exchange",
+    "summary": "מאיה פוגשת את לנה לי בגלריה תת-קרקעית ומקבלת ממנה התקן זיכרון מסתורי.",
+    "scriptText": "1. Visual Style: Avant-garde, neon-lit, hazy atmosphere. 2. Lens & Camera: Handheld 35mm, Dutch angle to create instability. 3. Lighting: Flickering neon pink and ultraviolet lights. 4. Color Palette: Electric pink, deep purple, and obsidian. 5. Character: Maya Ellis, blazer removed, looking frantic. Lena Lee, 20s, edgy, avant-garde, wearing a metallic mesh top. 6. Environment: An underground art gallery with surreal digital installations. 7. Audio: Score: Glitchy trip-hop (90 BPM). Foley: Distant echo of club music (Walla), the clink of glass, and the sound of a heavy metal door closing. 8. Timeline: 0-2s: The camera follows the signet ring detail into a close-up of Lena’s hand. 2-10s: Maya and Lena huddle in a dark corner behind a sculpture. 10-15s: Lena slides a sleek silver flash drive across a velvet table. 15-18s: Lena whispers, 'This is the truth they deleted.' 18-20s: Maya's hand closes tightly around the drive. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis",
+        "Lena Lee"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא טריפ-הופ מתפקעת (90 BPM) הכוללת פסנתר, צ'לו וסינתיסייזר סאב-באס. המוזיקה נכנסת בשנייה 0 ובונה עצמה לאורך 10 שניות. היא נושאת את הרגשות של אי-ודאות ומתח. בשנייה 15, המוזיקה מתחילה לדעוך ולהיעלם, ובשנייה 18, היא כמעט נעלמת לחלוטין.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 0-2s: צליל הדהוד רחוק של מוזיקת קלאב (Walla)\n* 2-5s: צליל דלת מתכתית כבדה נסגרת\n* 5-10s: צליל קלינק של זכוכית\n* 10-12s: צליל רשרוש של חולצת הרשת המתכתית של לנה\n* 12-15s: צליל זחלקת הדיסק האטום על שולחן המהודר\n* 15-18s: צליל ידה של מאיה נועצת את הדיסק\n\n🌫 אמביינס/רעש סביבה: \n* רעש רחוק של תנועה ברקע (20% מהווליום)\n* צליל בומרנג של נורות ניאון פינק (15% מהווליום)\n* רעש רקע של מערכות הסאונד של הגלריה (10% מהווליום)\n* צליל הלם של מים במרחק (5% מהווליום)\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* 15-18s: לנה → \"זהו האמת שמחקו\" → לחישה → סנכרון שפתיים צמוד\n* 18-20s: מאיה → [שתיקה] → [נשימה ע",
+      "directorSheet": {
+        "audio": "Glitchy trip-hop score at 90 BPM with distant club walla and the heavy metallic thud of a closing door. Foley includes the sharp clink of glass and the rustle of Lena's metallic mesh top.",
+        "scene": "An underground art gallery featuring surreal digital installations and flickering neon. The atmosphere is thick with haze, layering a high-contrast foreground of metallic textures against a deep, shadowed background of shifting light.",
+        "shots": "[00:00-00:02] — Close-up on Lena’s hand, focusing on the intricate detail of her signet ring as she prepares the exchange. [00:02-00:10] — Mid-shot tracking Maya's frantic reaction as she receives the mysterious memory device amidst the flickering gallery lights.",
+        "style": "A paranoid, neon-noir signature with a hazy, obsidian-grade finish. The palette is dominated by electric pink and ultraviolet, creating a sterile yet claustrophobic psychological tension consistent with the series' theme of digital gaslighting.",
+        "camera": "Handheld 35mm with a subtle Dutch angle to amplify Maya's instability. The framing tightens into a claustrophobic close-up during the physical exchange of the device.",
+        "effects": "Subtle digital glitch overlays on the background installations to mirror the theme of memory editing; flickering ultraviolet light pulses synchronized with the audio.",
+        "character": "Maya Ellis (professional, weary eyes, blazer removed) appears frantic and unsettled. Lena Lee (20s, edgy, avant-garde, wearing a metallic mesh top) maintains a sharp, mysterious composure while delivering the memory device.",
+        "technical": "16:9 aspect ratio, 10 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:19:53.969Z"
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:22.032Z",
+    "updatedAt": "2026-04-17T02:20:03.990Z"
+  },
+  {
+    "id": "cmo2a2qdt000dg5qgf6r0zipy",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 7,
+    "title": "The Digital Ghost",
+    "summary": "מאיה צופה בתוכן הדיסק און קי ומגלה תיעוד שלה ממעבדה סודית.",
+    "scriptText": "1. Visual Style: High-contrast, screen-glow lighting, claustrophobic. 2. Lens & Camera: Extreme close-up on Maya's eye reflecting the screen. 3. Lighting: The only light source is the harsh blue glow of a laptop screen. 4. Color Palette: Electric blue, deep shadows, and skin tones. 5. Character: Maya Ellis, hair down, looking terrified and fixated. 6. Environment: Maya’s dark living room, shadows stretching across the walls. 7. Audio: Score: High-pitched violin screeches (distorted). Foley: The whirring of a laptop fan, the rhythmic clicking of a mouse, and the distorted audio from the video file. 8. Timeline: 0-2s: Transition from the grip on the drive to the drive being inserted into a laptop port. 2-12s: Maya watches the screen; the video shows a younger Maya in a hospital gown. 12-18s: The video Maya looks at the camera and says a code name. 18-20s: Maya’s reflection in the screen begins to blur with the video. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: \nהמוזיקה היא כוללת כינור צורמני (מעוות) בקצב מהיר, בין 120-140 BPM. היא נכנסת בשנייה 2, ובונה עצמה עד לשנייה 12, שם היא מגיעה לשיא. המוזיקה מעבירה רגש של אי-נוחות ומתח. היא מתחילה לדעוך בשנייה 18, ונעלמת כמעט לגמרי בשנייה 20.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 0-2s: קליקים של המחבר המוביל (USB) \n* 2-12s: רעש סיבוב של מאוורר הלפטופ, קליקים ריתמיים של עכבר, רעשי אודיו מעוותים מהקובץ הווידאו\n* 12-18s: נשימות רדודות של מאיה, רעשי רקע מהווידאו\n* 18-20s: רעשי האקוסטיקה של המסך, רעשי התערבות בין הריפלקשן של מאיה לווידאו\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע נמוך של מאוורר הלפטופ\n* רעשי רקע עמומים של החדר החשוך\n* רעשי האוויר הנכנסים דרך החלון (נמוך מאוד)\n* רעשי רקע של הלפטופ (כולל רעשי דיסק)\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* מאיה: \"...\" (ללא דיאלוג, רק נשימות רדודות) - 2-12s, רגש: פחד, לחץ שפתיים: רפוי\n* המאיה הצעירה בווידאו: \"...\" (קוד-שם) - 12-18s, רגש:",
+      "directorSheet": {
+        "audio": "High-pitched distorted violin screeches over the rhythmic whirring of a laptop fan and heavy clicking of a mouse. Distorted, low-fidelity audio from the video file plays as Maya breathes shallowly.",
+        "scene": "Maya’s dark living room at night; the only illumination is the harsh, flickering electric blue glow from a laptop screen. Foreground features the laptop edge and Maya's hands, while the background is swallowed by deep, stretching shadows.",
+        "shots": "[00:00-00:03] — Extreme close-up on Maya's eye, the laptop screen's video of the secret lab reflected clearly in her pupil. [00:03-00:06] — Close-up on Maya's trembling hand as she inserts the USB drive into the laptop port. [00:06-00:09] — Medium close-up of Maya's face, her expression shifting from curiosity to pure dread as the video plays.",
+        "style": "High-contrast, claustrophobic visual signature with a sterile blue-and-black palette. The mood is one of intense paranoia, utilizing a shallow depth of field to isolate Maya against the encroaching shadows of her living room.",
+        "camera": "An extreme close-up that tightens on Maya's iris to emphasize her internal psychological break, using a macro lens for clinical detail.",
+        "effects": "Digital screen flicker and slight chromatic aberration on the edges of the frame to simulate the distorted reality of the video file.",
+        "character": "Maya Ellis: Understated and professional, hair down, weary eyes now wide with terror. She is in a state of fixated shock, her skin reflecting the cold screen light as she watches the secret lab footage.",
+        "technical": "16:9 aspect ratio, 9 seconds total, 24fps. Lock identity to the reference images for Maya Ellis across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:20:26.699Z"
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:22.193Z",
+    "updatedAt": "2026-04-17T02:20:45.313Z"
+  },
+  {
+    "id": "cmo2a2qic000fg5qgv5nu8fyv",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 8,
+    "title": "Mentor's Confession",
+    "summary": "מאיה מתעמתת עם איתן קים, שמודה כי היה חלק מהניסוי שבוצע בה.",
+    "scriptText": "1. Visual Style: Dramatic, emotional realism, heavy rain outside. 2. Lens & Camera: Tracking shot following Maya as she paces, moving into a tight Two-Shot. 3. Lighting: Moody interior with rain streaks casting moving shadows on faces. 4. Color Palette: Rain-soaked blues, earthy browns, and warm orange lamp light. 5. Character: Maya Ellis, navy blazer soaked with rain. Dr. Ethan Kim, looking older, eyes filled with regret. 6. Environment: Ethan’s cluttered, book-filled study. 7. Audio: Score: Heavy piano chords (55 BPM, somber). Foley: Rain thundering against the glass, the crackle of a fireplace, and Ethan’s shaky breathing. 8. Timeline: 0-2s: Maya slams the laptop shut, the sound echoing into Ethan’s study. 2-10s: She confronts him with the flash drive. 10-15s: Ethan sinks into his chair, covering his face. 15-18s: He says, 'We didn't think you'd ever remember.' 18-20s: Maya backs away, her face a mask of betrayal. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis",
+        "Dr. Ethan Kim"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא פסנתר כבד עם אקורדים קודרים (55 BPM), המתחילה בתחילת הסצנה (0s) ובונה לאט לאורך 10 שניות הראשונות. היא מובילה את הרגשות של אשמה וצער, ומתמתנת במעט כאשר איתן מדבר (15s). המוזיקה נעלמת ב-1.5 שניות האחרונות, כאשר התמונה מתכהה.\n\n🔊 אפקטים מקדמת התמונה: \n* 0s: מאיה סוגרת את הלפטופ בקול (צליל חזק)\n* 2-10s: צעדיה של מאיה על הרצפה (צליל רך)\n* 10-15s: נשימתו הלא-יציבה של איתן\n* 15-18s: צליל הכיסא של איתן כאשר הוא יושב\n\n🌫 אמביינס/רעש סביבה: \n* רעש גשם כבד על החלון (60% מהווליום, פאנינג לכל הכיוונים)\n* צליל האח (20% מהווליום, פאנינג לצד ימין)\n* רעש רקע של ספרים וחפצים בחדר (10% מהווליום, פאנינג לכל הכיוונים)\n\n🎙 דיאלוג ולחץ שפתיים: \n* מאיה: \"מה קרה?\" (קול רם, תוכן זעם) → סינכרון צמוד\n* איתן: \"לא חשבנו שתזכרי\" (קול רך, תוכן אשמה) → סינכרון צמוד\n* מאיה: \"איך אתה יכול?\" (קול רם, תוכן זעם) → סינכרון צמוד, עם פסק קצר לפ",
+      "directorSheet": {
+        "audio": "Heavy piano chords at 55 BPM; foreground SFX of the laptop slamming and Ethan's shaky breathing; mid-ground thundering rain and fireplace crackle; dialogue between Maya and Ethan.",
+        "scene": "Ethan’s cluttered, book-filled study at night. Rain streaks cast moving shadows across the midground, while a crackling fireplace in the background provides a flickering, unstable light source against the thundering storm outside.",
+        "shots": "[00:00-00:02] — Maya slams the laptop shut in the cluttered study, the sound echoing through the room. [00:02-00:05] — Tracking shot follows Maya as she paces the room, her wet blazer glistening. [00:05-00:09] — Tight two-shot of Maya and Ethan as she confronts him. [00:09-00:12] — Close-up on Ethan's face as he prepares to confess, shadows of rain dancing across his skin.",
+        "style": "A paranoid, sterile visual signature defined by high-contrast emotional realism. The palette blends rain-soaked blues and earthy browns with warm orange lamp light, creating a claustrophobic, moody atmosphere that mirrors Maya's eroding identity.",
+        "camera": "A fluid tracking shot that follows Maya's pacing to build tension, transitioning into a tight, suffocating two-shot to emphasize the psychological confrontation.",
+        "effects": "Practical rain-on-glass shadow effects (gobos) moving across character faces; subtle steam rising from Maya's wet blazer near the fireplace.",
+        "character": "Maya Ellis: professional, weary eyes, wearing a navy blazer soaked with rain, radiating betrayal and intensity. Dr. Ethan Kim: intelligent but disheveled, looking older than his years with eyes filled with visible regret and a shaky, anxious demeanor.",
+        "technical": "2.39:1 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:20:51.244Z"
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:22.356Z",
+    "updatedAt": "2026-04-17T02:21:00.987Z"
+  },
+  {
+    "id": "cmo2a2qmu000hg5qgwx33lxy1",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 9,
+    "title": "Rain Shadows",
+    "summary": "מאיה בורחת לרחוב בשעת לילה, כשמכונית שחורה עוקבת אחריה באיום.",
+    "scriptText": "1. Visual Style: High-action realism, handheld, kinetic movement. 2. Lens & Camera: Long lens (200mm) to create a sense of being watched from a distance. 3. Lighting: Wet pavement reflecting streetlights, harsh car headlights. 4. Color Palette: Neon yellow, asphalt black, and cold rain-blue. 5. Character: Maya Ellis running, her blazer heavy with water, hair plastered to her face. 6. Environment: A narrow city alleyway slick with rain. 7. Audio: Score: Aggressive synth arpeggio (140 BPM, panicked). Foley: Rapid splashing footsteps, the deep growl of a car engine, and heavy panting. 8. Timeline: 0-2s: Maya bursts out of Ethan's house into the rain. 2-12s: She runs down the alley, the camera shaking with her. 12-18s: A black sedan with tinted windows crawls slowly behind her. 18-20s: Maya ducks into a doorway, the headlights illuminating her terrified eyes. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא ארפג'ו סינתטי אגרסיבי (140 BPM), המשקף את הפאנדמוניום והחרדה של מאיה. המוזיקה נכנסת בשנייה 0, ובונה את עצמה לאורך 12 השניות הראשונות, כאשר מאיה רצה במורד הסמטה. המוזיקה מקבלת גוון נואש יותר כאשר המכונית השחורה מופיעה, וממשיכה לבנות לעבר שיא בשנייה 18, כאשר מאיה נכנסת לפתח הדלת.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 0-2s: צעדים מהירים של מאיה על רצפת הסמטה הרטובה\n* 2-12s: צעדים מהירים ונשימות כבדות של מאיה\n* 12-18s: גרון עמוק של מנוע מכונית\n* 18-20s: צליל הדלת נפתחת, והאור החזק של הפנסים הקדמיים\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע של גשם על הרצפה ועל הבניינים\n* רעש רחוק של תנועת כלי רכב\n* רעש חזק יותר של הרוח כאשר מאיה רצה\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* מאיה: \"...\" (לא מדובר, רק נשימות כבדות וצעדים מהירים)\n* הדיאלוג היחיד הוא נשימותיה הכבדות של מאיה, והן מושמעות בצורה ישירה וקרובה, עם לחץ שפתיים חזק.\n\n🎚 מעברי סא",
+      "directorSheet": {
+        "audio": "Aggressive 140 BPM synth arpeggio; rapid splashing footsteps and Maya's heavy, ragged panting; the low, predatory growl of a car engine idling nearby.",
+        "scene": "A narrow, rain-slicked city alleyway at night. Foreground features heavy rain droplets and wet pavement; midground is Maya running; background is the harsh, blinding glow of car headlights cutting through the dark.",
+        "shots": "[00:00-00:02] — Maya bursts out of Ethan's house, stumbling into the torrential rain. [00:02-00:07] — Maya sprints down the narrow alley, splashing through deep puddles. [00:07-00:12] — The black car follows slowly, its headlights casting long, predatory shadows behind her as she gasps for air.",
+        "style": "High-action realism with a paranoid psychological edge. The palette is dominated by neon yellow reflections against asphalt black and cold rain-blue, utilizing a grainy film grade to enhance the sterile, claustrophobic atmosphere of the series.",
+        "camera": "Long lens (200mm) to create a voyeuristic sense of being watched, combined with kinetic handheld movement that follows Maya's frantic pace.",
+        "effects": "Slow-motion emphasis on water splashing under Maya's feet and the rhythmic pulsing of the car's headlights through the rain.",
+        "character": "Maya Ellis: Understated and professional, now disheveled with her dark hair plastered to her face and her blazer heavy with water. She is in a state of pure, adrenaline-fueled panic as she flees Ethan's house, her weary eyes wide with terror.",
+        "technical": "16:9 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for Maya Ellis across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:21:13.869Z"
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:22.518Z",
+    "updatedAt": "2026-04-17T02:21:34.007Z"
+  },
+  {
+    "id": "cmo2a2qrc000jg5qg42n0evwq",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 10,
+    "title": "The Cracked Reflection",
+    "summary": "מאיה חוזרת הביתה ומוצאת את עצמה שוב מול המראה, אך הפעם הכל השתנה.",
+    "scriptText": "1. Visual Style: Full circle, psychological horror elements. 2. Lens & Camera: Slow dolly-in to an extreme close-up of Maya's eye. 3. Lighting: Flickering bathroom light, high contrast. 4. Color Palette: Sickly green-tinted white and charcoal. 5. Character: Maya Ellis, shivering, wet, blazer discarded, charcoal robe back on. 6. Environment: The same bathroom from Scene 1, but now looking neglected. 7. Audio: Score: Low-frequency throb with a sudden high-pitched 'riser'. Foley: Water dripping loudly into the sink, the buzzing of the lightbulb, and Maya’s erratic heartbeat. 8. Timeline: 0-5s: Maya enters the bathroom, mirroring her movements from the first scene. 5-12s: She looks into the mirror; her reflection's eyes move slightly after hers do. 12-17s: A crack appears in the glass between her eyes. 17-18.5s: She looks directly at the camera, her expression turning into a cold, unfamiliar smile. 18.5-20s: Full fade to black as the audio suddenly cuts to absolute silence. ENDING: last 1.5 seconds fade to black, audio ducks.",
+    "scriptSource": "rebuild-ep01-full",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: המוזיקה היא בסגנון פסיכולוגי-מתח, עם פסנתר, צ'לו וסינתיסייזר בס. ה-BPM הוא 60-80, והמוזיקה נכנסת ב-0s, בונה עצמה ב-5-12s, ומגיעה לשיא ב-17s. המוזיקה משדרת אווירה של אי-נוחות ומתח.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 0s: צעדים של מאיה על רצפת האמבטיה\n* 2s: דלת האמבטיה נפתחת\n* 5s: מים נופלים לכיור\n* 8s: בומרנג של נורת הליבון\n* 12s: נשימות כבדות ולב של מאיה\n* 15s: רעש זכוכית שבורה\n* 17s: רעש חד של המראה\n\n🌫 אמביינס/רעש סביבה: \n* רעש רקע של מים זורמים באמבטיה\n* זום של נורת הליבון ב-60Hz\n* רעש רקע של בית משומש\n* רוח נושבת דרך החלון\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* מאיה: \"...\" (לא מדברת, רק נושמת כבד)\n* 12s: נשימה עמוקה\n* 15s: פאוזה\n* 17s: חיוך קר\n\n🎚 מעברי סאונד וצמצומים (Mix moves): \n* 0-5s: המוזיקה בונה עצמה, הפולי והאמביינס מתחילים\n* 12s: המוזיקה מגיעה לשיא, הפולי והאמביינס מתחילים להסתיים\n* 17s: המוזיקה והפולי מסתיימים, האמביינס נשאר\n\n⚡",
+      "directorSheet": {
+        "audio": "Foreground: loud, rhythmic water drips and the aggressive buzz of a failing lightbulb. Mid-ground: Maya’s erratic, heavy breathing and heartbeat. Score: A low-frequency throb building into a sharp, high-pitched riser.",
+        "scene": "A neglected bathroom under a flickering fluorescent light. The foreground features a stained sink with water dripping loudly, while the background is a dark, oppressive charcoal void that heightens the sense of isolation.",
+        "shots": "[00:00-00:05] — Maya enters the bathroom, her movements a haunting echo of the first scene as she approaches the mirror. [00:05-00:12] — Maya stares into the glass, her reflection appearing distorted as the camera pushes into an extreme close-up of her dilated pupil.",
+        "style": "A sickly green-tinted white and charcoal palette creates a high-contrast, psychological horror aesthetic. The visual signature is sterile yet decaying, emphasizing Maya's eroding sense of reality through a claustrophobic, paranoid lens.",
+        "camera": "A slow, relentless dolly-in that transitions from a medium shot to an extreme close-up of Maya's eye, tightening as the psychological tension peaks.",
+        "effects": "Subtle flickering of the overhead light synchronized with the high-contrast shadows; a slight warp effect on the mirror reflection to suggest psychological fracturing.",
+        "character": "Maya Ellis: Understated and professional, with weary eyes and a shivering frame. She has discarded her blazer and wears a charcoal robe; her state is erratic and traumatized as she mirrors her movements from the series opening.",
+        "technical": "16:9 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for Maya Ellis across all shots — no face drift.",
+        "generatedAt": "2026-04-17T02:21:50.670Z"
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-17T02:17:22.681Z",
+    "updatedAt": "2026-04-17T02:22:19.675Z"
+  }
+]

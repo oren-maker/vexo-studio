@@ -56,16 +56,24 @@ async function extractLastFrameToBlob(opts: {
     try {
       // Vercel Lambda doesn't ship ffmpeg on PATH. Use ffmpeg-static which
       // bundles a Linux binary into the deployment and exposes its path as
-      // the module's default export. On local Windows dev the same package
-      // ships ffmpeg.exe — resolver handles both.
+      // the module's default export.
       const ffmpegStatic = (await import("ffmpeg-static")).default as string | null;
       const ffmpegBin = ffmpegStatic || "ffmpeg";
+      // Ensure the bundled binary is executable — Next.js's file-tracing
+      // preserves the file but not always its permissions, so `chmod +x`
+      // defensively. Cheap no-op if already set.
+      try { await fs.chmod(ffmpegBin, 0o755); } catch { /* ignore */ }
       // Grab a frame at -2s from the end — before any fade-to-black the model
       // may have rendered, so the bridge frame carries actual scene content.
-      execSync(`"${ffmpegBin}" -sseof -2 -i "${tmp}" -frames:v 1 -q:v 2 "${tmpFrame}" -y`, { stdio: "ignore" });
+      // Capture stderr so the real ffmpeg error reaches the scene log.
+      execSync(`"${ffmpegBin}" -sseof -2 -i "${tmp}" -frames:v 1 -q:v 2 "${tmpFrame}" -y`, {
+        stdio: ["ignore", "ignore", "pipe"],
+      });
     } catch (e: any) {
+      const stderr = e?.stderr ? String(e.stderr).slice(-600) : "";
+      const msg = String(e?.message || e);
       await fs.unlink(tmp).catch(() => {});
-      return { error: `ffmpeg: ${String(e?.message || e).slice(0, 150)}` };
+      return { error: `ffmpeg: ${msg.slice(0, 300)} | stderr: ${stderr}` };
     }
 
     const frameRaw = await fs.readFile(tmpFrame);

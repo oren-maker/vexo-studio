@@ -54,9 +54,15 @@ async function extractLastFrameToBlob(opts: {
     const tmpFrame = path.join(os.tmpdir(), `approve-${Date.now()}.jpg`);
     await fs.writeFile(tmp, buf);
     try {
+      // Vercel Lambda doesn't ship ffmpeg on PATH. Use ffmpeg-static which
+      // bundles a Linux binary into the deployment and exposes its path as
+      // the module's default export. On local Windows dev the same package
+      // ships ffmpeg.exe — resolver handles both.
+      const ffmpegStatic = (await import("ffmpeg-static")).default as string | null;
+      const ffmpegBin = ffmpegStatic || "ffmpeg";
       // Grab a frame at -2s from the end — before any fade-to-black the model
       // may have rendered, so the bridge frame carries actual scene content.
-      execSync(`ffmpeg -sseof -2 -i "${tmp}" -frames:v 1 -q:v 2 "${tmpFrame}" -y`, { stdio: "ignore" });
+      execSync(`"${ffmpegBin}" -sseof -2 -i "${tmp}" -frames:v 1 -q:v 2 "${tmpFrame}" -y`, { stdio: "ignore" });
     } catch (e: any) {
       await fs.unlink(tmp).catch(() => {});
       return { error: `ffmpeg: ${String(e?.message || e).slice(0, 150)}` };

@@ -627,7 +627,10 @@ export default function ScenePage() {
             </div>
           )}
           {scene.frames.length === 0 ? (
-            <div className="text-text-muted text-sm">{he ? "אין מסגרות עדיין. לחץ \"צור תשריט\" להתחיל." : "No frames yet. Click \"Generate storyboard\" to start."}</div>
+            <div className="text-text-muted text-sm space-y-1">
+              <div>{he ? "אין מסגרות עדיין." : "No frames yet."}</div>
+              <div>{he ? "✅ המסגרת האחרונה (ה-bridge frame שמחבר לסצנה הבאה) נוצרת אוטומטית רק כשאתה לוחץ \"אשר סצנה\" — לא לפני." : "✅ The last frame (bridge frame for the next scene) is generated automatically only when you click \"Approve scene\" — not before."}</div>
+            </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {(() => { const withImages = scene.frames.filter((ff) => ff.approvedImageUrl || ff.generatedImageUrl); return null; })()}

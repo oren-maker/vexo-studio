@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { EpisodeMergedVideo } from "@/components/episode-merged-video";
@@ -28,7 +28,18 @@ export default function EpisodePage() {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [creating, setCreating] = useState(false);
   const [costs, setCosts] = useState<{ total: number; breakdown: { episode: number; scenes: number; frames: number; characterMedia: number }; byCategory: Record<string, number> } | null>(null);
-  const [tab, setTab] = useState<"scenes" | "costs">("scenes");
+  // URL-persisted tab (shareable + refresh-safe)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  type EpTab = "scenes" | "costs";
+  const rawTab = (searchParams?.get("tab") ?? "scenes") as EpTab;
+  const tab: EpTab = (["scenes", "costs"] as const).includes(rawTab as EpTab) ? rawTab : "scenes";
+  const setTab = (t: EpTab) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("tab", t);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState<string | null>(null);
   const he = lang === "he";

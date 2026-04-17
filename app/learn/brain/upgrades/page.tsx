@@ -2,6 +2,7 @@
 import { learnFetch } from "@/lib/learn/fetch";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 const PAGE_SIZE = 30;
 
@@ -13,7 +14,17 @@ type Upgrade = {
 export default function BrainUpgradesPage() {
   const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [tab, setTab] = useState<"active" | "archive">("active");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  type UTab = "active" | "archive";
+  const rawTab = (searchParams?.get("tab") ?? "active") as UTab;
+  const tab: UTab = (["active", "archive"] as const).includes(rawTab as UTab) ? rawTab : "active";
+  const setTab = (t: UTab) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("tab", t);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 

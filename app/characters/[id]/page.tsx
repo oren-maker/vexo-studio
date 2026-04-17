@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { useLang } from "@/lib/i18n";
@@ -35,7 +35,18 @@ export default function CharacterDetailPage() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [part, setPart] = useState<Participation | null>(null);
   const [log, setLog] = useState<LogRow[]>([]);
-  const [tab, setTab] = useState<"gallery" | "log" | "participation">("gallery");
+  // URL-persisted tab
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  type CTab = "gallery" | "log" | "participation";
+  const rawTab = (searchParams?.get("tab") ?? "gallery") as CTab;
+  const tab: CTab = (["gallery", "log", "participation"] as const).includes(rawTab as CTab) ? rawTab : "gallery";
+  const setTab = (t: CTab) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("tab", t);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [composite, setComposite] = useState<{ fileUrl: string; createdAt: string } | null>(null);
   const [buildingComposite, setBuildingComposite] = useState(false);

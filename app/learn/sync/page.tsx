@@ -3,6 +3,7 @@ import { learnFetch } from "@/lib/learn/fetch";
 
 import { adminHeaders } from "@/lib/learn/admin-key";
 import { useState, useTransition } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import SyncProgress from "@/components/learn/sync-progress";
 import {
   runSeedanceSyncAction,
@@ -17,7 +18,17 @@ import {
 type Tab = "seedance" | "multi" | "github" | "json" | "csv" | "knowledge";
 
 export default function SyncPage() {
-  const [tab, setTab] = useState<Tab>("seedance");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const TAB_VALUES = ["seedance", "multi", "github", "json", "csv", "knowledge"] as const;
+  const rawTab = (searchParams?.get("tab") ?? "seedance") as Tab;
+  const tab: Tab = TAB_VALUES.includes(rawTab) ? rawTab : "seedance";
+  const setTab = (t: Tab) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("tab", t);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState("");

@@ -60,6 +60,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       throw Object.assign(new Error(`storyboard status is ${scene.status}, expected STORYBOARD_APPROVED`), { statusCode: 409 });
     }
 
+    // Require Director Sheet before video generation — without it the prompt
+    // is too generic and the result won't match expectations.
+    const mem = (scene.memoryContext as { directorSheet?: Record<string, string> } | null) ?? {};
+    if (!mem.directorSheet) {
+      throw Object.assign(
+        new Error("יש ליצור דף במאי (Director Sheet) לפני יצירת וידאו. לחץ על ✨ ייצר עם AI בכרטיסיית דף הבמאי."),
+        { statusCode: 400 },
+      );
+    }
+
     const estimate = await CostStrategy.estimateSceneVideoCost(scene.id);
     await prisma.scene.update({ where: { id: scene.id }, data: { status: "VIDEO_GENERATING" } });
 

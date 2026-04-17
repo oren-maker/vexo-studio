@@ -34,30 +34,54 @@ function parseBrainReply(raw: string): { content: string; action: { type: string
   function tryParse(candidate: string): { type: string; [k: string]: unknown } | null {
     try {
       let s = candidate.trim().replace(/^json\s*/i, "").replace(/^action\s*/i, "");
-      s = s.replace(/:(\s*-?\d+\.?\d*)"(\s*[,}])/g, ":$1$2"); // "0.98" → 0.98
-      s = s.replace(/,(\s*[}\]])/g, "$1"); // trailing commas
+      s = s.replace(/:(\s*-?\d+\.?\d*)"(\s*[,}])/g, ":$1$2");
+      s = s.replace(/,(\s*[}\]])/g, "$1");
       const p = JSON.parse(s);
       if (p && typeof p.type === "string" && VALID_ACTION_TYPES.has(p.type)) return p;
     } catch {}
     return null;
   }
 
-  // Pass 1: standard fenced block ```action ... ``` (or ```json or plain ```).
-  let match = raw.match(/```+\s*(?:action|json)?\s*\n?([\s\S]*?)\n?```+/);
-  if (match) {
-    const parsed = tryParse(match[1]);
-    return { content: raw.replace(match[0], "").trim() || "(אין תגובה)", action: parsed };
+  // Pass 1: fenced block — use GREEDY match between first ``` and LAST ```
+  // so long JSON with nested content doesn't get truncated by non-greedy [\s\S]*?.
+  const fenceOpen = raw.indexOf("```");
+  const fenceClose = raw.lastIndexOf("```");
+  if (fenceOpen >= 0 && fenceClose > fenceOpen + 3) {
+    let inner = raw.slice(fenceOpen + 3, fenceClose);
+    inner = inner.replace(/^\s*(?:action|json)\s*\n?/, "");
+    const parsed = tryParse(inner);
+    if (parsed) {
+      const before = raw.slice(0, fenceOpen).trim();
+      const after = raw.slice(fenceClose + 3).trim();
+      return { content: [before, after].filter(Boolean).join("\n").trim() || "(אין תגובה)", action: parsed };
+    }
   }
 
-  // Pass 2: look for a single-backtick-wrapped or unfenced JSON with "type":"<known>"
-  // so if the brain/RTL mangled the triple backticks we still recover.
-  const jsonHunt = raw.match(/\{[\s\S]*?"type"\s*:\s*"(?:compose_prompt|generate_video|import_guide_url|ai_guide|import_instagram_guide|import_source|update_reference|create_episode|update_episode|create_scene|update_scene|update_opening_prompt)"[\s\S]*?\}/);
-  if (jsonHunt) {
-    const parsed = tryParse(jsonHunt[0]);
+  // Pass 2: hunt for JSON object with a known "type" field — use indexOf + bracket
+  // matching instead of regex so nested braces don't break extraction.
+  for (const t of VALID_ACTION_TYPES) {
+    const needle = `"type":"${t}"`;
+    const altNeedle = `"type": "${t}"`;
+    let idx = raw.indexOf(needle);
+    if (idx < 0) idx = raw.indexOf(altNeedle);
+    if (idx < 0) continue;
+    // Walk backwards to find the opening {
+    let start = raw.lastIndexOf("{", idx);
+    if (start < 0) continue;
+    // Walk forwards with bracket counting to find matching }
+    let depth = 0;
+    let end = -1;
+    for (let i = start; i < raw.length; i++) {
+      if (raw[i] === "{") depth++;
+      else if (raw[i] === "}") { depth--; if (depth === 0) { end = i + 1; break; } }
+    }
+    if (end < 0) continue;
+    const candidate = raw.slice(start, end);
+    const parsed = tryParse(candidate);
     if (parsed) {
-      // Strip the JSON + any stray surrounding backticks from visible content
-      const cleaned = raw.replace(jsonHunt[0], "").replace(/`+\s*action\s*/gi, "").replace(/`+/g, "").trim();
-      return { content: cleaned || "(אין תגובה)", action: parsed };
+      const cleaned = raw.slice(0, start).replace(/`+\s*(?:action|json)?\s*$/i, "").trim()
+        + " " + raw.slice(end).replace(/^\s*`+/, "").trim();
+      return { content: cleaned.trim() || "(אין תגובה)", action: parsed };
     }
   }
 

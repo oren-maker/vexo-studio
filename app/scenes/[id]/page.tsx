@@ -698,7 +698,7 @@ export default function ScenePage() {
             <div>
               <div className="text-xs text-text-muted mb-1.5">{he ? "מודל" : "Model"}</div>
               <div className="grid grid-cols-2 gap-2">
-                {(["sora-2", "sora-2-pro", "veo3-pro", "seedance", "vidu-q1"] as const).map((k) => {
+                {(Object.keys(MODEL_LABEL) as AllVideoModel[]).map((k) => {
                   const ml = MODEL_LABEL[k];
                   const active = veoModel === k;
                   return (

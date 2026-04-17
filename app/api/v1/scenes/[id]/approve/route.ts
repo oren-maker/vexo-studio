@@ -64,12 +64,15 @@ async function extractLastFrameToBlob(opts: {
       // preserves the file but not always its permissions, so `chmod +x`
       // defensively. Cheap no-op if already set.
       try { await fs.chmod(ffmpegBin, 0o755); } catch { /* ignore */ }
-      // Grab a frame at -2s from the end — before any fade-to-black the model
-      // may have rendered, so the bridge frame carries actual scene content.
-      // Capture stderr so the real ffmpeg error reaches the scene log.
-      execSync(`"${ffmpegBin}" -sseof -2 -i "${tmp}" -frames:v 1 -q:v 2 "${tmpFrame}" -y`, {
-        stdio: ["ignore", "ignore", "pipe"],
-      });
+      // Pick the SHARPEST frame in the last ~3s of the video. `-sseof -3`
+      // seeks to 3 seconds before end. `thumbnail` filter samples 100
+      // frames and picks the most representative (least motion-blur).
+      // `-q:v 1` gives the highest JPEG quality. This avoids the original
+      // blurry-mid-motion frame we were getting with a raw -sseof pick.
+      execSync(
+        `"${ffmpegBin}" -sseof -3 -i "${tmp}" -vf "thumbnail=100" -frames:v 1 -q:v 1 "${tmpFrame}" -y`,
+        { stdio: ["ignore", "ignore", "pipe"] },
+      );
     } catch (e: any) {
       const stderr = e?.stderr ? String(e.stderr).slice(-600) : "";
       const msg = String(e?.message || e);

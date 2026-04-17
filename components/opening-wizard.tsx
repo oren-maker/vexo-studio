@@ -201,28 +201,36 @@ export function OpeningWizard({
               </div>
               <div className="flex items-center gap-3 mb-1">
                 <label className="text-xs text-text-muted w-20">{he ? "משך" : "Duration"}</label>
-                {/* Sora 2 native buckets (first clip). Above 20s → chain-extend
-                 *  automatically behind the scenes (up to 120s = 6 × 20s). */}
-                <div className="flex-1 grid grid-cols-5 md:grid-cols-10 gap-1">
-                  {[4, 8, 12, 16, 20, 40, 60, 80, 100, 120].map((sec) => (
+                {/* Hard cap at 20s per Oren's request. Chain-extend of
+                 *  longer openings was producing unreliable identity/continuity
+                 *  and compounding moderation blocks — 20s is the max a single
+                 *  Sora job accepts natively. */}
+                <div className="flex-1 grid grid-cols-5 gap-1">
+                  {[4, 8, 12, 16, 20].map((sec) => (
                     <button
                       key={sec}
                       onClick={() => setDuration(sec)}
                       className={`py-1.5 rounded-lg border-2 text-xs font-semibold ${duration === sec ? "border-accent bg-accent text-white" : "border-bg-main text-text-muted hover:border-accent/50"}`}
-                      title={sec > 20 ? (he ? `שרשור אוטומטי של ${Math.ceil(sec / 20)} קליפים` : `auto-chain ${Math.ceil(sec / 20)} clips`) : undefined}
                     >
                       {sec}s
                     </button>
                   ))}
                 </div>
               </div>
-              {duration > 20 && (
-                <div className="text-[11px] text-text-muted mb-2 ms-20">
-                  🔗 {he ? `ישורשרו ${Math.ceil(duration / 20)} קליפים של 20s ברקע (Sora chain-extend). זמן צפוי: ~${Math.ceil(duration / 20) * 2} דקות.` : `Auto-chain ${Math.ceil(duration / 20)} × 20s clips (Sora chain-extend). ETA ~${Math.ceil(duration / 20) * 2}min.`}
-                </div>
-              )}
               <div className="text-[11px] text-text-muted mb-3 ms-20">
-                📌 {he ? "שם הסדרה יופיע אוטומטית בתחילת או בסוף הפתיחה ככרטיסיית כותרת" : "Series title will appear as a title card at the start or end"}
+                📌 {he ? "תקרה של 20 שניות לפתיחה — מעבר לזה Sora מפצל לחלקים ומאבד המשכיות. שם הסדרה יופיע אוטומטית ככרטיסיית כותרת." : "Opening capped at 20s — beyond that Sora chains clips and loses continuity. Series title appears as a title card automatically."}
+              </div>
+
+              {/* Moderation safety guide — shown whenever the wizard opens,
+                  with stronger emphasis if the previous job failed. */}
+              <div className="mb-3 ms-20 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px]">
+                <div className="font-semibold text-amber-700 mb-1">⚠️ {he ? "הגבלות מודרציה של Sora / VEO — קרא לפני שמירה" : "Sora / VEO moderation guardrails — read before save"}</div>
+                <ul className="list-disc ps-4 space-y-0.5 text-text-muted">
+                  <li>{he ? "מילים אסורות: soldier, military, combat, war, weapon, gun, knife, violence, blood, kill, death, murder, crime, drugs, tattoo, paranoid, thriller, surveillance, noir." : "Forbidden: soldier, military, combat, war, weapon, gun, knife, violence, blood, kill, death, murder, crime, drugs, tattoo, paranoid, thriller, surveillance, noir."}</li>
+                  <li>{he ? "טון אסור: psychological thriller, simulation reveal, dark basement, shock-reveal, cold determination, identity crisis, dread." : "Forbidden tone: psychological thriller, simulation reveal, dark basement, shock-reveal, cold determination, identity crisis, dread."}</li>
+                  <li>{he ? "מומלץ: curiosity, wonder, gentle realization, luminous hall, gallery, quiet study, artist/teacher/dancer/writer/scholar." : "Recommended: curiosity, wonder, gentle realization, luminous hall, gallery, quiet study, artist/teacher/dancer/writer/scholar."}</li>
+                  <li>{he ? "אם נחסם — שכתב את הטון, לא רק מילים (lesson from SC9 × 3 blocks today)." : "If blocked — rewrite the tone, not just keywords (lesson from SC9 × 3 blocks today)."}</li>
+                </ul>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-text-muted w-20">{he ? "יחס" : "Aspect"}</span>

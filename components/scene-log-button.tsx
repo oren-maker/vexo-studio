@@ -42,10 +42,14 @@ const ACTION_LABEL: Record<string, string> = {
 const VIDEO_RATE: Record<string, number> = { "sora-2": 0.10, "sora-2-pro": 0.30, "higgs-kling": 0.06, "higgs-seedance": 0.05, "higgsfield": 0.05 };
 const GROQ_ACTIONS = new Set(["critic_review", "sound_notes_generated", "remix_suggest", "director_sheet_generated", "breakdown_generated", "dialogue_generated", "lipsync_generated", "music_generated"]);
 
+// Show cost only ONCE per video lifecycle: on video_ready (the completion),
+// NOT on video_generated (the submit) — so the user doesn't see double.
+const COST_SKIP_ACTIONS = new Set(["video_generated", "video_remix"]);
+
 function getCost(action: string, d: any): string | null {
+  if (COST_SKIP_ACTIONS.has(action)) return null;
   if (!d && GROQ_ACTIONS.has(action)) return "$0.003";
   if (!d) return null;
-  // Prefer model×duration (accurate) over estimateUsd (often stale/wrong)
   if (d.model && d.durationSeconds) {
     const rate = VIDEO_RATE[d.model as string];
     if (rate) return `$${(rate * Number(d.durationSeconds)).toFixed(2)}`;

@@ -86,7 +86,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             data: {
               projectId: projectIdForAsset, entityType: "SCENE", entityId: scene.id, assetType: "VIDEO",
               fileUrl: proxyUrl, mimeType: "video/mp4", status: "READY",
-              metadata: { provider: pending.provider, model: pending.model, durationSeconds: pending.durationSeconds, costUsd } as object,
+              metadata: {
+                provider: pending.provider,
+                model: pending.model,
+                durationSeconds: pending.durationSeconds,
+                costUsd,
+                ...(pending.kind ? { kind: pending.kind } : {}),
+                ...(pending.sourceAssetId ? { sourceAssetId: pending.sourceAssetId } : {}),
+                ...(pending.provider === "openai" && pending.jobId ? { soraVideoId: pending.jobId } : {}),
+              } as object,
             },
           });
           const { pendingVideoJob: _p, ...rest } = memRaw;

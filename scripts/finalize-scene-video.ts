@@ -56,6 +56,8 @@ if (!KEY) { console.error("OPENAI_API_KEY missing"); process.exit(1); }
         durationSeconds: job.durationSeconds ?? 20,
         soraVideoId: job.jobId,
         costUsd: job.model === "sora-2-pro" ? 6 : 2,
+        ...(job.kind ? { kind: job.kind } : {}),
+        ...(job.sourceAssetId ? { sourceAssetId: job.sourceAssetId } : {}),
       } as any,
     },
   });

@@ -12,7 +12,7 @@ type Frame = { id: string; orderIndex: number; beatSummary: string | null; image
 type Comment = { id: string; body: string; resolved: boolean; createdAt: string; user: { id: string; fullName: string; email: string } };
 type Critic = { id: string; contentType: string; score: number; feedback: string | null; createdAt: string };
 type SceneChar = { id: string; name: string; roleType: string | null; media: { fileUrl: string }[] };
-type SceneVideo = { id: string; fileUrl: string; createdAt: string; metadata?: { model?: string; durationSeconds?: number; costUsd?: number; provider?: string } };
+type SceneVideo = { id: string; fileUrl: string; createdAt: string; metadata?: { model?: string; durationSeconds?: number; costUsd?: number; provider?: string; isPrimary?: boolean; kind?: string; sourceAssetId?: string } };
 const VIDEO_MODEL_PRETTY: Record<string, string> = {
   seedance: "⚡ SeeDance 2",
   kling: "🎬 Kling 2.1",
@@ -533,8 +533,11 @@ export default function ScenePage() {
                     <video src={v.fileUrl} controls className="w-full aspect-video bg-black" />
                     <div className="p-3 text-xs space-y-1">
                       <div className="flex justify-between items-center">
-                        <span className="font-semibold flex items-center gap-2">
+                        <span className="font-semibold flex items-center gap-2 flex-wrap">
                           {modelPretty}
+                          {(m.kind === "remix" || m.sourceAssetId) && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-warnText text-white font-semibold">✨ {he ? "רימיקס" : "Remix"}</span>
+                          )}
                           {isPrimary && <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-okText text-white font-semibold">⭐ {he ? "ראשי" : "Main"}</span>}
                         </span>
                         {m.costUsd !== undefined && <span className="font-bold num text-accent">${m.costUsd.toFixed(4)}</span>}

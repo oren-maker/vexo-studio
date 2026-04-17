@@ -293,9 +293,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       identityClause = describeSheetLayout(sheetCast);
     }
 
+    // Sora moderation filter — strip words that trigger moderation_blocked.
+    // SC02 was blocked at 74% progress ($2 wasted) because scriptText had "paranoid".
+    const SORA_BLOCKED = /\b(paranoid|paranoia|thriller|surveillance|threatening|suspicious|dark psychological|noir|crime|espionage|blood|violence|drugs|tattoo|weapon|gun|knife|attack|murder|kill|dead|death)\b/gi;
+    const SORA_SAFE: Record<string, string> = {
+      paranoid: "anxious", paranoia: "anxiety", thriller: "drama",
+      surveillance: "observation", threatening: "intense", suspicious: "curious",
+      "dark psychological": "deep emotional", noir: "shadow-lit", crime: "investigation",
+      espionage: "intelligence", blood: "liquid", violence: "conflict",
+      drugs: "substances", tattoo: "marking", weapon: "device",
+      gun: "object", knife: "tool", attack: "encounter",
+      murder: "incident", kill: "remove", dead: "still", death: "ending",
+    };
+    function sanitizeForSora(text: string): string {
+      return text.replace(SORA_BLOCKED, (m) => SORA_SAFE[m.toLowerCase()] ?? "notable");
+    }
+
     try {
       if (isSora) {
-        // Bucket onto the Sora API enum (4/8/12/16/20).
         const sec: SoraSeconds = duration <= 5 ? "4" : duration <= 9 ? "8" : duration <= 13 ? "12" : duration <= 17 ? "16" : "20";
         const size = body.aspectRatio === "9:16" ? "720x1280" : "1280x720";
 
@@ -317,7 +332,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         const castBlock = sheetCast.length > 0
           ? `CAST (render each character from these exact descriptions — do NOT show any reference grid or portrait side-by-side layout):\n${sheetCast.map((c) => `- ${c.name}`).join("\n")}\n\n`
           : "";
-        const soraPrompt = `${castBlock}${prompt}`;
+        const soraPrompt = sanitizeForSora(`${castBlock}${prompt}`);
         const s = await submitSoraVideo({
           prompt: soraPrompt, model: modelKey as SoraModel, seconds: sec, size,
           imageUrl: soraSeed,

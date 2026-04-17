@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
       where: { organizationId: ctx.organizationId },
       include: { user: { select: { id: true, email: true, fullName: true, totpEnabled: true, lastLoginAt: true } }, role: { select: { id: true, name: true } } },
       orderBy: { createdAt: "asc" },
+      take: 500,
     }));
   } catch (e) { return handleError(e); }
 }

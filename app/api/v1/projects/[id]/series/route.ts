@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     await assertProjectInOrg(params.id, ctx.organizationId);
-    return ok(await prisma.series.findMany({ where: { projectId: params.id } }));
+    return ok(await prisma.series.findMany({ where: { projectId: params.id }, orderBy: { updatedAt: "desc" }, take: 100 }));
   } catch (e) { return handleError(e); }
 }
 

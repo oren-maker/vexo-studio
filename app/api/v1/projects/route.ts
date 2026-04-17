@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
       where: { organizationId: ctx.organizationId },
       include: { settings: true, _count: { select: { series: true, courses: true } } },
       orderBy: { updatedAt: "desc" },
+      take: 100,
     }));
   } catch (e) { return handleError(e); }
 }

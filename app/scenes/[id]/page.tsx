@@ -20,7 +20,7 @@ const VIDEO_MODEL_PRETTY: Record<string, string> = {
   "veo3-pro": "💎 VEO 3 Pro",
 };
 type DirectorSheet = { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string; generatedAt: string };
-type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string; soundNotes?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[]; scriptMentionsNotInCast?: string[] };
+type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string; soundNotes?: string; bridgeFrameUrl?: string; seedImageUrl?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[]; scriptMentionsNotInCast?: string[] };
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
@@ -173,16 +173,20 @@ export default function ScenePage() {
     try {
       const res = await api<{ bridgeFrameUrl?: string; bridgeCostUsd?: number }>(`/api/v1/scenes/${id}/approve`, { method: "POST" });
       setApproveStep("bridge");
-      // small pause so user sees the bridge step even when server is fast
       await new Promise((r) => setTimeout(r, 400));
       setApproveStep("done");
       const bridgeMsg = res?.bridgeFrameUrl
         ? `\n🖼 פריים אחרון נשמר לסצנה הבאה${res.bridgeCostUsd ? ` · עלות $${res.bridgeCostUsd.toFixed(4)}` : ""}`
         : "";
-      alert((he ? "✅ הסצנה אושרה" : "Scene approved") + bridgeMsg);
-      load();
-    } catch (e) { alert((e as Error).message); }
-    finally { setBusy(false); setTimeout(() => setApproveStep(null), 1500); }
+      alert((he ? "✅ הסצנה אושרה ונעולה לעריכה" : "Scene approved and locked") + bridgeMsg);
+      // Hard refresh so the locked state + new bridge-frame card + disabled
+      // buttons all render from a fresh server response. Oren asked for this.
+      location.reload();
+    } catch (e) {
+      alert((e as Error).message);
+      setBusy(false);
+      setApproveStep(null);
+    }
   }
 
   async function unapprove() {
@@ -190,9 +194,11 @@ export default function ScenePage() {
     setBusy(true);
     try {
       await api(`/api/v1/scenes/${id}/approve`, { method: "DELETE" });
-      load();
-    } catch (e) { alert((e as Error).message); }
-    finally { setBusy(false); }
+      location.reload();
+    } catch (e) {
+      alert((e as Error).message);
+      setBusy(false);
+    }
   }
 
   async function critic() {
@@ -624,6 +630,36 @@ export default function ScenePage() {
                   </div>
                 );
               })}
+            </div>
+          </Card>
+        )}
+
+        {/* Bridge frame — last frame of the approved video, used as the
+           i2v seed for scene N+1. Saved by POST /approve. */}
+        {scene.memoryContext?.bridgeFrameUrl && (
+          <Card title={he ? "🖼 פריים אחרון (גשר לסצנה הבאה)" : "🖼 Bridge frame (to next scene)"} subtitle={he ? "הפריים האחרון של הסרטון המאושר · יהפוך ל-i2v seed של הסצנה הבאה" : "Last frame of the approved video · becomes the next scene's i2v seed"}>
+            <div className="flex gap-4 items-start">
+              <img src={scene.memoryContext.bridgeFrameUrl} alt="bridge frame" className="rounded-lg border border-bg-main w-full max-w-md aspect-video object-cover bg-black" />
+              <div className="flex-1 text-xs space-y-2 text-text-muted">
+                <div>{he ? "הפריים הזה נוצר אוטומטית בלחיצה על \"אשר סצנה\"." : "Generated automatically when the scene was approved."}</div>
+                <div>{he ? "כשתייצר וידאו לסצנה הבאה — הוא ישמש כ-seed image כדי לשמר את הזהות, המיקום, והאובייקטים." : "When you generate the next scene's video, this image will be used as the i2v seed to preserve identity, location, and props."}</div>
+                <a href={scene.memoryContext.bridgeFrameUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-accent hover:underline">
+                  {he ? "פתח בטאב חדש ↗" : "Open in new tab ↗"}
+                </a>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Seed image — bridge frame inherited from the PREVIOUS scene.
+           Generated when scene N-1 was approved. */}
+        {scene.memoryContext?.seedImageUrl && (
+          <Card title={he ? "🌱 תמונת seed מהסצנה הקודמת" : "🌱 Seed from previous scene"} subtitle={he ? "פריים אחרון של הסצנה הקודמת · ישמש כ-i2v seed ביצירת הווידאו של הסצנה הזו" : "Previous scene's last frame · will be used as i2v seed when generating this scene's video"}>
+            <div className="flex gap-4 items-start">
+              <img src={scene.memoryContext.seedImageUrl} alt="seed from previous scene" className="rounded-lg border border-bg-main w-full max-w-md aspect-video object-cover bg-black" />
+              <div className="flex-1 text-xs text-text-muted">
+                {he ? "זה הפריים האחרון של הסצנה הקודמת — התמונה הזו תועבר למודל הווידאו (Sora/Kling) כ-reference כשתלחץ \"צור וידאו\" לסצנה הזו, כך שהזהות, המיקום והאובייקטים יישמרו." : "This is the previous scene's last frame. It'll be passed to the video model (Sora/Kling) as reference when you click 'Generate video' for this scene, preserving identity, location, and props."}
+              </div>
             </div>
           </Card>
         )}

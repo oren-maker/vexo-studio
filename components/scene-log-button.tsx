@@ -39,19 +39,19 @@ const ACTION_LABEL: Record<string, string> = {
   brain_execute_create_scene: "🤖 הבמאי יצר סצנה",
 };
 
-const SORA_RATE: Record<string, number> = { "sora-2": 0.10, "sora-2-pro": 0.30 };
+const VIDEO_RATE: Record<string, number> = { "sora-2": 0.10, "sora-2-pro": 0.30, "higgs-kling": 0.06, "higgs-seedance": 0.05, "higgsfield": 0.05 };
 const GROQ_ACTIONS = new Set(["critic_review", "sound_notes_generated", "remix_suggest", "director_sheet_generated", "breakdown_generated", "dialogue_generated", "lipsync_generated", "music_generated"]);
 
 function getCost(action: string, d: any): string | null {
   if (!d && GROQ_ACTIONS.has(action)) return "$0.003";
   if (!d) return null;
-  const usd = d.estimateUsd ?? d.costUsd ?? d.unitCost ?? null;
-  if (typeof usd === "number" && usd > 0) return `$${usd.toFixed(usd >= 0.01 ? 2 : 4)}`;
+  // Prefer model×duration (accurate) over estimateUsd (often stale/wrong)
   if (d.model && d.durationSeconds) {
-    const rate = SORA_RATE[d.model as string] ?? 0.10;
-    const cost = rate * Number(d.durationSeconds);
-    if (cost > 0) return `$${cost.toFixed(2)}`;
+    const rate = VIDEO_RATE[d.model as string];
+    if (rate) return `$${(rate * Number(d.durationSeconds)).toFixed(2)}`;
   }
+  const usd = d.costUsd ?? d.unitCost ?? null;
+  if (typeof usd === "number" && usd > 0) return `$${usd.toFixed(usd >= 0.01 ? 2 : 4)}`;
   if (GROQ_ACTIONS.has(action)) return "$0.003";
   return null;
 }

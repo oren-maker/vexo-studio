@@ -330,10 +330,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         });
         jobId = s.operationName; provider = "google"; displayModel = veoModel;
       } else if (isHiggs) {
-        const higgsModel = modelKey === "higgs-seedance" ? "seedance-2.0"
-          : modelKey === "higgs-kling" ? "kling-3.0"
-          : modelKey === "higgs-wan" ? "wan-2.5"
-          : "higgsfield-default";
+        const higgsModel = modelKey === "higgs-seedance" ? "bytedance/seedance/v1.5/pro/text-to-video"
+          : modelKey === "higgs-kling" ? "kling-video/v3.0/pro/text-to-video"
+          : modelKey === "higgs-wan" ? "wan-ai/wan/v2.5/text-to-video"
+          : modelKey === "higgsfield" ? "higgsfield-ai/soul/standard"
+          : "higgsfield-ai/dop/standard";
         const higgsPrompt = identityClause ? `${identityClause}\n\n${prompt}` : prompt;
         const s = await submitHiggsVideo({
           prompt: higgsPrompt,
@@ -342,7 +343,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           aspectRatio: (body.aspectRatio ?? "16:9") as "16:9" | "9:16" | "1:1",
           imageUrl: firstFrameImg ?? sheetCast[0]?.portraitUrl ?? undefined,
         });
-        jobId = s.id; provider = "higgsfield"; displayModel = `higgs:${higgsModel}`;
+        jobId = s.id; provider = "higgsfield"; displayModel = modelKey;
       } else {
         const falPrompt = identityClause ? `${identityClause}\n\n${prompt}` : prompt;
         // Same logic for fal — composite when available, else individual portraits.

@@ -135,7 +135,7 @@ export default function ScenePage() {
   // videos array.
   useEffect(() => {
     if (!veoJob || veoJob.done) return;
-    const MAX_WAIT_MS = veoJob.maxWaitMs ?? 240_000; // 4min default; remix overrides to 3min
+    const MAX_WAIT_MS = veoJob.maxWaitMs ?? 180_000; // 4min default; remix overrides to 3min
     const tick = setInterval(() => {
       setVeoJob((j) => {
         if (!j) return null;
@@ -378,7 +378,7 @@ export default function ScenePage() {
         })()}
 
         {veoJob && (
-          <Card title={veoJob.label ?? (he ? "🎬 מייצר וידאו" : "🎬 Generating video")} subtitle={veoJob.done ? (he ? "הושלם" : "Done") : (he ? `המערכת מעבדת · מקסימום ${Math.round((veoJob.maxWaitMs ?? 240_000) / 60_000)} דקות` : `Processing · max ${Math.round((veoJob.maxWaitMs ?? 240_000) / 60_000)}min`)}>
+          <Card title={veoJob.label ?? (he ? "🎬 מייצר וידאו" : "🎬 Generating video")} subtitle={veoJob.done ? (he ? "הושלם" : "Done") : (he ? `המערכת מעבדת · מקסימום ${Math.round((veoJob.maxWaitMs ?? 180_000) / 60_000)} דקות` : `Processing · max ${Math.round((veoJob.maxWaitMs ?? 180_000) / 60_000)}min`)}>
             <div className="space-y-3">
               <div className="flex justify-between items-center text-sm">
                 <div>

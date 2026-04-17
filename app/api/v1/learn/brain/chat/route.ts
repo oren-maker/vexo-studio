@@ -436,9 +436,13 @@ export async function POST(req: NextRequest) {
       data: { chatId: chat.id, role: "user", content: message },
     });
 
-    // Auto-detect instructional messages (upgrade requests) and save them for Claude to review
-    const instructionPatterns = /תעשה ש|תגדיר ש|שיהיה|שימור|תזכור ש|שדרוג|תוסיף ש|צריך ש|חשוב ש|תדאג ש|שיופיע|שהמוח|תשדרג/;
-    if (instructionPatterns.test(message) && message.length > 15) {
+    // Auto-detect instructional messages (upgrade requests) and save them for Claude to review.
+    // Must be SYSTEM-TARGETING — tightened after misfires on scene/episode production chatter
+    // (e.g. "שיהיה כניסה מרחוב", "בוא נעבור לשאר הסצנות") that are NOT system upgrades.
+    const SYSTEM_TARGET = /(תשדרג (את המוח|את המערכת|שהמוח|שהמערכת|שהבוט)|שהמוח (ידע|יזכור|יסנן|יסווג|יבדוק|יהיה|יפיק|יעשה|יתעד|יימנע|יתריע|יציע)|שהמערכת (תדע|תזכור|תסנן|תסווג|תבדוק|תציג|תיצור|תתעד|תתריע|תציע)|מהיום והלאה (המוח|המערכת)|תזכור לסנן|תזכור לסווג|תוסיף (פיצ'ר|יכולת|אפשרות) למוח|תוסיף (פיצ'ר|יכולת|אפשרות) למערכת|תדאג ש(המוח|המערכת)|תגדיר ש(המוח|המערכת))/;
+    const PRODUCTION_CONTEXT = /(סצנה|פרק|עונה|סדרה|דמות|פרומפט הזה|סקריפט|תסריט|תחליף|תעדכן|בוא נעשה|בוא נעבור|בוא נדעת|בוא נ[א-ת])/;
+    const isSystemUpgrade = SYSTEM_TARGET.test(message) && !PRODUCTION_CONTEXT.test(message);
+    if (isSystemUpgrade && message.length > 15) {
       try {
         await prisma.brainUpgradeRequest.create({
           data: {
@@ -521,9 +525,13 @@ export async function POST(req: NextRequest) {
     const brainMsg = await prisma.brainMessage.create({
       data: { chatId: chat.id, role: "brain", content: reply },
     });
-    // Capture brain's own upgrade suggestions
-    const BRAIN_SUGGESTION = /הצעה|שדרוג|מומלץ|כדאי|הייתי מציע|הייתי ממליץ|יכולת חדשה|פיצ'ר/i;
-    if (BRAIN_SUGGESTION.test(reply) && reply.length > 40) {
+    // Capture brain's own upgrade suggestions — VERY tight: only explicit architectural
+    // proposals that target the system itself, not generic scene/prompt discussion.
+    // Misfires from the old regex filled the queue with 30+ normal brain replies.
+    const BRAIN_SYSTEM_PROPOSAL = /(אני מציע ש(נוסיף (יכולת|פיצ'ר|מודול)|נבנה (יכולת|פיצ'ר|מודול)|נשדרג את (המוח|המערכת))|הייתי מציע ל(הוסיף|בנות|שדרג) (יכולת|פיצ'ר|מודול) (במוח|במערכת)|פיצ'ר חדש למוח|פיצ'ר חדש למערכת|יכולת שחסרה (כרגע )?במערכת|יכולת שחסרה (כרגע )?במוח)/;
+    const BRAIN_SCENE_TALK = /(סצנה|פרק|עונה|סדרה|דמות|פרומפט הזה|סקריפט|תסריט)/;
+    const looksLikeSystemProposal = BRAIN_SYSTEM_PROPOSAL.test(reply) && !BRAIN_SCENE_TALK.test(reply.slice(0, 300));
+    if (looksLikeSystemProposal && reply.length > 40) {
       try {
         await prisma.brainUpgradeRequest.create({
           data: {

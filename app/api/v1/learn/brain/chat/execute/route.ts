@@ -344,6 +344,10 @@ export async function POST(req: NextRequest) {
       if (typeof action.status === "string") data.status = action.status;
       if (typeof action.targetDurationSeconds === "number") data.targetDurationSeconds = action.targetDurationSeconds;
       if (Object.keys(data).length === 0) return NextResponse.json({ error: "no fields to update" }, { status: 400 });
+      const existingScene = await prisma.scene.findUnique({ where: { id: sceneId }, select: { id: true } });
+      if (!existingScene) {
+        return NextResponse.json({ error: `סצנה ${sceneId} לא קיימת ב-DB — ייתכן שנמחקה או שהמזהה שגוי. פתח עמוד סצנה קיים ונסה שוב.` }, { status: 404 });
+      }
       const scene: any = await (prisma as any).scene.update({
         where: { id: sceneId },
         data,

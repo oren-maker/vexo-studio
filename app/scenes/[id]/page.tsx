@@ -166,11 +166,30 @@ export default function ScenePage() {
     return () => { clearInterval(tick); clearInterval(poll); };
   }, [veoJob?.startedAt, veoJob?.done, id]);
 
+  const [approveStep, setApproveStep] = useState<null | "saving" | "bridge" | "done">(null);
   async function approve() {
     setBusy(true);
+    setApproveStep("saving");
     try {
-      await api(`/api/v1/scenes/${id}/approve`, { method: "POST" });
-      alert(he ? "הסצנה אושרה" : "Scene approved");
+      const res = await api<{ bridgeFrameUrl?: string; bridgeCostUsd?: number }>(`/api/v1/scenes/${id}/approve`, { method: "POST" });
+      setApproveStep("bridge");
+      // small pause so user sees the bridge step even when server is fast
+      await new Promise((r) => setTimeout(r, 400));
+      setApproveStep("done");
+      const bridgeMsg = res?.bridgeFrameUrl
+        ? `\n🖼 פריים אחרון נשמר לסצנה הבאה${res.bridgeCostUsd ? ` · עלות $${res.bridgeCostUsd.toFixed(4)}` : ""}`
+        : "";
+      alert((he ? "✅ הסצנה אושרה" : "Scene approved") + bridgeMsg);
+      load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setBusy(false); setTimeout(() => setApproveStep(null), 1500); }
+  }
+
+  async function unapprove() {
+    if (!confirm(he ? "לבטל את אישור הסצנה? הפריים האחרון יישאר שמור." : "Unapprove scene? The last-frame bridge will be kept.")) return;
+    setBusy(true);
+    try {
+      await api(`/api/v1/scenes/${id}/approve`, { method: "DELETE" });
       load();
     } catch (e) { alert((e as Error).message); }
     finally { setBusy(false); }
@@ -345,7 +364,19 @@ export default function ScenePage() {
           <button disabled={busy} onClick={genVideo} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור וידאו" : "Generate video"}</button>
           <button disabled={busy} onClick={breakdown} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-50">{he ? "פירוק תסריט" : "Script breakdown"}</button>
           <button disabled={busy} onClick={critic} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-50">{he ? "מבקר AI" : "AI critic"}</button>
-          <button disabled={busy} onClick={approve} className="px-3 py-1.5 rounded-lg border-2 border-status-okText text-status-okText bg-white text-sm font-semibold hover:bg-status-okText hover:text-white transition-colors disabled:opacity-50">{he ? "אשר סצנה" : "Approve"}</button>
+          {scene.status === "APPROVED" ? (
+            <button disabled={busy} onClick={unapprove} className="px-3 py-1.5 rounded-lg border-2 border-status-errText text-status-errText bg-white text-sm font-semibold hover:bg-status-errText hover:text-white transition-colors disabled:opacity-50">
+              {he ? "ביטול אישור" : "Unapprove"}
+            </button>
+          ) : (
+            <button disabled={busy} onClick={approve} className="px-3 py-1.5 rounded-lg border-2 border-status-okText text-status-okText bg-white text-sm font-semibold hover:bg-status-okText hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2">
+              {approveStep === "saving" && <span className="inline-block w-3 h-3 border-2 border-status-okText border-t-transparent rounded-full animate-spin" />}
+              {approveStep === "saving" ? (he ? "שומר…" : "Saving…")
+                : approveStep === "bridge" ? (he ? "שומר פריים אחרון…" : "Saving last frame…")
+                : approveStep === "done" ? (he ? "✓ אושר" : "✓ Done")
+                : (he ? "אשר סצנה" : "Approve")}
+            </button>
+          )}
         </div>
 
         {aiCosts && aiCosts.count > 0 && (() => {

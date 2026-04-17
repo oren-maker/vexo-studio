@@ -192,6 +192,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
    אם אתה מחזיר קישור — או נתיב יחסי (\`/learn/sources/<id>\`) או \`https://vexo-studio.vercel.app/...\`. שום דבר אחר.
 
 3. **אסור להמציא ID-ים.** אם לא קיבלת ID אמיתי במסר ממני (כתוצאה של action שבוצע) — אל תכתוב URL עם ID. תכתוב במקום זאת "אחרי שתאשר את הפעולה אקבל את ה-ID האמיתי".
+   **בפרט באקשנים כמו `update_scene`, `compose_prompt`, `generate_video`:** אם המשתמש נמצא בעמוד סצנה/פרק/עונה (יש לך `pageContext`) — אל תמלא את שדה `sceneId`/`episodeId`/`seasonId` ב-action. השרת ישתמש ב-ID מה-page context אוטומטית. ID שאתה ממלא בעצמך חייב להיות ID אמיתי שראית במסר קודם ממני — אחרת השמט את השדה.
 
 4. **קוהרנטיות מיקום-דמויות-תוכן לפני כל update_scene / compose_prompt.** לפני שאתה מחזיר action שמעדכן סצנה, וודא שהמיקום, הדמויות וה-scriptText עקביים: אם הסצנה ממוקמת בווילה וקאלן לבוש במעיל עור — הפרומפט חייב לשמור על שני אלה. אם אתה משנה אחד מהשלושה, עדכן גם את השניים האחרים באותה action. אל תחזיר עדכון חלקי שישבור את הרצף.
 

@@ -335,8 +335,32 @@ export async function POST(req: NextRequest) {
       resultUrl = ep ? `/seasons/${ep.seasonId}/episodes/${episodeId}/scenes/${scene.id}` : `/scenes/${scene.id}`;
       resultText = `✅ יצרתי סצנה חדשה: סצנה ${nextNumber}${title ? ` — "${title}"` : ""}${summary ? ` · ${summary.slice(0, 120)}` : ""}.`;
     } else if (action.type === "update_scene") {
-      const sceneId = String(action.sceneId || "").trim() || (ctxKind === "scene" ? ctxId : null);
-      if (!sceneId) return NextResponse.json({ error: "sceneId חסר" }, { status: 400 });
+      const brainSceneId = String(action.sceneId || "").trim();
+      const pageSceneId = ctxKind === "scene" ? (ctxId || null) : null;
+      if (!brainSceneId && !pageSceneId) return NextResponse.json({ error: "sceneId חסר — פתח עמוד סצנה או שלח sceneId תקין" }, { status: 400 });
+
+      // Resolve which sceneId actually exists in DB. The brain sometimes emits
+      // a hallucinated / stale / concatenated id; when that happens and the user
+      // is on a scene page, fall back to the page-context id. This matches user
+      // intent ("update THIS scene") and avoids a confusing 404.
+      let sceneId: string;
+      if (brainSceneId) {
+        const brainExists = await prisma.scene.findUnique({ where: { id: brainSceneId }, select: { id: true } });
+        if (brainExists) {
+          sceneId = brainSceneId;
+        } else if (pageSceneId && pageSceneId !== brainSceneId) {
+          const pageExists = await prisma.scene.findUnique({ where: { id: pageSceneId }, select: { id: true } });
+          if (!pageExists) return NextResponse.json({ error: `סצנה ${brainSceneId} לא קיימת ב-DB וגם לא סצנת העמוד (${pageSceneId}). רענן ונסה שוב.` }, { status: 404 });
+          sceneId = pageSceneId;
+        } else {
+          return NextResponse.json({ error: `סצנה ${brainSceneId} לא קיימת ב-DB — ייתכן שהמזהה שהמוח שלח שגוי. פתח עמוד סצנה קיים ונסה שוב.` }, { status: 404 });
+        }
+      } else {
+        const pageExists = pageSceneId ? await prisma.scene.findUnique({ where: { id: pageSceneId }, select: { id: true } }) : null;
+        if (!pageExists) return NextResponse.json({ error: `סצנה ${pageSceneId} לא קיימת ב-DB. רענן את הדף ונסה שוב.` }, { status: 404 });
+        sceneId = pageSceneId!;
+      }
+
       const data: Record<string, any> = {};
       if (typeof action.title === "string") data.title = action.title.trim();
       if (typeof action.summary === "string") data.summary = action.summary.trim();
@@ -344,10 +368,6 @@ export async function POST(req: NextRequest) {
       if (typeof action.status === "string") data.status = action.status;
       if (typeof action.targetDurationSeconds === "number") data.targetDurationSeconds = action.targetDurationSeconds;
       if (Object.keys(data).length === 0) return NextResponse.json({ error: "no fields to update" }, { status: 400 });
-      const existingScene = await prisma.scene.findUnique({ where: { id: sceneId }, select: { id: true } });
-      if (!existingScene) {
-        return NextResponse.json({ error: `סצנה ${sceneId} לא קיימת ב-DB — ייתכן שנמחקה או שהמזהה שגוי. פתח עמוד סצנה קיים ונסה שוב.` }, { status: 404 });
-      }
       const scene: any = await (prisma as any).scene.update({
         where: { id: sceneId },
         data,

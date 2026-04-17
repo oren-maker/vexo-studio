@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { sceneProgress, avg, progressColor, progressLabel } from "@/lib/progress";
@@ -39,7 +39,18 @@ export default function SeasonPage() {
 
   const [err, setErr] = useState<string | null>(null);
   const [costs, setCosts] = useState<Record<string, number>>({});
-  const [tab, setTab] = useState<"episodes" | "characters" | "logs" | "opening">("episodes");
+  // Tab is mirrored to ?tab= so each tab has a shareable URL and refresh
+  // doesn't reset the view. Oren asked: "שלכל טאב יהיה קישור משלו".
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  type TabName = "episodes" | "characters" | "logs" | "opening";
+  const rawTab = (searchParams?.get("tab") ?? "episodes") as TabName;
+  const tab: TabName = (["episodes", "characters", "logs", "opening"] as const).includes(rawTab as TabName) ? rawTab : "episodes";
+  const setTab = (t: TabName) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("tab", t);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
   type Opening = { id: string; status: string; videoUrl: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; updatedAt: string; chunkIndex: number; chunkPrompts: string[] | null; chunkVideoIds: string[] | null; versions: { id: string; prompt: string; createdAt: string }[] };
   type OpeningCostBreakdown = { text: number; video: number; total: number; calls: number };
   type OpeningVideo = { id: string; fileUrl: string; at: string; model: string | null; durationSeconds: number | null; costUsd: number | null };

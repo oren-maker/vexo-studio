@@ -25,8 +25,8 @@ export type HiggsModel =
   | "kling-video/v2.1/pro/image-to-video";
 
 function authHeader(): string {
-  const id = process.env.HIGGSFIELD_API_ID;
-  const secret = process.env.HIGGSFIELD_API_KEY;
+  const id = (process.env.HIGGSFIELD_API_ID ?? "").trim();
+  const secret = (process.env.HIGGSFIELD_API_KEY ?? "").trim();
   if (!id || !secret) throw new Error("HIGGSFIELD_API_ID and HIGGSFIELD_API_KEY must be set");
   return `Key ${id}:${secret}`;
 }

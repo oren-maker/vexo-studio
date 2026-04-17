@@ -46,6 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           include: {
             season: { select: { seasonNumber: true } },
             characters: { include: { character: { include: { media: { orderBy: { createdAt: "asc" } } } } } },
+            _count: { select: { scenes: true } },
           },
         },
       },
@@ -169,14 +170,56 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     function toTitle(s: string) { return s.split(" ").map((w) => w[0] + w.slice(1).toLowerCase()).join(" "); }
     const { veoFormatted: veoDialogue, rawList: dialogueLines } = parseDialogue(scene.scriptText);
 
-    // AUDIO block at the TOP — VEO 3 weighs earlier tokens more and often
-    // omits sound when dialogue/music instructions are buried in a long prompt.
-    const audioBlock = [
-      veoDialogue && `Spoken dialogue (generate audible speech with synced lip movement, clear intelligible voices): ${veoDialogue}`,
-      sheet?.audio && `Music and ambience: ${sheet.audio}`,
-      mem.soundNotes && `Sound design: ${mem.soundNotes.slice(0, 800)}`,
-      "Include clearly audible dialogue, ambient room tone, footsteps, breathing, and appropriate background music.",
-    ].filter(Boolean).join(" ");
+    // AUDIO block at the TOP — VEO 3 / Sora weigh earlier tokens more and
+    // often skip audio when dialogue/music instructions are buried. This is
+    // the crystallised version after consulting the AI Director knowledge
+    // (BrainReference sound + lip-sync KnowledgeNodes, 2026-04-17):
+    //
+    //  - DIALOGUE must be spoken + phoneme-level lip-synced, not silent
+    //    "talking head" frames; script cadence drives mouth shape + breath.
+    //  - MUSIC must be present unless the script explicitly says silence,
+    //    ducked 3-6 dB under speech (sidechain-style), with ONE clear sting
+    //    at the emotional beat of the clip.
+    //  - AMBIENCE must be continuous — room tone or exterior bed,
+    //    never true silence between lines.
+    //  - FOLEY — footsteps on a named surface, cloth rustle, prop handling
+    //    — adds physical weight; each beat tied to on-screen motion.
+    //  - NEGATIVE rules close the block so the model doesn't skip audio.
+    const hasDialogue = !!veoDialogue;
+    const audioSegments: string[] = [];
+    audioSegments.push(`AUDIO (MANDATORY — all tracks below must be clearly audible in the final clip, correctly mixed with dialogue on top):`);
+
+    if (hasDialogue) {
+      audioSegments.push(
+        `1) DIALOGUE: ${veoDialogue} — generate fully audible spoken speech in a clear adult voice; mouth shapes must match each phoneme exactly (visible on camera when the face is in frame), with natural breaths between phrases and micro-expressions that match the line's emotional tone. NO silent mouth-moving, NO mumbling, NO overlapping into un-intelligibility. Shot scale varies from medium to close during dialogue to sell emotion.`,
+      );
+    } else {
+      audioSegments.push(
+        `1) DIALOGUE: this clip has no scripted speech, but include naturalistic human sounds — a sigh, a short exhale, a gasp, or a single muttered word — so the character feels alive. NO dead-silent human faces.`,
+      );
+    }
+
+    audioSegments.push(
+      `2) MUSIC: ${sheet?.audio ? sheet.audio : "low-intensity underscore matching the scene's emotional tone"}. Ducked -3 to -6 dB under dialogue (10 ms attack, 200 ms release). Include ONE clear musical accent (sting / riser / cue change) aligned to the strongest emotional beat of the clip. Leave a 1-3 kHz spectral gap so speech stays intelligible.`,
+    );
+
+    audioSegments.push(
+      `3) AMBIENCE: continuous bed layer for the scene's location (room tone at about -35 dB RMS for interior, or a specific exterior bed — wind, traffic, birds, crowd walla — for outdoor). Never let the audio go truly silent between lines; the world is always breathing.`,
+    );
+
+    audioSegments.push(
+      `4) FOLEY: footsteps on the actual surface of this location (wood / tile / concrete / gravel), cloth rustle when characters turn or gesture, prop handling sounds (cup, phone, door, paper), and audible breathing on close-ups. Weight of each footstep tracks the character's emotional state.`,
+    );
+
+    if (mem.soundNotes) {
+      audioSegments.push(`5) SCENE-SPECIFIC SOUND DESIGN: ${mem.soundNotes.slice(0, 700)}`);
+    }
+
+    audioSegments.push(
+      `NEGATIVE AUDIO RULES: NO silent dialogue frames; NO generic video-game music; NO music so loud it drowns speech; NO abrupt audio cuts at clip boundaries (use J-Cut / L-Cut style — the previous clip's audio tail can continue 0.5-1 s into this clip's opening for continuity).`,
+    );
+
+    const audioBlock = audioSegments.join("\n");
 
     // First scene of every episode gets an auto title card: "Season N Episode M"
     // overlaid in the opening ~1.5 seconds, then fades out. Also spoken by narrator.
@@ -187,59 +230,91 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       ? `EPISODE TITLE CARD (first 1.5 seconds only): Overlay large clean white sans-serif text reading "SEASON ${sNum} · EPISODE ${eNum}" centered on screen with 15% safe margins, then fade out smoothly before the action starts. A warm narrator voice reads "Season ${sNum}, Episode ${eNum}" in sync with the on-screen text.`
       : "";
 
+    // Global framing shared by ALL scenes — tells the model this clip is
+    // a segment of one continuous television sequence, not a standalone
+    // vignette. This primes identity / location / object preservation so
+    // the bridge-frame chain (scene N's last frame = scene N+1's first frame)
+    // reads as a single shot split into 20s chunks rather than separate takes.
+    const continuityHeader = isFirstScene
+      ? `CONTINUOUS TV SERIES — EPISODE OPENING CLIP. This is the first 20-second clip of a continuous filmic episode. The final frame of this clip will seed the next clip via image-to-video, so end on a cleanly composed, stable frame (see END-FRAME rules below).`
+      : `CONTINUOUS TV SERIES — MID-EPISODE CLIP. This clip is one segment of a single continuous filmic sequence (scene ${scene.sceneNumber ?? "?"} of ${scene.episode?.episodeNumber ?? "?"}). It MUST read as an uninterrupted take from the previous clip — same characters, same room, same lighting, same on-screen objects. The reference image you see IS the final frame of the previous clip; begin exactly at that pixel state and EVOLVE from there — no re-establishing shot, no cut, no relight, no prop swap. Preserve identity + location + objects TOGETHER as one.`;
+
+    // End-frame rule: middle-of-episode clips end on a clean frame that
+    // becomes the i2v seed for the next clip; the last clip of an episode
+    // fades to black for the final TV-episode cut.
+    const totalScenes = scene.episode?._count?.scenes ?? null;
+    const isLastSceneOfEpisode = totalScenes != null && scene.sceneNumber === totalScenes;
+    const endFrameRule = isLastSceneOfEpisode
+      ? `END-FRAME (episode finale): the final 1.5 seconds fade smoothly to pure black, audio ducks to silence in sync. This is the episode's end card.`
+      : `END-FRAME (mid-episode, NON-NEGOTIABLE): the final 1 second of this clip MUST settle into a cleanly composed, stable frame — no motion blur, characters holding position, lighting steady, every on-screen object clearly visible. This exact frame will be extracted and used as the opening reference for the next clip, so it must be a legible bridge between scenes. DO NOT fade to black and DO NOT end mid-motion.`;
+
+    // Identity + location + object preservation block — shared across all
+    // branches. This is the crystallised rule from Oren's feedback:
+    // "לשמר את הזהות המיקום הכל ביחד" — one frame carries everything.
+    const continuityLock = inScene.length > 0
+      ? `CONTINUITY LOCK (identity + location + objects, TOGETHER):
+ · Characters: ${inScene.map((c) => c.name).join(", ")} — keep every face, skin tone, hair, wardrobe EXACTLY as shown in the reference image(s). No drift in age, weight, or features between clips.
+ · Location: the room / environment is identical to the previous clip — same walls, windows, furniture layout, floor texture. Do not relocate the action.
+ · Lighting: same color temperature (warm/cool), same key/fill/rim directions, same shadow angles as the reference image. No relight.
+ · Props & objects: every prop visible on the reference image is still present, in the same place, in the same state. Clothes do not change. Cups, papers, phones stay put unless the script moves them.
+ · Camera continuity: keep the same lens focal length and depth of field as the reference; do NOT cross the 180° line from the previous clip.`
+      : "";
+
     const basePrompt = willUseI2V
       ? [
-          // 1. Audio comes first so VEO 3 doesn't skip it.
-          `AUDIO: ${audioBlock}`,
+          continuityHeader,
+          audioBlock,
           titleCardBlock,
-          // 2. Photorealism + identity lock
-          `Continue from the starting image as a live-action photorealistic film. Real human actors, real skin pores, real eyes, no animation or CGI look.`,
-          inScene.length > 0 && `On screen: ${inScene.map((c) => c.name).join(", ")} — keep their faces, hair, wardrobe EXACTLY as in the image, no drift.`,
-          // 3. Action
-          scene.summary && `Action: ${scene.summary}`,
+          `Live-action photorealistic film. Real human actors, real skin pores, real eyes, real physical lighting. NO animation, NO CGI look, NO illustration, NO 3D render.`,
+          continuityLock,
+          scene.summary && `Action this clip: ${scene.summary}`,
           sheet?.camera && `Camera: ${sheet.camera}`,
-          // 4. Script for full context
           scene.scriptText && `Full script:\n${scene.scriptText.slice(0, 800)}`,
           mem.directorNotes && `Director notes (highest priority): ${mem.directorNotes.slice(0, 400)}`,
           sheet?.effects && sheet.effects.toLowerCase() !== "none" && `Effects: ${sheet.effects}`,
+          endFrameRule,
         ].filter(Boolean).join("\n\n")
       : sheet
       ? [
-          // AUDIO first here too
-          `AUDIO: ${audioBlock}`,
+          continuityHeader,
+          audioBlock,
           titleCardBlock,
           `[Style] ${sheet.style} — Photorealistic live-action film. Real human actors with real skin, real eyes. NO cartoon, NO 3D render, NO illustration.`,
           `[Scene] ${sheet.scene}`,
           `[Character] ${sheet.character}`,
           characterBlock,
+          continuityLock,
           `[Camera] ${sheet.camera}`,
           `[Shots] ${sheet.shots}`,
           `[Effects] ${sheet.effects}`,
           `[Technical] ${sheet.technical} · 24fps · real physical lighting, film grain.`,
           scene.scriptText && `[Script]\n${scene.scriptText.slice(0, 1200)}`,
           mem.directorNotes && `[Director notes]\n${mem.directorNotes.slice(0, 600)}`,
+          endFrameRule,
         ].filter(Boolean).join("\n\n")
       : [
-          `AUDIO: ${audioBlock}`,
+          continuityHeader,
+          audioBlock,
           titleCardBlock,
           scene.title && `Title: ${scene.title}`,
           scene.summary && `Summary: ${scene.summary}`,
           characterBlock,
+          continuityLock,
           scene.scriptText && `Script:\n${scene.scriptText}`,
           mem.directorNotes && `Director notes:\n${mem.directorNotes}`,
           "Photorealistic live-action film, real actors, 24fps, real physical lighting. NO cartoon, NO illustration.",
+          endFrameRule,
         ].filter(Boolean).join("\n\n");
 
     // Pull Seedance reference prompts to guide tone/level of detail
     const refQuery = [scene.title, scene.summary].filter(Boolean).join(" ");
     const refs = await fetchReferencePrompts(refQuery, 3);
     const referenceCtx = buildReferenceContext(refs);
-    // Every scene ends with a 1.5-second fade-to-black — smoother transitions
-    // when clips are merged into an episode, and matches the project-wide
-    // episode-end rule Oren set. The action must run normally until the fade
-    // begins; audio ducks to silence during the fade.
-    const fadeDirective = "MANDATORY END-OF-CLIP FADE-OUT: the final 1.5 seconds (e.g. 18.5-20s for a 20-second clip) MUST fade smoothly from the live action to pure black. Audio ducks to silence in sync with the visual fade. Keep the scene action playing at normal pace until the fade begins — do NOT slow the action down to fit. This is non-negotiable for every scene.";
-    const prompt = [basePrompt, referenceCtx, fadeDirective].filter(Boolean).join("\n\n");
+    // End-frame handling is now controlled by `endFrameRule` inside basePrompt:
+    // mid-episode clips keep a clean stable frame for the bridge-chain;
+    // only the final scene of an episode fades to black. The continuity
+    // header already primes this.
+    const prompt = [basePrompt, referenceCtx].filter(Boolean).join("\n\n");
 
     // Build webhook URL pointing back at us
     const duration = body.durationSeconds ?? 5;

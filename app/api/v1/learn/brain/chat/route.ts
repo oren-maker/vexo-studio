@@ -482,34 +482,40 @@ export async function POST(req: NextRequest) {
     // If the chat is on a scene page, charge the cost to the scene + log it
     const pgCtx = pageContext as { kind?: string; id?: string } | null;
     if (pgCtx?.kind === "scene" && pgCtx.id) {
-      const { chargeUsd } = await import("@/lib/billing");
-      const sceneRow = await prisma.scene.findUnique({
-        where: { id: pgCtx.id },
-        select: { sceneNumber: true, episodeId: true, episode: { select: { season: { select: { series: { select: { projectId: true } } } } } } },
-      });
-      const projectId = sceneRow?.episode?.season?.series?.projectId;
-      if (projectId) {
-        await chargeUsd({
-          organizationId: unauth ? "" : "", // filled below
-          projectId,
-          entityType: "SCENE",
-          entityId: pgCtx.id,
-          providerName: "Google Gemini",
-          category: "TOKEN",
-          description: `Brain chat · scene ${sceneRow?.sceneNumber ?? "?"} · ${model} · ${inputTokens}+${outputTokens} tokens`,
-          unitCost: chatCostUsd,
-          quantity: 1,
-        }).catch(() => {});
-      }
-      await (prisma as any).sceneLog?.create({
-        data: {
-          sceneId: pgCtx.id,
-          action: "brain_chat",
-          actor: "user:brain",
-          actorName: `Brain (${model})`,
-          details: { inputTokens, outputTokens, costUsd: chatCostUsd, messagePreview: message.slice(0, 100) },
-        },
-      }).catch(() => {});
+      try {
+        const { chargeUsd } = await import("@/lib/billing");
+        const sceneRow = await prisma.scene.findUnique({
+          where: { id: pgCtx.id },
+          select: {
+            sceneNumber: true, episodeId: true,
+            episode: { select: { season: { select: { series: { select: { projectId: true, project: { select: { organizationId: true } } } } } } } },
+          },
+        });
+        const projectId = sceneRow?.episode?.season?.series?.projectId;
+        const orgId = sceneRow?.episode?.season?.series?.project?.organizationId;
+        if (projectId && orgId) {
+          await chargeUsd({
+            organizationId: orgId,
+            projectId,
+            entityType: "SCENE",
+            entityId: pgCtx.id,
+            providerName: "Google Gemini",
+            category: "TOKEN",
+            description: `Brain chat · scene ${sceneRow?.sceneNumber ?? "?"} · ${model} · ${inputTokens}+${outputTokens} tokens`,
+            unitCost: chatCostUsd,
+            quantity: 1,
+          });
+        }
+        await (prisma as any).sceneLog.create({
+          data: {
+            sceneId: pgCtx.id,
+            action: "brain_chat",
+            actor: "user:brain",
+            actorName: `Brain (${model})`,
+            details: { inputTokens, outputTokens, costUsd: chatCostUsd, messagePreview: message.slice(0, 100) },
+          },
+        });
+      } catch (e) { console.warn("[brain-chat-scene-log]", (e as Error).message); }
     }
 
     const brainMsg = await prisma.brainMessage.create({

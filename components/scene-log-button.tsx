@@ -34,6 +34,9 @@ const ACTION_LABEL: Record<string, string> = {
   lipsync_generated: "👄 ליפ-סינק נוצר",
   music_generated: "🎵 מוזיקה נוצרה",
   brain_chat: "🧠 שיחה עם הבמאי",
+  brain_execute_update_scene: "🤖 הבמאי עדכן סצנה",
+  brain_execute_compose_prompt: "🤖 הבמאי יצר פרומפט",
+  brain_execute_create_scene: "🤖 הבמאי יצר סצנה",
 };
 
 const SORA_RATE: Record<string, number> = { "sora-2": 0.10, "sora-2-pro": 0.30 };

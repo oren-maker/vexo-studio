@@ -401,6 +401,21 @@ export async function POST(req: NextRequest) {
       await prisma.brainChat.update({ where: { id: chatId }, data: { updatedAt: new Date(), summarizedAt: null } });
     }
 
+    // Write SceneLog for any scene-related action so it shows in the activity tab
+    const sceneActions = ["compose_prompt", "update_scene", "create_scene"];
+    const targetSceneId = action.sceneId || (ctxKind === "scene" ? ctxId : null);
+    if (sceneActions.includes(action.type) && targetSceneId) {
+      await (prisma as any).sceneLog.create({
+        data: {
+          sceneId: targetSceneId,
+          action: `brain_execute_${action.type}`,
+          actor: "ai:brain",
+          actorName: "במאי AI",
+          details: { actionType: action.type, resultText: resultText?.slice(0, 200), resultUrl },
+        },
+      }).catch(() => {});
+    }
+
     return NextResponse.json({ ok: true, text: resultText, url: resultUrl });
   } catch (e: any) {
     console.error("[brain-chat-execute]", e);

@@ -716,7 +716,7 @@ export default function ScenePage() {
               </button>
             </div>
           )}
-          {scene.frames.length === 0 && !bridgeUrl && !seedUrl ? (
+          {scene.frames.length === 0 && bridgeUrls.length === 0 && !seedUrl ? (
             <div className="text-text-muted text-sm space-y-1">
               <div>{he ? "אין מסגרות עדיין." : "No frames yet."}</div>
               <div>{he ? "✨ \"צור תשריט\" יוצר מסגרות מלאות לסצנה · ✅ \"אשר סצנה\" יוצר אוטומטית את הפריים האחרון (bridge frame) לסצנה הבאה." : "✨ 'Generate storyboard' creates full scene frames · ✅ 'Approve scene' auto-creates the bridge frame for the next scene."}</div>

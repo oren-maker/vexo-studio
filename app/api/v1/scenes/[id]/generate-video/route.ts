@@ -144,6 +144,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // In t2v mode we send the full director sheet so it has everything.
     const willUseI2V = !!(firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl) || characterRefImgs.length > 0;
 
+    // Sanitize scriptText + directorSheet fields that come from the brain —
+    // strip phrases that cause Sora to bake the reference image into the
+    // video (showing the character sheet grid, portrait lineup, or "title
+    // fades in" over the reference). The top-level title card is handled
+    // by titleCardBlock; these phrases if present would duplicate/conflict
+    // with it. Also strip "reference images" language that Sora reads as
+    // "show the references on screen".
+    const PROBLEMATIC_PHRASES: RegExp[] = [
+      /\btitle\b[^.]{0,80}\bfades? in\b[^.]*\./gi,
+      /\bseason\s*\d+\s*[·•·]?\s*episode\s*\d+\b[^.]*\bfades? in\b[^.]*\./gi,
+      /\b(lock\s+identity\s+to|anchor\s+to|match)\s+the\s+reference\s+image[s]?\b[^.]*\./gi,
+      /\breference\s+image[s]?\s+(for|of)\s+[A-Z][a-zA-Z ]+\s+(across|throughout|in)\b[^.]*\./gi,
+      /\bshow\s+(the|a)\s+character\s+(sheet|grid|lineup|composite)\b[^.]*\./gi,
+      /\bportrait\s+(grid|lineup|composite|sheet)\b[^.]*\./gi,
+    ];
+    function sanitizeForVideo(text: string | null | undefined): string {
+      if (!text) return "";
+      let out = String(text);
+      for (const re of PROBLEMATIC_PHRASES) out = out.replace(re, "");
+      return out.replace(/\s{3,}/g, " ").trim();
+    }
+    const scriptTextClean = sanitizeForVideo(scene.scriptText);
+    const sheetShotsClean = sanitizeForVideo(sheet?.shots);
+    const sheetTechnicalClean = sanitizeForVideo(sheet?.technical);
+    const sheetCharacterClean = sanitizeForVideo(sheet?.character);
+    const directorNotesClean = sanitizeForVideo(mem.directorNotes);
+
     // Parse dialogue into VEO 3-friendly format: speaker, tone hint (from neighboring action), and the line in quotes.
     // VEO 3 generates speech when prompts use the pattern: `<Name> says: "<line>"`
     // Pull SPEAKER:line pairs from script (handles both `MIRA:` and `MIRA (whispering):` patterns).
@@ -168,7 +195,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return { veoFormatted: formatted, rawList: raw };
     }
     function toTitle(s: string) { return s.split(" ").map((w) => w[0] + w.slice(1).toLowerCase()).join(" "); }
-    const { veoFormatted: veoDialogue, rawList: dialogueLines } = parseDialogue(scene.scriptText);
+    const { veoFormatted: veoDialogue, rawList: dialogueLines } = parseDialogue(scriptTextClean);
 
     // AUDIO block at the TOP — VEO 3 / Sora weigh earlier tokens more and
     // often skip audio when dialogue/music instructions are buried. This is
@@ -263,48 +290,63 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
  · Camera continuity: keep the same lens focal length and depth of field as the reference; do NOT cross the 180° line from the previous clip.`
       : "";
 
+    // HARD OVERRIDE — critical for i2v mode. Sora tends to BAKE the reference
+    // image INTO the output (showing the character composite grid, or a portrait
+    // lineup, or side-by-side portraits in the first seconds). This blocks that
+    // failure mode by telling the model the reference is a LOOKUP ONLY — for
+    // identity/location reference — and must NEVER appear ON SCREEN.
+    const noReferenceGridRule = `HARD OVERRIDE (i2v safety, NON-NEGOTIABLE): the reference image(s) you received are LOOKUP ONLY — a visual reference for the character's face, wardrobe, and the location. The reference image MUST NEVER appear inside the generated video at any point. Specifically FORBIDDEN:
+ · no character reference grid / portrait sheet / character lineup
+ · no side-by-side portraits or split-screen showing the reference
+ · no title-cards of the character's name with their photo
+ · no fade-in from the reference image
+ · no "introduction card" before the action
+The video begins directly with the required opening title card (if this is scene 1) or directly with the live-action scene (if this is a mid-episode clip). Never show the reference.`;
+
     const basePrompt = willUseI2V
       ? [
           continuityHeader,
-          audioBlock,
           titleCardBlock,
+          noReferenceGridRule,
+          audioBlock,
           `Live-action photorealistic film. Real human actors, real skin pores, real eyes, real physical lighting. NO animation, NO CGI look, NO illustration, NO 3D render.`,
           continuityLock,
           scene.summary && `Action this clip: ${scene.summary}`,
           sheet?.camera && `Camera: ${sheet.camera}`,
-          scene.scriptText && `Full script:\n${scene.scriptText.slice(0, 800)}`,
-          mem.directorNotes && `Director notes (highest priority): ${mem.directorNotes.slice(0, 400)}`,
+          scriptTextClean && `Full script:\n${scriptTextClean.slice(0, 800)}`,
+          directorNotesClean && `Director notes (highest priority): ${directorNotesClean.slice(0, 400)}`,
           sheet?.effects && sheet.effects.toLowerCase() !== "none" && `Effects: ${sheet.effects}`,
           endFrameRule,
         ].filter(Boolean).join("\n\n")
       : sheet
       ? [
           continuityHeader,
-          audioBlock,
           titleCardBlock,
+          noReferenceGridRule,
+          audioBlock,
           `[Style] ${sheet.style} — Photorealistic live-action film. Real human actors with real skin, real eyes. NO cartoon, NO 3D render, NO illustration.`,
           `[Scene] ${sheet.scene}`,
-          `[Character] ${sheet.character}`,
+          sheetCharacterClean && `[Character] ${sheetCharacterClean}`,
           characterBlock,
           continuityLock,
           `[Camera] ${sheet.camera}`,
-          `[Shots] ${sheet.shots}`,
+          sheetShotsClean && `[Shots] ${sheetShotsClean}`,
           `[Effects] ${sheet.effects}`,
-          `[Technical] ${sheet.technical} · 24fps · real physical lighting, film grain.`,
-          scene.scriptText && `[Script]\n${scene.scriptText.slice(0, 1200)}`,
-          mem.directorNotes && `[Director notes]\n${mem.directorNotes.slice(0, 600)}`,
+          sheetTechnicalClean && `[Technical] ${sheetTechnicalClean} · 24fps · real physical lighting, film grain.`,
+          scriptTextClean && `[Script]\n${scriptTextClean.slice(0, 1200)}`,
+          directorNotesClean && `[Director notes]\n${directorNotesClean.slice(0, 600)}`,
           endFrameRule,
         ].filter(Boolean).join("\n\n")
       : [
           continuityHeader,
-          audioBlock,
           titleCardBlock,
+          audioBlock,
           scene.title && `Title: ${scene.title}`,
           scene.summary && `Summary: ${scene.summary}`,
           characterBlock,
           continuityLock,
-          scene.scriptText && `Script:\n${scene.scriptText}`,
-          mem.directorNotes && `Director notes:\n${mem.directorNotes}`,
+          scriptTextClean && `Script:\n${scriptTextClean}`,
+          directorNotesClean && `Director notes:\n${directorNotesClean}`,
           "Photorealistic live-action film, real actors, 24fps, real physical lighting. NO cartoon, NO illustration.",
           endFrameRule,
         ].filter(Boolean).join("\n\n");

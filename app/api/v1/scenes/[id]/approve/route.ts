@@ -64,13 +64,21 @@ async function extractLastFrameToBlob(opts: {
       // preserves the file but not always its permissions, so `chmod +x`
       // defensively. Cheap no-op if already set.
       try { await fs.chmod(ffmpegBin, 0o755); } catch { /* ignore */ }
-      // Pick the SHARPEST frame in the last ~3s of the video. `-sseof -3`
-      // seeks to 3 seconds before end. `thumbnail` filter samples 100
-      // frames and picks the most representative (least motion-blur).
-      // `-q:v 1` gives the highest JPEG quality. This avoids the original
-      // blurry-mid-motion frame we were getting with a raw -sseof pick.
+      // Pick the SHARPEST frame in the last ~5s of the video, then run
+      // an unsharp filter to compensate for Sora's natural softness and
+      // any residual motion-blur. Pipeline:
+      //   -sseof -5             seek to 5 s before end (wider window)
+      //   -skip_frame nokey     decode ONLY I-frames (keyframes — always
+      //                         sharper than inter-frames, no motion blur)
+      //   thumbnail=80          sample 80 keyframes, pick the most
+      //                         representative (score = lowest diff
+      //                         from local average → stable frames win)
+      //   unsharp=5:5:1.5:5:5:0 soft mask 5×5 luma / 5×5 chroma with
+      //                         +1.5/+0 amount → perceptibly crisper
+      //                         without introducing noise
+      //   -q:v 1                highest JPEG quality (1 = best, 31 = worst)
       execSync(
-        `"${ffmpegBin}" -sseof -3 -i "${tmp}" -vf "thumbnail=100" -frames:v 1 -q:v 1 "${tmpFrame}" -y`,
+        `"${ffmpegBin}" -sseof -5 -skip_frame nokey -i "${tmp}" -vf "thumbnail=80,unsharp=5:5:1.5:5:5:0" -frames:v 1 -q:v 1 "${tmpFrame}" -y`,
         { stdio: ["ignore", "ignore", "pipe"] },
       );
     } catch (e: any) {

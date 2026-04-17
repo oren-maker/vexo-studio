@@ -639,37 +639,43 @@ export default function ScenePage() {
           </Card>
         )}
 
-        {/* Bridge frame — last frame of the approved video, used as the
-           i2v seed for scene N+1. Saved by POST /approve. */}
-        {scene.memoryContext?.bridgeFrameUrl && (
-          <Card title={he ? "🖼 פריים אחרון (גשר לסצנה הבאה)" : "🖼 Bridge frame (to next scene)"} subtitle={he ? "הפריים האחרון של הסרטון המאושר · יהפוך ל-i2v seed של הסצנה הבאה" : "Last frame of the approved video · becomes the next scene's i2v seed"}>
-            <div className="flex gap-4 items-start">
-              <img src={scene.memoryContext.bridgeFrameUrl} alt="bridge frame" className="rounded-lg border border-bg-main w-full max-w-md aspect-video object-cover bg-black" />
-              <div className="flex-1 text-xs space-y-2 text-text-muted">
-                <div>{he ? "הפריים הזה נוצר אוטומטית בלחיצה על \"אשר סצנה\"." : "Generated automatically when the scene was approved."}</div>
-                <div>{he ? "כשתייצר וידאו לסצנה הבאה — הוא ישמש כ-seed image כדי לשמר את הזהות, המיקום, והאובייקטים." : "When you generate the next scene's video, this image will be used as the i2v seed to preserve identity, location, and props."}</div>
-                <a href={scene.memoryContext.bridgeFrameUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-accent hover:underline">
-                  {he ? "פתח בטאב חדש ↗" : "Open in new tab ↗"}
-                </a>
+        {(() => {
+          const bridgeUrl = scene.memoryContext?.bridgeFrameUrl;
+          const seedUrl = scene.memoryContext?.seedImageUrl;
+          const framesCost = scene.frames.reduce((s, f) => s + (f.cost ?? 0), 0);
+          const bridgeCost = bridgeUrl ? 0.002 : 0;
+          const totalCost = framesCost + bridgeCost;
+          const parts: string[] = [];
+          if (scene.frames.length > 0) parts.push(`${scene.frames.length} ${he ? "מסגרות" : "frames"}`);
+          if (bridgeUrl) parts.push(he ? "🖼 פריים אחרון" : "🖼 bridge frame");
+          if (seedUrl) parts.push(he ? "🌱 seed" : "🌱 seed");
+          const countStr = parts.length > 0 ? parts.join(" · ") : (he ? "אין עדיין" : "none yet");
+          return (
+        <Card title={he ? "מסגרות תשריט" : "Storyboard frames"} subtitle={`${countStr} · ${he ? "סה\"כ" : "total"}: $${totalCost.toFixed(4)}`}>
+          {/* Bridge frame (last-frame of approved video → i2v seed for scene N+1) */}
+          {bridgeUrl && (
+            <div className="mb-4 rounded-lg border-2 border-status-okText bg-status-okBg/40 p-3">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                <div>
+                  <div className="font-semibold text-sm">🖼 {he ? "פריים אחרון (גשר לסצנה הבאה)" : "Bridge frame (to next scene)"}</div>
+                  <div className="text-[11px] text-text-muted">{he ? "נוצר אוטומטית באישור הסצנה · ישמש כ-i2v seed של הסצנה הבאה" : "Auto-generated on approval · becomes the next scene's i2v seed"}</div>
+                </div>
+                <span className="text-xs font-bold num text-accent">${bridgeCost.toFixed(4)}</span>
               </div>
+              <img src={bridgeUrl} alt="bridge frame" className="rounded-lg border border-bg-main w-full max-w-2xl aspect-video object-cover bg-black" />
+              <a href={bridgeUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs text-accent hover:underline">
+                {he ? "פתח בטאב חדש ↗" : "Open in new tab ↗"}
+              </a>
             </div>
-          </Card>
-        )}
-
-        {/* Seed image — bridge frame inherited from the PREVIOUS scene.
-           Generated when scene N-1 was approved. */}
-        {scene.memoryContext?.seedImageUrl && (
-          <Card title={he ? "🌱 תמונת seed מהסצנה הקודמת" : "🌱 Seed from previous scene"} subtitle={he ? "פריים אחרון של הסצנה הקודמת · ישמש כ-i2v seed ביצירת הווידאו של הסצנה הזו" : "Previous scene's last frame · will be used as i2v seed when generating this scene's video"}>
-            <div className="flex gap-4 items-start">
-              <img src={scene.memoryContext.seedImageUrl} alt="seed from previous scene" className="rounded-lg border border-bg-main w-full max-w-md aspect-video object-cover bg-black" />
-              <div className="flex-1 text-xs text-text-muted">
-                {he ? "זה הפריים האחרון של הסצנה הקודמת — התמונה הזו תועבר למודל הווידאו (Sora/Kling) כ-reference כשתלחץ \"צור וידאו\" לסצנה הזו, כך שהזהות, המיקום והאובייקטים יישמרו." : "This is the previous scene's last frame. It'll be passed to the video model (Sora/Kling) as reference when you click 'Generate video' for this scene, preserving identity, location, and props."}
-              </div>
+          )}
+          {/* Seed from previous scene (used when generating video for THIS scene) */}
+          {seedUrl && (
+            <div className="mb-4 rounded-lg border border-bg-main p-3">
+              <div className="font-semibold text-sm mb-1">🌱 {he ? "Seed מהסצנה הקודמת" : "Seed from previous scene"}</div>
+              <div className="text-[11px] text-text-muted mb-2">{he ? "הפריים האחרון של הסצנה הקודמת — יועבר כ-reference ל-Sora/Kling בלחיצה על \"צור וידאו\"" : "Previous scene's last frame — passed to Sora/Kling as reference when you click Generate video"}</div>
+              <img src={seedUrl} alt="seed" className="rounded-lg border border-bg-main w-full max-w-2xl aspect-video object-cover bg-black" />
             </div>
-          </Card>
-        )}
-
-        <Card title={he ? "מסגרות תשריט" : "Storyboard frames"} subtitle={`${scene.frames.length} ${he ? "מסגרות" : "frames"} · ${he ? "סה\"כ" : "total"}: $${scene.frames.reduce((s, f) => s + (f.cost ?? 0), 0).toFixed(4)}`}>
+          )}
           {scene.frames.length > 0 && (
             <div className="flex justify-end mb-3">
               <button disabled={regenBusy === "all" || scene.status === "APPROVED"} title={scene.status === "APPROVED" ? (he ? "הסצנה אושרה — לבטל אישור כדי לשנות" : "Scene approved — unapprove to edit") : undefined} onClick={regenAll} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
@@ -677,12 +683,12 @@ export default function ScenePage() {
               </button>
             </div>
           )}
-          {scene.frames.length === 0 ? (
+          {scene.frames.length === 0 && !bridgeUrl && !seedUrl ? (
             <div className="text-text-muted text-sm space-y-1">
               <div>{he ? "אין מסגרות עדיין." : "No frames yet."}</div>
-              <div>{he ? "✅ המסגרת האחרונה (ה-bridge frame שמחבר לסצנה הבאה) נוצרת אוטומטית רק כשאתה לוחץ \"אשר סצנה\" — לא לפני." : "✅ The last frame (bridge frame for the next scene) is generated automatically only when you click \"Approve scene\" — not before."}</div>
+              <div>{he ? "✨ \"צור תשריט\" יוצר מסגרות מלאות לסצנה · ✅ \"אשר סצנה\" יוצר אוטומטית את הפריים האחרון (bridge frame) לסצנה הבאה." : "✨ 'Generate storyboard' creates full scene frames · ✅ 'Approve scene' auto-creates the bridge frame for the next scene."}</div>
             </div>
-          ) : (
+          ) : scene.frames.length === 0 ? null : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {(() => { const withImages = scene.frames.filter((ff) => ff.approvedImageUrl || ff.generatedImageUrl); return null; })()}
               {scene.frames.map((f) => {
@@ -737,6 +743,8 @@ export default function ScenePage() {
             </div>
           )}
         </Card>
+          );
+        })()}
       </div>
 
       <div className="space-y-6">

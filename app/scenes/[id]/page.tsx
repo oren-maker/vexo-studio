@@ -326,21 +326,22 @@ export default function ScenePage() {
         <div className="flex justify-between items-start">
           <div className="flex-1 min-w-0">
             <div data-no-translate className="text-xs text-text-muted font-mono">SC{String(scene.sceneNumber).padStart(2, "0")}</div>
-            {editTitle ? (
+            {editTitle && scene.status !== "APPROVED" ? (
               <input autoFocus defaultValue={scene.title ?? ""}
                 onBlur={(e) => { setEditTitle(false); saveField("title", e.target.value); }}
                 onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditTitle(false); }}
                 className="text-2xl font-bold bg-bg-main rounded-lg px-2 py-1 w-full" />
             ) : (
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold group cursor-text" onClick={() => setEditTitle(true)} title={he ? "לחץ לעריכה" : "Click to edit"}>
+                <h1 className={`text-2xl font-bold group ${scene.status === "APPROVED" ? "" : "cursor-text"}`} onClick={scene.status === "APPROVED" ? undefined : () => setEditTitle(true)} title={scene.status === "APPROVED" ? (he ? "הסצנה אושרה — לבטל אישור כדי לערוך" : "Scene approved — unapprove to edit") : (he ? "לחץ לעריכה" : "Click to edit")}>
                   {scene.title ?? (he ? "סצנה ללא שם" : "Untitled scene")}
-                  <span className="opacity-0 group-hover:opacity-50 text-base ms-2">✎</span>
+                  {scene.status !== "APPROVED" && <span className="opacity-0 group-hover:opacity-50 text-base ms-2">✎</span>}
+                  {scene.status === "APPROVED" && <span className="text-base ms-2">🔒</span>}
                 </h1>
                 <SceneLogButton sceneId={scene.id} preloaded={scene.activityLogs} />
               </div>
             )}
-            {editSummary ? (
+            {editSummary && scene.status !== "APPROVED" ? (
               <textarea autoFocus defaultValue={scene.summary ?? ""} rows={2}
                 onBlur={(e) => { setEditSummary(false); saveField("summary", e.target.value); }}
                 onKeyDown={(e) => { if (e.key === "Escape") setEditSummary(false); }}
@@ -349,10 +350,10 @@ export default function ScenePage() {
             ) : (
               <div className="mt-1 group">
                 {scene.summary ? (
-                  <p className="text-text-secondary text-sm cursor-text inline" onClick={() => setEditSummary(true)}>{scene.summary}<span className="opacity-0 group-hover:opacity-50 text-xs ms-2">✎</span></p>
-                ) : (
+                  <p className={`text-text-secondary text-sm inline ${scene.status === "APPROVED" ? "" : "cursor-text"}`} onClick={scene.status === "APPROVED" ? undefined : () => setEditSummary(true)}>{scene.summary}{scene.status !== "APPROVED" && <span className="opacity-0 group-hover:opacity-50 text-xs ms-2">✎</span>}</p>
+                ) : scene.status !== "APPROVED" ? (
                   <button onClick={() => setEditSummary(true)} className="text-xs text-text-muted hover:text-accent">+ {he ? "הוסף תיאור" : "Add summary"}</button>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -360,10 +361,19 @@ export default function ScenePage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button disabled={busy} onClick={genStoryboard} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור תשריט" : "Generate storyboard"}</button>
-          <button disabled={busy} onClick={genVideo} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">{he ? "צור וידאו" : "Generate video"}</button>
-          <button disabled={busy} onClick={breakdown} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-50">{he ? "פירוק תסריט" : "Script breakdown"}</button>
-          <button disabled={busy} onClick={critic} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-50">{he ? "מבקר AI" : "AI critic"}</button>
+          {(() => {
+            const isApproved = scene.status === "APPROVED";
+            const lockedTitle = he ? "הסצנה אושרה — לחץ \"ביטול אישור\" כדי לשנות" : "Scene approved — click \"Unapprove\" to edit";
+            const locked = isApproved || busy;
+            return (
+              <>
+                <button disabled={locked} title={isApproved ? lockedTitle : undefined} onClick={genStoryboard} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90">{he ? "צור תשריט" : "Generate storyboard"}</button>
+                <button disabled={locked} title={isApproved ? lockedTitle : undefined} onClick={genVideo} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90">{he ? "צור וידאו" : "Generate video"}</button>
+                <button disabled={locked} title={isApproved ? lockedTitle : undefined} onClick={breakdown} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">{he ? "פירוק תסריט" : "Script breakdown"}</button>
+                <button disabled={locked} title={isApproved ? lockedTitle : undefined} onClick={critic} className="px-3 py-1.5 rounded-lg border-2 border-accent text-accent bg-white text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">{he ? "מבקר AI" : "AI critic"}</button>
+              </>
+            );
+          })()}
           {scene.status === "APPROVED" ? (
             <button disabled={busy} onClick={unapprove} className="px-3 py-1.5 rounded-lg border-2 border-status-errText text-status-errText bg-white text-sm font-semibold hover:bg-status-errText hover:text-white transition-colors disabled:opacity-50">
               {he ? "ביטול אישור" : "Unapprove"}

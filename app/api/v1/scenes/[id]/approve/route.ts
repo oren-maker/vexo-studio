@@ -54,11 +54,12 @@ async function extractLastFrameToBlob(opts: {
     const tmpFrame = path.join(os.tmpdir(), `approve-${Date.now()}.jpg`);
     await fs.writeFile(tmp, buf);
     try {
-      // Vercel Lambda doesn't ship ffmpeg on PATH. Use ffmpeg-static which
-      // bundles a Linux binary into the deployment and exposes its path as
-      // the module's default export.
-      const ffmpegStatic = (await import("ffmpeg-static")).default as string | null;
-      const ffmpegBin = ffmpegStatic || "ffmpeg";
+      // Vercel Lambda doesn't ship ffmpeg on PATH. Use
+      // @ffmpeg-installer/ffmpeg — unlike ffmpeg-static which downloads
+      // the binary at postinstall (unreliable on Vercel), this package
+      // ships the binary pre-bundled for every platform in the tarball.
+      const ffmpegInstaller = (await import("@ffmpeg-installer/ffmpeg")) as unknown as { path: string; version: string };
+      const ffmpegBin = ffmpegInstaller?.path || "ffmpeg";
       // Ensure the bundled binary is executable — Next.js's file-tracing
       // preserves the file but not always its permissions, so `chmod +x`
       // defensively. Cheap no-op if already set.

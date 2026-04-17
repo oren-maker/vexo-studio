@@ -87,10 +87,17 @@ export async function pollHiggsVideo(requestId: string): Promise<{
 }
 
 export const HIGGS_PRICING: Record<string, number> = {
+  // Full API paths
   "higgsfield-ai/dop/preview": 0.04,
   "higgsfield-ai/dop/standard": 0.05,
-  "bytedance/seedance/v1/pro/image-to-video": 0.06,
-  "kling-video/v2.1/pro/image-to-video": 0.06,
+  "higgsfield-ai/soul/standard": 0.05,
+  "bytedance/seedance/v1.5/pro/text-to-video": 0.05,
+  "kling-video/v3.0/pro/text-to-video": 0.06,
+  "kling-video/v3.0/pro/image-to-video": 0.06,
+  // Short aliases (used by scene page modelKey)
+  "higgs-kling": 0.06,
+  "higgs-seedance": 0.05,
+  "higgsfield": 0.05,
 };
 
 export function priceHiggs(model: string, seconds: number): number {

@@ -374,7 +374,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         action: "video_generated",
         actor: `user:${ctx.user.id}`,
         actorName: ctx.user.fullName ?? ctx.user.email,
-        details: { provider, model: displayModel, durationSeconds: duration, aspectRatio: body.aspectRatio, jobId, estimateUsd: estimate ?? null },
+        details: { provider, model: displayModel, durationSeconds: duration, aspectRatio: body.aspectRatio, jobId },
       },
     }).catch(() => {});
 
@@ -421,7 +421,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const videoCostUsd = isSora
       ? priceSora(displayModel as SoraModelType, duration)
       : isHiggs
-        ? priceHiggs(displayModel.replace("higgs:", ""), duration)
+        ? priceHiggs(displayModel, duration)
         : 0; // fal/VEO cost is stamped via webhook
     if (videoCostUsd > 0) {
       await chargeUsd({

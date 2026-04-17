@@ -33,6 +33,7 @@ const ACTION_LABEL: Record<string, string> = {
   dialogue_generated: "💬 דיאלוג נוצר",
   lipsync_generated: "👄 ליפ-סינק נוצר",
   music_generated: "🎵 מוזיקה נוצרה",
+  brain_chat: "🧠 שיחה עם הבמאי",
 };
 
 const SORA_RATE: Record<string, number> = { "sora-2": 0.10, "sora-2-pro": 0.30 };

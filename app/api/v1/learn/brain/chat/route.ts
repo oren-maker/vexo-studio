@@ -469,12 +469,48 @@ export async function POST(req: NextRequest) {
     history.push({ role: "user", parts: [{ text: message }] });
 
     const { reply, usage, model } = await callGeminiWithFallback(system, history);
+    const inputTokens = usage?.promptTokenCount || 0;
+    const outputTokens = usage?.candidatesTokenCount || 0;
+    // Gemini 3 Flash pricing: ~$0.15/M input + $0.60/M output
+    const chatCostUsd = +((inputTokens * 0.00000015) + (outputTokens * 0.0000006)).toFixed(6);
     await logUsage({
       model,
       operation: "brain-chat",
-      inputTokens: usage?.promptTokenCount || 0,
-      outputTokens: usage?.candidatesTokenCount || 0,
+      inputTokens,
+      outputTokens,
     });
+    // If the chat is on a scene page, charge the cost to the scene + log it
+    const pgCtx = pageContext as { kind?: string; id?: string } | null;
+    if (pgCtx?.kind === "scene" && pgCtx.id) {
+      const { chargeUsd } = await import("@/lib/billing");
+      const sceneRow = await prisma.scene.findUnique({
+        where: { id: pgCtx.id },
+        select: { sceneNumber: true, episodeId: true, episode: { select: { season: { select: { series: { select: { projectId: true } } } } } } },
+      });
+      const projectId = sceneRow?.episode?.season?.series?.projectId;
+      if (projectId) {
+        await chargeUsd({
+          organizationId: unauth ? "" : "", // filled below
+          projectId,
+          entityType: "SCENE",
+          entityId: pgCtx.id,
+          providerName: "Google Gemini",
+          category: "TOKEN",
+          description: `Brain chat · scene ${sceneRow?.sceneNumber ?? "?"} · ${model} · ${inputTokens}+${outputTokens} tokens`,
+          unitCost: chatCostUsd,
+          quantity: 1,
+        }).catch(() => {});
+      }
+      await (prisma as any).sceneLog?.create({
+        data: {
+          sceneId: pgCtx.id,
+          action: "brain_chat",
+          actor: "user:brain",
+          actorName: `Brain (${model})`,
+          details: { inputTokens, outputTokens, costUsd: chatCostUsd, messagePreview: message.slice(0, 100) },
+        },
+      }).catch(() => {});
+    }
 
     const brainMsg = await prisma.brainMessage.create({
       data: { chatId: chat.id, role: "brain", content: reply },

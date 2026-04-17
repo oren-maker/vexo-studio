@@ -20,7 +20,7 @@ const VIDEO_MODEL_PRETTY: Record<string, string> = {
   "veo3-pro": "💎 VEO 3 Pro",
 };
 type DirectorSheet = { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string; generatedAt: string };
-type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string; soundNotes?: string; bridgeFrameUrl?: string; seedImageUrl?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[]; scriptMentionsNotInCast?: string[] };
+type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string; soundNotes?: string; bridgeFrameUrl?: string; bridgeFrameUrls?: string[]; seedImageUrl?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[]; scriptMentionsNotInCast?: string[] };
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
@@ -45,6 +45,7 @@ export default function ScenePage() {
   useEffect(() => { load(); }, [id]);
 
   const [lightbox, setLightbox] = useState<{ index: number } | null>(null);
+  const [bridgeLightbox, setBridgeLightbox] = useState<{ urls: string[]; index: number } | null>(null);
 
   useEffect(() => {
     if (!lightbox) return;
@@ -60,6 +61,21 @@ export default function ScenePage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, scene, he]);
+
+  useEffect(() => {
+    if (!bridgeLightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      const n = bridgeLightbox.urls.length;
+      if (n === 0) return;
+      if (e.key === "Escape") setBridgeLightbox(null);
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const delta = e.key === "ArrowRight" ? (he ? -1 : 1) : (he ? 1 : -1);
+        setBridgeLightbox({ urls: bridgeLightbox.urls, index: (bridgeLightbox.index + delta + n) % n });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [bridgeLightbox, he]);
   const [imageModel, setImageModel] = useState<"nano-banana">("nano-banana");
   // Remix modal state
   const [remixModal, setRemixModal] = useState<{ assetId: string; model: string } | null>(null);
@@ -640,32 +656,49 @@ export default function ScenePage() {
         )}
 
         {(() => {
-          const bridgeUrl = scene.memoryContext?.bridgeFrameUrl;
+          const bridgeUrls = scene.memoryContext?.bridgeFrameUrls ?? (scene.memoryContext?.bridgeFrameUrl ? [scene.memoryContext.bridgeFrameUrl] : []);
           const seedUrl = scene.memoryContext?.seedImageUrl;
           const framesCost = scene.frames.reduce((s, f) => s + (f.cost ?? 0), 0);
-          const bridgeCost = bridgeUrl ? 0.002 : 0;
+          const bridgeCost = +(0.002 * bridgeUrls.length).toFixed(4);
           const totalCost = framesCost + bridgeCost;
           const parts: string[] = [];
           if (scene.frames.length > 0) parts.push(`${scene.frames.length} ${he ? "מסגרות" : "frames"}`);
-          if (bridgeUrl) parts.push(he ? "🖼 פריים אחרון" : "🖼 bridge frame");
+          if (bridgeUrls.length > 0) parts.push(he ? `🖼 ${bridgeUrls.length} פריימים אחרונים` : `🖼 ${bridgeUrls.length} bridge frames`);
           if (seedUrl) parts.push(he ? "🌱 seed" : "🌱 seed");
           const countStr = parts.length > 0 ? parts.join(" · ") : (he ? "אין עדיין" : "none yet");
           return (
         <Card title={he ? "מסגרות תשריט" : "Storyboard frames"} subtitle={`${countStr} · ${he ? "סה\"כ" : "total"}: $${totalCost.toFixed(4)}`}>
-          {/* Bridge frame (last-frame of approved video → i2v seed for scene N+1) */}
-          {bridgeUrl && (
+          {/* Bridge frames — last 4 keyframes of approved video. The LAST
+             one (rightmost in chronological order) seeds the next scene. */}
+          {bridgeUrls.length > 0 && (
             <div className="mb-4 rounded-lg border-2 border-status-okText bg-status-okBg/40 p-3">
               <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                 <div>
-                  <div className="font-semibold text-sm">🖼 {he ? "פריים אחרון (גשר לסצנה הבאה)" : "Bridge frame (to next scene)"}</div>
-                  <div className="text-[11px] text-text-muted">{he ? "נוצר אוטומטית באישור הסצנה · ישמש כ-i2v seed של הסצנה הבאה" : "Auto-generated on approval · becomes the next scene's i2v seed"}</div>
+                  <div className="font-semibold text-sm">🖼 {he ? `${bridgeUrls.length} פריימים אחרונים (גשר לסצנה הבאה)` : `${bridgeUrls.length} bridge frames (to next scene)`}</div>
+                  <div className="text-[11px] text-text-muted">{he ? "נוצרו אוטומטית באישור הסצנה · האחרון (משמאל) משמש כ-i2v seed של הסצנה הבאה" : "Auto-generated on approval · the last (leftmost) seeds the next scene"}</div>
                 </div>
                 <span className="text-xs font-bold num text-accent">${bridgeCost.toFixed(4)}</span>
               </div>
-              <img src={bridgeUrl} alt="bridge frame" className="rounded-lg border border-bg-main w-full max-w-2xl aspect-video object-cover bg-black" />
-              <a href={bridgeUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs text-accent hover:underline">
-                {he ? "פתח בטאב חדש ↗" : "Open in new tab ↗"}
-              </a>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {bridgeUrls.map((u, i) => {
+                  const isSeed = i === bridgeUrls.length - 1;
+                  const labels = [he ? "t-4s" : "t-4s", he ? "t-3s" : "t-3s", he ? "t-2s" : "t-2s", he ? "t-1s (seed)" : "t-1s (seed)"];
+                  return (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setBridgeLightbox({ urls: bridgeUrls, index: i })}
+                      className={`relative block rounded-lg overflow-hidden border-2 ${isSeed ? "border-accent" : "border-bg-main"} bg-black aspect-video hover:opacity-90 transition`}
+                      title={he ? "לחץ להגדלה" : "Click to enlarge"}
+                    >
+                      <img src={u} alt={`bridge frame ${i + 1}`} className="w-full h-full object-cover" />
+                      <span className={`absolute top-1 ${he ? "left-1" : "right-1"} text-[10px] font-bold px-1.5 py-0.5 rounded ${isSeed ? "bg-accent text-white" : "bg-black/70 text-white"}`}>
+                        {labels[i] ?? `#${i + 1}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
           {/* Seed from previous scene (used when generating video for THIS scene) */}
@@ -961,6 +994,32 @@ export default function ScenePage() {
                 {f.cost && f.cost > 0 ? <div><span className="text-white/60">{he ? "עלות" : "Cost"}: </span><span className="num font-semibold">${f.cost.toFixed(4)}</span></div> : null}
                 {f.beatSummary && <div className="basis-full text-white/80">{f.beatSummary}</div>}
                 <div className="ms-auto text-white/60 num">{lightbox.index + 1} / {list.length}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {bridgeLightbox && (() => {
+        const { urls, index } = bridgeLightbox;
+        const url = urls[index];
+        if (!url) return null;
+        const labels = ["t-4s", "t-3s", "t-2s", "t-1s (seed)"];
+        const go = (delta: number) => setBridgeLightbox({ urls, index: (index + delta + urls.length) % urls.length });
+        return (
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50" onClick={() => setBridgeLightbox(null)}>
+            <div className="relative max-w-5xl w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-center gap-2">
+                {urls.length > 1 && <button onClick={() => go(he ? 1 : -1)} className="bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full shrink-0 text-xl">‹</button>}
+                <img src={url} alt={`bridge frame ${index + 1}`} className="max-w-full max-h-[80vh] rounded-lg" />
+                {urls.length > 1 && <button onClick={() => go(he ? -1 : 1)} className="bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full shrink-0 text-xl">›</button>}
+              </div>
+              <button onClick={() => setBridgeLightbox(null)} className="absolute top-2 end-2 bg-black/70 text-white w-8 h-8 rounded-full">✕</button>
+              <div className="mt-3 bg-black/70 text-white rounded-lg p-3 text-xs flex flex-wrap gap-x-6 gap-y-1 items-center">
+                <div><span className="text-white/60">🖼 </span><span className="font-semibold">{labels[index] ?? `#${index + 1}`}</span></div>
+                {index === urls.length - 1 && <div className="text-accent font-semibold">⭐ {he ? "i2v seed לסצנה הבאה" : "i2v seed for next scene"}</div>}
+                <a href={url} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white underline ms-auto">{he ? "פתח בטאב חדש ↗" : "Open in new tab ↗"}</a>
+                <div className="text-white/60 num">{index + 1} / {urls.length}</div>
               </div>
             </div>
           </div>

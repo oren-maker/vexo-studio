@@ -23,20 +23,18 @@ import { chargeUsd } from "@/lib/billing";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 60;
 
-async function extractLastFrameToBlob(opts: {
+async function extractLastFramesToBlob(opts: {
   videoUrl: string;
   soraVideoId: string | null;
   openaiKey: string | null;
-}): Promise<{ url: string; bytes: number } | { error: string }> {
+}): Promise<{ urls: string[]; bytes: number } | { error: string }> {
   try {
     const fs = await import("fs/promises");
     const path = await import("path");
     const os = await import("os");
     const { execSync } = await import("child_process");
 
-    // Download the MP4. For Sora-proxy URLs we go directly to OpenAI using
-    // the key, because the proxy requires session auth. For CloudFront or
-    // other direct URLs we fetch them as-is.
+    // Download the MP4 once.
     let buf: Buffer;
     if (opts.soraVideoId && opts.openaiKey) {
       const res = await fetch(`https://api.openai.com/v1/videos/${opts.soraVideoId}/content`, {
@@ -50,57 +48,67 @@ async function extractLastFrameToBlob(opts: {
       buf = Buffer.from(await res.arrayBuffer());
     }
 
-    const tmp = path.join(os.tmpdir(), `approve-${Date.now()}.mp4`);
-    const tmpFrame = path.join(os.tmpdir(), `approve-${Date.now()}.jpg`);
+    const ts = Date.now();
+    const tmp = path.join(os.tmpdir(), `approve-${ts}.mp4`);
     await fs.writeFile(tmp, buf);
+
+    const ffmpegInstaller = (await import("@ffmpeg-installer/ffmpeg")) as unknown as { path: string; version: string };
+    const ffmpegBin = ffmpegInstaller?.path || "ffmpeg";
+    try { await fs.chmod(ffmpegBin, 0o755); } catch { /* ignore */ }
+
+    // Extract FOUR sharp frames near the end of the clip — not just one.
+    // Each frame is the sharpest keyframe in its own 1-second window.
+    // Windows (seconds from end): [-4→-3], [-3→-2], [-2→-1], [-1→0].
+    // Oren asked for 4 so the UI can show the last beats of motion, and
+    // the BEST of them can seed the next scene.
+    const windows = [
+      { start: 4, end: 3, label: "t-4s" },
+      { start: 3, end: 2, label: "t-3s" },
+      { start: 2, end: 1, label: "t-2s" },
+      { start: 1, end: 0, label: "t-1s" },
+    ];
+    const framePaths: string[] = [];
     try {
-      // Vercel Lambda doesn't ship ffmpeg on PATH. Use
-      // @ffmpeg-installer/ffmpeg — unlike ffmpeg-static which downloads
-      // the binary at postinstall (unreliable on Vercel), this package
-      // ships the binary pre-bundled for every platform in the tarball.
-      const ffmpegInstaller = (await import("@ffmpeg-installer/ffmpeg")) as unknown as { path: string; version: string };
-      const ffmpegBin = ffmpegInstaller?.path || "ffmpeg";
-      // Ensure the bundled binary is executable — Next.js's file-tracing
-      // preserves the file but not always its permissions, so `chmod +x`
-      // defensively. Cheap no-op if already set.
-      try { await fs.chmod(ffmpegBin, 0o755); } catch { /* ignore */ }
-      // Pick the SHARPEST frame in the last ~5s of the video, then run
-      // an unsharp filter to compensate for Sora's natural softness and
-      // any residual motion-blur. Pipeline:
-      //   -sseof -5             seek to 5 s before end (wider window)
-      //   -skip_frame nokey     decode ONLY I-frames (keyframes — always
-      //                         sharper than inter-frames, no motion blur)
-      //   thumbnail=80          sample 80 keyframes, pick the most
-      //                         representative (score = lowest diff
-      //                         from local average → stable frames win)
-      //   unsharp=5:5:1.5:5:5:0 soft mask 5×5 luma / 5×5 chroma with
-      //                         +1.5/+0 amount → perceptibly crisper
-      //                         without introducing noise
-      //   -q:v 1                highest JPEG quality (1 = best, 31 = worst)
-      execSync(
-        `"${ffmpegBin}" -sseof -5 -skip_frame nokey -i "${tmp}" -vf "thumbnail=80,unsharp=5:5:1.5:5:5:0" -frames:v 1 -q:v 1 "${tmpFrame}" -y`,
-        { stdio: ["ignore", "ignore", "pipe"] },
-      );
+      for (const w of windows) {
+        const out = path.join(os.tmpdir(), `approve-${ts}-${w.label}.jpg`);
+        // -sseof -W.start seeks to W.start seconds before end.
+        // `thumbnail=30` samples 30 keyframes in the ~1s window and
+        // picks the sharpest. `unsharp` compensates for Sora softness.
+        execSync(
+          `"${ffmpegBin}" -sseof -${w.start} -skip_frame nokey -i "${tmp}" -vf "thumbnail=30,unsharp=5:5:1.5:5:5:0" -frames:v 1 -q:v 1 "${out}" -y`,
+          { stdio: ["ignore", "ignore", "pipe"] },
+        );
+        framePaths.push(out);
+      }
     } catch (e: any) {
       const stderr = e?.stderr ? String(e.stderr).slice(-600) : "";
       const msg = String(e?.message || e);
       await fs.unlink(tmp).catch(() => {});
+      for (const fp of framePaths) await fs.unlink(fp).catch(() => {});
       return { error: `ffmpeg: ${msg.slice(0, 300)} | stderr: ${stderr}` };
     }
 
-    const frameRaw = await fs.readFile(tmpFrame);
+    // Resize + upload each to Blob.
     const sharp = (await import("sharp")).default;
-    const resized = await sharp(frameRaw).resize(1280, 720, { fit: "cover" }).jpeg({ quality: 90 }).toBuffer();
-
     const { put } = await import("@vercel/blob");
-    const blob = await put(`bridge-frames/scene-${Date.now()}.jpg`, resized, {
-      access: "public",
-      contentType: "image/jpeg",
-    });
+    const urls: string[] = [];
+    let totalBytes = 0;
+    for (let i = 0; i < framePaths.length; i++) {
+      const raw = await fs.readFile(framePaths[i]);
+      const resized = await sharp(raw).resize(1280, 720, { fit: "cover" }).jpeg({ quality: 90 }).toBuffer();
+      const blob = await put(`bridge-frames/scene-${ts}-${i + 1}.jpg`, resized, {
+        access: "public",
+        contentType: "image/jpeg",
+      });
+      urls.push(blob.url);
+      totalBytes += resized.length;
+    }
 
+    // Cleanup
     await fs.unlink(tmp).catch(() => {});
-    await fs.unlink(tmpFrame).catch(() => {});
-    return { url: blob.url, bytes: resized.length };
+    for (const fp of framePaths) await fs.unlink(fp).catch(() => {});
+
+    return { urls, bytes: totalBytes };
   } catch (e: any) {
     return { error: String(e?.message || e).slice(0, 200) };
   }
@@ -129,6 +137,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     });
     const primary = assets.find((a) => (a.metadata as { isPrimary?: boolean } | null)?.isPrimary) ?? assets[0];
 
+    let bridgeFrameUrls: string[] = [];
     let bridgeFrameUrl: string | null = null;
     let bridgeCostUsd = 0;
 
@@ -137,25 +146,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const soraId = meta.soraVideoId ?? (primary.fileUrl.match(/[?&]id=(video_[^&]+)/) || [])[1] ?? null;
       const openaiKey = process.env.OPENAI_API_KEY?.replace(/\\n$/, "") ?? null;
 
-      const extract = await extractLastFrameToBlob({
+      const extract = await extractLastFramesToBlob({
         videoUrl: primary.fileUrl,
         soraVideoId: soraId,
         openaiKey,
       });
-      if ("url" in extract) {
-        bridgeFrameUrl = extract.url;
-        // Cost = compute + tiny blob storage. Flat $0.002 per extraction is
-        // a conservative upper bound (real ffmpeg time is ms, blob is ~100KB).
-        bridgeCostUsd = 0.002;
+      if ("urls" in extract) {
+        bridgeFrameUrls = extract.urls;
+        // The LAST of the four (t-1s) is the canonical bridge frame — it's
+        // what seeds the next scene. The other three are kept for review.
+        bridgeFrameUrl = bridgeFrameUrls[bridgeFrameUrls.length - 1] ?? null;
+        // Cost scales with number of frames extracted + uploaded.
+        // $0.002 per frame is a conservative estimate.
+        bridgeCostUsd = +(0.002 * bridgeFrameUrls.length).toFixed(4);
 
-        // Save on THIS scene
+        // Save on THIS scene — both the array (new) and the single URL
+        // (legacy, used as the i2v seed for the next scene).
         const thisMem = (scene.memoryContext as object | null) ?? {};
         await prisma.scene.update({
           where: { id: params.id },
-          data: { memoryContext: { ...thisMem, bridgeFrameUrl } as object },
+          data: { memoryContext: { ...thisMem, bridgeFrameUrl, bridgeFrameUrls } as object },
         });
 
-        // Propagate to NEXT scene if it exists
+        // Propagate the CANONICAL (last) bridge frame to the NEXT scene
+        // so it can be used as i2v seed.
         if (scene.episodeId != null && scene.sceneNumber != null) {
           const nextScene = await prisma.scene.findFirst({
             where: { episodeId: scene.episodeId, sceneNumber: scene.sceneNumber + 1 },
@@ -179,7 +193,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             entityId: scene.id,
             providerName: "Vercel",
             category: "GENERATION",
-            description: `Bridge frame extraction (ffmpeg + sharp + Blob) · ~${Math.round(extract.bytes / 1024)}KB`,
+            description: `Bridge frame extraction · ${bridgeFrameUrls.length} frames (ffmpeg + sharp + Blob) · ~${Math.round(extract.bytes / 1024)}KB`,
             unitCost: bridgeCostUsd,
             quantity: 1,
             userId: ctx.user.id,
@@ -205,11 +219,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         action: "scene_approved",
         actor: `user:${ctx.user.id}`,
         actorName: ctx.user.fullName ?? ctx.user.email,
-        details: { bridgeFrameUrl, bridgeCostUsd },
+        details: { bridgeFrameUrl, bridgeFrameUrls, bridgeCostUsd },
       },
     }).catch(() => {});
 
-    return ok({ ...updated, bridgeFrameUrl, bridgeCostUsd });
+    return ok({ ...updated, bridgeFrameUrl, bridgeFrameUrls, bridgeCostUsd });
   } catch (e) { return handleError(e); }
 }
 

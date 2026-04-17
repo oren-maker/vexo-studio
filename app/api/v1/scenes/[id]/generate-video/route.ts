@@ -92,6 +92,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       directorNotes?: string;
       characters?: string[];
       soundNotes?: string;
+      seedImageUrl?: string;
+      bridgeFrameUrl?: string;
+      bridgeFrameUrls?: string[];
     } | null) ?? {};
 
     // If sound notes are missing, generate them inline before submitting —
@@ -133,16 +136,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .map((c) => c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0])
       .map((m) => m?.fileUrl)
       .filter((u): u is string => !!u);
-    // Prefer the first storyboard frame as the starting image. If no frame
-    // image exists yet, fall back to the first character's front-angle image —
-    // still guarantees identity lock via image-to-video.
-    const firstFrameImg = (firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl) || characterRefImgs[0];
+    // i2v source priority:
+    //   1. seedImageUrl — the PREVIOUS scene's bridge frame (saved on
+    //      approval). When present this is ALWAYS the best seed because
+    //      scene N+1 should literally open at scene N's last pixel state.
+    //   2. storyboard frame[0] approved or generated image.
+    //   3. Character reference portrait — last-resort identity anchor.
+    const seedFromPrev = (mem as { seedImageUrl?: string }).seedImageUrl;
+    const firstFrameImg = seedFromPrev
+      || (firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl)
+      || characterRefImgs[0];
 
-    // If we have a starting frame (i2v mode), the model sees the image already —
-    // what it needs is a CONCISE action description (what happens in the next
-    // few seconds starting from that frame), not a cinematography bible.
-    // In t2v mode we send the full director sheet so it has everything.
-    const willUseI2V = !!(firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl) || characterRefImgs.length > 0;
+    // If we have any starting image, we're in i2v mode.
+    const willUseI2V = !!seedFromPrev
+      || !!(firstFrame?.approvedImageUrl || firstFrame?.generatedImageUrl)
+      || characterRefImgs.length > 0;
 
     // Sanitize scriptText + directorSheet fields that come from the brain —
     // strip phrases that cause Sora to bake the reference image into the

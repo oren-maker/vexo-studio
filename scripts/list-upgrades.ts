@@ -1,20 +1,19 @@
 import { PrismaClient } from "@prisma/client";
 const p = new PrismaClient();
 (async () => {
-  const all = await p.brainUpgradeRequest.findMany({
-    orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
-    select: { id: true, status: true, priority: true, instruction: true, context: true, claudeNotes: true, createdAt: true, implementedAt: true },
+  const items = await p.brainUpgradeRequest.findMany({
+    where: { status: { in: ["pending", "in-progress"] } },
+    orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
+    take: 50,
   });
-  const byStatus: Record<string, number> = {};
-  for (const u of all) byStatus[u.status] = (byStatus[u.status] || 0) + 1;
-  console.log(`Total: ${all.length} | ${Object.entries(byStatus).map(([k, v]) => `${k}=${v}`).join(" · ")}\n`);
-  for (const u of all) {
-    const icon = u.status === "done" ? "✅" : u.status === "in-progress" ? "🔄" : u.status === "rejected" ? "✗" : "⏳";
-    console.log(`${icon} [${u.priority}] id=${u.id} ${u.status} · ${new Date(u.createdAt).toISOString().slice(0, 10)}`);
-    console.log(`   ${u.instruction.slice(0, 200).replace(/\s+/g, " ")}`);
-    if (u.context) console.log(`   CTX: ${u.context.slice(0, 200).replace(/\s+/g, " ")}`);
-    if (u.claudeNotes) console.log(`   NOTES: ${u.claudeNotes.slice(0, 200).replace(/\s+/g, " ")}`);
+  console.log(`FOUND ${items.length} upgrades (pending/in-progress):\n`);
+  for (const it of items) {
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[${it.status.toUpperCase()}] #${it.id.slice(-6)} · p=${it.priority} · ${it.createdAt.toISOString().slice(0, 16)}`);
+    console.log(`INSTRUCTION: ${it.instruction.slice(0, 400)}`);
+    if (it.context) console.log(`CONTEXT: ${it.context.slice(0, 200)}`);
+    if (it.claudeNotes) console.log(`PRIOR NOTES: ${it.claudeNotes.slice(0, 200)}`);
     console.log("");
   }
   await p.$disconnect();
-})();
+})().catch((e) => { console.error("ERR:", e.message); process.exit(1); });

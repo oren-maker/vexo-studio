@@ -221,13 +221,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const audioBlock = audioSegments.join("\n");
 
-    // First scene of every episode gets an auto title card: "Season N Episode M"
-    // overlaid in the opening ~1.5 seconds, then fades out. Also spoken by narrator.
+    // First scene of every episode gets a MANDATORY title card. Sora
+    // historically ignored the instruction when it was buried mid-prompt;
+    // this version puts the card at position #1 in the basePrompt, uses
+    // forceful language ("MUST / REQUIRED / NON-NEGOTIABLE"), and describes
+    // every visual property the model needs to render legible text.
     const isFirstScene = scene.sceneNumber === 1;
     const sNum = scene.episode?.season?.seasonNumber;
     const eNum = scene.episode?.episodeNumber;
     const titleCardBlock = isFirstScene && sNum != null && eNum != null
-      ? `EPISODE TITLE CARD (first 1.5 seconds only): Overlay large clean white sans-serif text reading "SEASON ${sNum} · EPISODE ${eNum}" centered on screen with 15% safe margins, then fade out smoothly before the action starts. A warm narrator voice reads "Season ${sNum}, Episode ${eNum}" in sync with the on-screen text.`
+      ? `REQUIRED OPENING TITLE CARD — NON-NEGOTIABLE. The FIRST 2 seconds of this clip (frames 0.0 to 2.0) MUST show a black screen with the text "SEASON ${sNum} · EPISODE ${eNum}" rendered as large, clean, crisp white sans-serif typography (Helvetica Bold or similar, font weight 700, approximately 9% of screen height), perfectly centered both horizontally and vertically, with at least 15% margin on all sides. The text must be legible — not stylised, not decorative, not handwritten, not 3D. Between seconds 2.0 and 2.5 the title card fades smoothly to black, and only AFTER second 2.5 does the live-action scene begin. A calm adult male narrator voice says "Season ${sNum}, Episode ${eNum}" in English, timed to finish just before the text starts fading. NO other text appears anywhere in the clip. DO NOT skip this title card.`
       : "";
 
     // Global framing shared by ALL scenes — tells the model this clip is

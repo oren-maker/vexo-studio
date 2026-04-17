@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       take: 12,
       select: { action: true, details: true, createdAt: true, actorName: true },
     });
-    const pastCritics = await prisma.criticReview.findMany({
+    const pastCritics = await prisma.aICriticReview.findMany({
       where: { sceneId: scene.id },
       orderBy: { createdAt: "desc" },
       take: 3,

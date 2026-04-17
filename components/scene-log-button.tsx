@@ -103,7 +103,7 @@ export default function SceneLogButton({ sceneId, preloaded }: { sceneId: string
               <div className="font-semibold">📜 יומן פעילות הסצנה</div>
               <button onClick={() => setOpen(false)} className="text-text-muted hover:text-text-primary">✕</button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2" dir="rtl">
+            <div className="overflow-y-auto px-4 py-3 space-y-2" dir="rtl" style={{ maxHeight: "calc(85vh - 60px)" }}>
               {err && <div className="text-red-400 text-xs">⚠ {err}</div>}
               {!logs && !err && <div className="text-text-muted text-sm">טוען...</div>}
               {logs && logs.length === 0 && <div className="text-text-muted text-sm">אין פעילות עדיין בסצנה זו.</div>}

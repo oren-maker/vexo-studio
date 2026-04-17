@@ -68,55 +68,41 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
     if (!soraId) throw Object.assign(new Error("this video is not a Sora-generated asset (no source id)"), { statusCode: 400 });
 
-    // Same sanitizer + rules as generate-video. Sora's `remix` endpoint
-    // inherits every pixel / behaviour from the source unless the new prompt
-    // overrides it — so the same "bake the reference grid" and "fade-to-black
-    // between scenes" failure modes apply here.
-    const ep = scene.episode;
-    const seasonNum = ep?.season?.seasonNumber;
-    const epNum = ep?.episodeNumber;
-    const seriesTitle = ep?.season?.series?.title ?? ep?.season?.series?.project?.name ?? "";
-    const mem = (scene.memoryContext as { characters?: string[]; soundNotes?: string } | null) ?? {};
+    // Sora remix is a DELTA operation — the new prompt should describe
+    // ONLY what to change, not redescribe the whole scene. When we stuff
+    // the full original context + all the generate-video rules into the
+    // remix prompt, Sora treats it as a fresh generation request matching
+    // that long description, losing the connection to the source pixels.
+    //
+    // Learnt 2026-04-17: two remix submissions with long "preserve identity
+    // + HARD OVERRIDE + title card + original script + end-frame rules"
+    // prompts produced videos with zero visual overlap to the source.
+    // The fix is to keep the remix prompt SHORT and change-focused.
     const isFirstScene = scene.sceneNumber === 1;
-    const totalScenes = scene.episode?._count?.scenes ?? null;
-    const isLastSceneOfEpisode = totalScenes != null && scene.sceneNumber === totalScenes;
+    const seasonNum = scene.episode?.season?.seasonNumber;
+    const epNum = scene.episode?.episodeNumber;
 
-    const PROBLEMATIC: RegExp[] = [
-      /\btitle\b[^.]{0,80}\bfades? in\b[^.]*\./gi,
-      /\bseason\s*\d+\s*[·•·]?\s*episode\s*\d+\b[^.]*\bfades? in\b[^.]*\./gi,
-      /\b(lock\s+identity\s+to|anchor\s+to|match)\s+the\s+reference\s+image[s]?\b[^.]*\./gi,
-      /\breference\s+image[s]?\s+(for|of)\s+[A-Z][a-zA-Z ]+\s+(across|throughout|in)\b[^.]*\./gi,
-      /\bshow\s+(the|a)\s+character\s+(sheet|grid|lineup|composite)\b[^.]*\./gi,
-      /\bportrait\s+(grid|lineup|composite|sheet)\b[^.]*\./gi,
-    ];
-    const sanitize = (t: string | null | undefined) => {
-      if (!t) return "";
-      let out = String(t);
-      for (const re of PROBLEMATIC) out = out.replace(re, "");
-      return out.replace(/\s{3,}/g, " ").trim();
-    };
-    const scriptTextClean = sanitize(scene.scriptText);
+    // User notes are the PRIMARY signal in a remix — everything else is
+    // a thin preservation wrapper. We keep a tiny "keep everything else
+    // identical" hint so Sora doesn't invent a new scene.
+    const preservationHint = "Keep every unchanged element from the source video exactly — same characters, same location, same lighting, same camera angle, same action, same pacing. Apply ONLY the changes below.";
 
-    const titleCardBlock = isFirstScene && seasonNum != null && epNum != null
-      ? `REQUIRED OPENING TITLE CARD — NON-NEGOTIABLE. Frames 0.0–2.0s: pure black screen with the text "SEASON ${seasonNum} · EPISODE ${epNum}" in large, crisp, clean white Helvetica Bold sans-serif typography (font weight 700, ~9% of screen height), perfectly centered with 15% safe margins. The text must be legible — not stylised, not decorative, not handwritten, not 3D, not glowing, not textured. Frames 2.0–2.5s: smooth fade to black. Only after 2.5s does the live-action scene begin. A calm adult male narrator voice says "Season ${seasonNum}, Episode ${epNum}" in English, timed to finish just before the text starts fading. NO other on-screen text anywhere else in the clip.`
+    // If the user's remix notes mention the opening title card, strengthen
+    // it concretely. Otherwise stay silent — remix should not inject rules
+    // the user didn't ask for.
+    const userNotes = body.prompt.trim();
+    const wantsTitleCard = isFirstScene && seasonNum != null && epNum != null &&
+      /(title card|opening title|season.{0,5}episode|כותרת|כרטיס כותרת)/i.test(userNotes);
+    const titleCardDelta = wantsTitleCard
+      ? `Insert a 2-second opening title card before the existing action: pure black screen with the text "SEASON ${seasonNum} · EPISODE ${epNum}" in clean white Helvetica Bold sans-serif, centered, 15% safe margins. Fade smoothly to the source action at the 2-second mark. A male narrator says "Season ${seasonNum}, Episode ${epNum}" during the card.`
       : "";
 
-    const noReferenceGridRule = `HARD OVERRIDE (i2v safety, NON-NEGOTIABLE): the source video and any reference image(s) are a LOOKUP ONLY for identity, wardrobe, and location. NONE of these MUST appear on screen: no character reference grid / portrait sheet / character lineup, no side-by-side portraits or split-screen showing the reference, no title-cards of the character's name with their photo, no fade-in from a reference image, no "introduction card" before the action. The video begins with the required opening title card (scene 1) or directly with the live-action scene (mid-episode).`;
+    const dedupedPrompt = [
+      preservationHint,
+      titleCardDelta,
+      `CHANGES REQUESTED BY USER:\n${userNotes}`,
+    ].filter(Boolean).join("\n\n").slice(0, 1500);
 
-    const endFrameRule = isLastSceneOfEpisode
-      ? `END-FRAME (episode finale): the final 1.5 seconds fade smoothly to pure black, audio ducks to silence in sync. This is the episode's end card.`
-      : `END-FRAME (mid-episode, NON-NEGOTIABLE): the final 1 second of this clip MUST settle into a cleanly composed, stable frame — no motion blur, characters holding position, lighting steady, every on-screen object clearly visible. This exact frame will seed the next clip via i2v. DO NOT fade to black and DO NOT end mid-motion.`;
-
-    const originalContext = [
-      titleCardBlock,
-      noReferenceGridRule,
-      seriesTitle ? `Series: "${seriesTitle}"` : null,
-      scriptTextClean ? `Original script (maintain these requirements):\n${scriptTextClean.slice(0, 1200)}` : null,
-      mem.characters?.length ? `Characters in scene: ${mem.characters.join(", ")}` : null,
-      endFrameRule,
-    ].filter(Boolean).join("\n\n");
-
-    const dedupedPrompt = [originalContext, "--- REMIX NOTES (apply these changes) ---", body.prompt].join("\n\n");
     const submitted = await remixSoraVideo({ sourceId: soraId, prompt: dedupedPrompt });
 
     // Track pending — same shape generate-video uses.

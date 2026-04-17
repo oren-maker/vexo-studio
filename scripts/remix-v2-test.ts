@@ -17,7 +17,7 @@ import { PrismaClient } from "@prisma/client";
 const p = new PrismaClient();
 const KEY = process.env.OPENAI_API_KEY?.replace(/\\n$/, "");
 const SCENE_ID = process.argv[2];
-const USER_NOTES = process.argv[3] ?? "Render the full 20-second scene from the original but ensure the mandatory opening title card appears for the first 2 seconds. Keep Maya's identity, location, wardrobe, lighting, and props identical to the source.";
+const USER_NOTES = process.argv[3] ?? "Insert the opening title card at the start.";
 
 if (!SCENE_ID) { console.error("usage: remix-v2-test.ts <sceneId> [remixNotes]"); process.exit(1); }
 if (!KEY) { console.error("OPENAI_API_KEY missing"); process.exit(1); }
@@ -70,26 +70,19 @@ const sanitize = (t: string | null | undefined) => {
   const isLast = total != null && scene.sceneNumber === total;
   const scriptTextClean = sanitize(scene.scriptText);
 
-  const titleCardBlock = isFirstScene && seasonNum != null && epNum != null
-    ? `REQUIRED OPENING TITLE CARD — NON-NEGOTIABLE. Frames 0.0–2.0s: pure black screen with the text "SEASON ${seasonNum} · EPISODE ${epNum}" in large, crisp, clean white Helvetica Bold sans-serif typography (font weight 700, ~9% of screen height), perfectly centered with 15% safe margins. The text must be legible — not stylised, not decorative, not handwritten, not 3D, not glowing, not textured. Frames 2.0–2.5s: smooth fade to black. Only after 2.5s does the live-action scene begin. A calm adult male narrator voice says "Season ${seasonNum}, Episode ${epNum}" in English, timed to finish just before the text starts fading. NO other on-screen text anywhere else in the clip.`
+  // DELTA-ONLY remix prompt. Long prompts make Sora generate a new
+  // unrelated video — keep this TIGHT and change-focused.
+  const preservationHint = "Keep every unchanged element from the source video exactly — same characters, same location, same lighting, same camera angle, same action, same pacing. Apply ONLY the changes below.";
+  const wantsTitleCard = isFirstScene && seasonNum != null && epNum != null &&
+    /(title card|opening title|season.{0,5}episode|כותרת|כרטיס כותרת)/i.test(USER_NOTES);
+  const titleCardDelta = wantsTitleCard
+    ? `Insert a 2-second opening title card before the existing action: pure black screen with the text "SEASON ${seasonNum} · EPISODE ${epNum}" in clean white Helvetica Bold sans-serif, centered, 15% safe margins. Fade smoothly to the source action at the 2-second mark. A male narrator says "Season ${seasonNum}, Episode ${epNum}" during the card.`
     : "";
-
-  const noReferenceGridRule = `HARD OVERRIDE (i2v safety, NON-NEGOTIABLE): the source video and any reference image(s) are a LOOKUP ONLY for identity, wardrobe, and location. NONE of these MUST appear on screen: no character reference grid / portrait sheet / character lineup, no side-by-side portraits or split-screen showing the reference, no title-cards of the character's name with their photo, no fade-in from a reference image, no "introduction card" before the action. The video begins with the required opening title card (scene 1) or directly with the live-action scene (mid-episode).`;
-
-  const endFrameRule = isLast
-    ? `END-FRAME (episode finale): the final 1.5 seconds fade smoothly to pure black, audio ducks to silence in sync.`
-    : `END-FRAME (mid-episode, NON-NEGOTIABLE): the final 1 second MUST settle into a cleanly composed, stable frame — no motion blur, characters holding position, lighting steady, every on-screen object clearly visible. This exact frame will seed the next clip via i2v. DO NOT fade to black and DO NOT end mid-motion.`;
-
-  const originalContext = [
-    titleCardBlock,
-    noReferenceGridRule,
-    seriesTitle ? `Series: "${seriesTitle}"` : null,
-    scriptTextClean ? `Original script (maintain these requirements):\n${scriptTextClean.slice(0, 1200)}` : null,
-    mem.characters?.length ? `Characters in scene: ${mem.characters.join(", ")}` : null,
-    endFrameRule,
-  ].filter(Boolean).join("\n\n");
-
-  const dedupedPrompt = [originalContext, "--- REMIX NOTES (apply these changes) ---", USER_NOTES].join("\n\n").slice(0, 2000);
+  const dedupedPrompt = [
+    preservationHint,
+    titleCardDelta,
+    `CHANGES REQUESTED BY USER:\n${USER_NOTES}`,
+  ].filter(Boolean).join("\n\n").slice(0, 1500);
 
   console.log("━━━ prompt preview (first 800 chars) ━━━");
   console.log(dedupedPrompt.slice(0, 800));

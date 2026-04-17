@@ -78,16 +78,24 @@ export default function SceneLogButton({ sceneId, preloaded }: { sceneId: string
   const [open, setOpen] = useState(false);
   const [logs, setLogs] = useState<Log[] | null>(preloaded ?? null);
   const [err, setErr] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  async function openLog() {
-    setOpen(true);
-    // Show preloaded/cached instantly, then refresh in background so new actions appear
+  async function refresh() {
+    setRefreshing(true);
+    setErr(null);
     try {
       const d = await api<{ logs: Log[] }>(`/api/v1/scenes/${sceneId}/log`);
       setLogs(d.logs);
     } catch (e: any) {
-      if (!logs) setErr(e?.message || String(e));
+      setErr(e?.message || String(e));
+    } finally {
+      setRefreshing(false);
     }
+  }
+
+  async function openLog() {
+    setOpen(true);
+    await refresh();
   }
 
   return (
@@ -104,14 +112,27 @@ export default function SceneLogButton({ sceneId, preloaded }: { sceneId: string
           <div
             onClick={(e) => e.stopPropagation()}
             translate="no"
-            className="notranslate bg-bg-card rounded-card shadow-card border border-bg-main w-full max-w-2xl flex flex-col overflow-hidden"
-            style={{ maxHeight: "85vh" }}
+            className="notranslate bg-bg-card rounded-card shadow-card border border-bg-main w-full max-w-2xl"
+            style={{ maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
           >
-            <div className="px-5 py-3 border-b border-bg-main flex items-center justify-between shrink-0">
-              <div className="font-semibold">📜 יומן פעילות הסצנה</div>
-              <button onClick={() => setOpen(false)} className="text-text-muted hover:text-text-primary">✕</button>
+            <div className="px-5 py-3 border-b border-bg-main flex items-center justify-between" style={{ flexShrink: 0 }}>
+              <div className="font-semibold">📜 יומן פעילות הסצנה {logs && <span className="text-text-muted text-xs font-normal">({logs.length})</span>}</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={refresh}
+                  disabled={refreshing}
+                  className="text-xs px-2 py-1 rounded bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 disabled:opacity-50"
+                >
+                  {refreshing ? "⟳ מרענן…" : "⟳ רענן"}
+                </button>
+                <button onClick={() => setOpen(false)} className="text-text-muted hover:text-text-primary">✕</button>
+              </div>
             </div>
-            <div className="overflow-y-auto px-4 py-3 space-y-2" dir="rtl" style={{ maxHeight: "calc(85vh - 60px)" }}>
+            <div
+              dir="rtl"
+              style={{ flex: "1 1 auto", overflowY: "auto", overflowX: "hidden", minHeight: 0, padding: "12px 16px" }}
+              className="space-y-2"
+            >
               {err && <div className="text-red-400 text-xs">⚠ {err}</div>}
               {!logs && !err && <div className="text-text-muted text-sm">טוען...</div>}
               {logs && logs.length === 0 && <div className="text-text-muted text-sm">אין פעילות עדיין בסצנה זו.</div>}

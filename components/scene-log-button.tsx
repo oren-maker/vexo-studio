@@ -71,9 +71,15 @@ export default function SceneLogButton({ sceneId, preloaded }: { sceneId: string
   const [logs, setLogs] = useState<Log[] | null>(preloaded ?? null);
   const [err, setErr] = useState<string | null>(null);
 
-  function openLog() {
+  async function openLog() {
     setOpen(true);
-    // If preloaded or cached — show instantly, no fetch needed
+    // Show preloaded/cached instantly, then refresh in background so new actions appear
+    try {
+      const d = await api<{ logs: Log[] }>(`/api/v1/scenes/${sceneId}/log`);
+      setLogs(d.logs);
+    } catch (e: any) {
+      if (!logs) setErr(e?.message || String(e));
+    }
   }
 
   return (
@@ -90,14 +96,14 @@ export default function SceneLogButton({ sceneId, preloaded }: { sceneId: string
           <div
             onClick={(e) => e.stopPropagation()}
             translate="no"
-            className="notranslate bg-bg-card rounded-card shadow-card border border-bg-main w-full max-w-2xl flex flex-col"
+            className="notranslate bg-bg-card rounded-card shadow-card border border-bg-main w-full max-w-2xl flex flex-col overflow-hidden"
             style={{ maxHeight: "85vh" }}
           >
-            <div className="px-5 py-3 border-b border-bg-main flex items-center justify-between">
+            <div className="px-5 py-3 border-b border-bg-main flex items-center justify-between shrink-0">
               <div className="font-semibold">📜 יומן פעילות הסצנה</div>
               <button onClick={() => setOpen(false)} className="text-text-muted hover:text-text-primary">✕</button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2" dir="rtl">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2" dir="rtl">
               {err && <div className="text-red-400 text-xs">⚠ {err}</div>}
               {!logs && !err && <div className="text-text-muted text-sm">טוען...</div>}
               {logs && logs.length === 0 && <div className="text-text-muted text-sm">אין פעילות עדיין בסצנה זו.</div>}

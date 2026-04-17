@@ -62,8 +62,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     // Require Director Sheet before video generation — without it the prompt
     // is too generic and the result won't match expectations.
-    const mem = (scene.memoryContext as { directorSheet?: Record<string, string> } | null) ?? {};
-    if (!mem.directorSheet) {
+    const memCheck = (scene.memoryContext as { directorSheet?: Record<string, string> } | null) ?? {};
+    if (!memCheck.directorSheet) {
       throw Object.assign(
         new Error("יש ליצור דף במאי (Director Sheet) לפני יצירת וידאו. לחץ על ✨ ייצר עם AI בכרטיסיית דף הבמאי."),
         { statusCode: 400 },

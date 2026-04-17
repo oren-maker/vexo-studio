@@ -72,7 +72,7 @@ export default function ScenePage() {
   const [videoModel, setVideoModel] = useState<AllVideoModel>("sora-2");
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [veoModalOpen, setVeoModalOpen] = useState(false);
-  const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean; maxWaitMs?: number; label?: string; initialStatus?: string } | null>(null);
+  const [veoJob, setVeoJob] = useState<{ startedAt: number; durationGoal: number; elapsed: number; videoCountBefore: number; done: boolean; maxWaitMs?: number; label?: string; initialStatus?: string; progress?: number } | null>(null);
   const [veoModel, setVeoModel] = useState<AllVideoModel>("sora-2");
   const [veoDuration, setVeoDuration] = useState(20);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
@@ -145,22 +145,20 @@ export default function ScenePage() {
     }, 1000);
     const poll = setInterval(async () => {
       try {
-        const fresh = await api<{ videos?: { id: string; fileUrl: string }[]; status?: string }>(`/api/v1/scenes/${id}`);
+        const fresh = await api<{ videos?: { id: string; fileUrl: string }[]; status?: string; videoProgress?: number | null }>(`/api/v1/scenes/${id}`);
         const gotNewVideo = (fresh.videos?.length ?? 0) > veoJob.videoCountBefore;
-        // Only treat "settled" as a stop signal when status actually TRANSITIONED
-        // away from the initial state. Otherwise a Remix (which runs while the
-        // scene is already in VIDEO_REVIEW) would tick the first poll as done.
         const statusChanged = !!fresh.status && !!veoJob.initialStatus && fresh.status !== veoJob.initialStatus;
         const serverSideSettled = statusChanged && ["VIDEO_REVIEW", "STORYBOARD_REVIEW", "STORYBOARD_APPROVED"].includes(fresh.status as string);
         const elapsed = Date.now() - veoJob.startedAt;
+        // Update real progress from API (Sora returns 0-100%)
+        if (typeof fresh.videoProgress === "number") {
+          setVeoJob((j) => j ? { ...j, progress: fresh.videoProgress ?? undefined } : null);
+        }
         if (gotNewVideo || serverSideSettled || elapsed > MAX_WAIT_MS) {
-          setVeoJob((j) => j ? { ...j, done: true, elapsed: Math.round(elapsed / 1000) } : null);
+          setVeoJob((j) => j ? { ...j, done: true, elapsed: Math.round(elapsed / 1000), progress: 100 } : null);
           clearInterval(tick); clearInterval(poll);
-          // Give the success banner ~1.2s to register, then hard-reload so
-          // every card (video, AI cost, status chip) is guaranteed fresh.
           setTimeout(() => { window.location.reload(); }, 1200);
         } else {
-          // Mid-flight: still update the videos list if anything appeared incrementally.
           setScene((prev) => prev ? { ...prev, videos: fresh.videos ?? prev.videos } : prev);
         }
       } catch { /* ignore transient poll errors */ }
@@ -386,12 +384,21 @@ export default function ScenePage() {
                   <div className="text-xs text-text-muted">{veoDuration}s · {veoAspect} · <span className="num">${veoEstimate.toFixed(2)}</span></div>
                 </div>
                 <div className="text-end">
-                  <div className="text-xs text-text-muted">{he ? "זמן שעבר" : "Elapsed"}</div>
-                  <div className="text-2xl font-bold num">{veoJob.elapsed}s</div>
+                  {typeof veoJob.progress === "number" ? (
+                    <>
+                      <div className="text-xs text-text-muted">{he ? "התקדמות" : "Progress"}</div>
+                      <div className="text-2xl font-bold num text-accent">{veoJob.progress}%</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs text-text-muted">{he ? "זמן שעבר" : "Elapsed"}</div>
+                      <div className="text-2xl font-bold num">{veoJob.elapsed}s</div>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="h-2 rounded-full bg-bg-main overflow-hidden">
-                <div className={`h-full transition-all ${veoJob.done ? "bg-status-okText" : "bg-accent"}`} style={{ width: `${Math.min(100, (veoJob.elapsed / veoJob.durationGoal) * 100)}%` }} />
+                <div className={`h-full transition-all duration-500 ${veoJob.done ? "bg-status-okText" : "bg-accent"}`} style={{ width: `${typeof veoJob.progress === "number" ? veoJob.progress : Math.min(100, (veoJob.elapsed / veoJob.durationGoal) * 100)}%` }} />
               </div>
               {veoJob.done ? (
                 <div className="flex items-center justify-between text-sm text-status-okText">

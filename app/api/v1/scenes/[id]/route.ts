@@ -43,7 +43,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // register it as an Asset (same table the fal webhook writes to) so the
     // UI renders it identically to fal-generated videos.
     const memRaw = (scene.memoryContext as Record<string, unknown> | null) ?? {};
-    const pending = memRaw.pendingVideoJob as undefined | { provider: "openai" | "google" | "higgsfield"; jobId: string; model: string; durationSeconds: number };
+    const pending = memRaw.pendingVideoJob as undefined | { provider: "openai" | "google" | "higgsfield"; jobId: string; model: string; durationSeconds: number; submittedAt?: string };
+    let videoProgress: number | null = null; // 0-100 real progress from API
     if (pending?.jobId) {
       try {
         let proxyUrl: string | null = null;
@@ -56,11 +57,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           const r = await pollSoraVideo(pending.jobId);
           if (r.status === "completed") proxyUrl = `/api/v1/videos/sora-proxy?id=${encodeURIComponent(pending.jobId)}`;
           else if (r.status === "failed") failedReason = "sora job failed";
+          else if (typeof r.progress === "number") videoProgress = r.progress;
         } else if (pending.provider === "higgsfield") {
           const { pollHiggsVideo } = await import("@/lib/providers/higgsfield");
           const r = await pollHiggsVideo(pending.jobId);
           if (r.status === "completed" && r.videoUrl) proxyUrl = r.videoUrl;
           else if (r.status === "failed") failedReason = r.error ?? "higgsfield job failed";
+          else if (typeof r.progress === "number") videoProgress = r.progress;
         }
         if (proxyUrl) {
           const projectIdForAsset = (await prisma.episode.findUniqueOrThrow({
@@ -226,7 +229,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       orderBy: { createdAt: "desc" },
       take: 50,
     }).catch(() => []);
-    return ok({ ...scene, frames: framesWithCost, sceneCharacters, videos, scriptMentionsNotInCast, activityLogs });
+    return ok({ ...scene, frames: framesWithCost, sceneCharacters, videos, scriptMentionsNotInCast, activityLogs, videoProgress });
   } catch (e) { return handleError(e); }
 }
 

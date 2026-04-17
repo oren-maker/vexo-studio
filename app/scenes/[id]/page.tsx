@@ -77,16 +77,16 @@ export default function ScenePage() {
   const [veoDuration, setVeoDuration] = useState(20);
   const [veoAspect, setVeoAspect] = useState<"16:9" | "9:16">("16:9");
   const RATES: Record<AllVideoModel, number> = {
-    "sora-2": 0.10, "higgs-kling": 0.06, "higgs-seedance": 0.05, higgsfield: 0.05,
+    "sora-2": 0.10, "higgs-kling": 0.274, "higgs-seedance": 0.047, higgsfield: 0.005,
   };
   const MAX_DURATION: Record<AllVideoModel, number> = {
-    "sora-2": 20, "higgs-kling": 15, "higgs-seedance": 12, higgsfield: 60,
+    "sora-2": 20, "higgs-kling": 15, "higgs-seedance": 12, higgsfield: 12,
   };
   const MODEL_LABEL: Record<AllVideoModel, { emoji: string; name: string; price: string; audio: boolean; note?: string }> = {
-    "sora-2":         { emoji: "🟢", name: "Sora 2",            price: "$0.10/s", audio: true,  note: "ברירת מחדל" },
-    "higgs-kling":    { emoji: "🎬", name: "Kling 3.0",         price: "$0.06/s", audio: true,  note: "via Higgsfield" },
-    "higgs-seedance": { emoji: "⚡", name: "Seedance 1.5",      price: "$0.05/s", audio: true,  note: "via Higgsfield" },
-    higgsfield:       { emoji: "🎞", name: "Soul Standard",     price: "$0.05/s", audio: true,  note: "עד 60s!" },
+    "sora-2":         { emoji: "🟢", name: "Sora 2",            price: "~$2/20s",  audio: true,  note: "ברירת מחדל" },
+    "higgs-kling":    { emoji: "🎬", name: "Kling 3.0",         price: "~$4/15s",  audio: true,  note: "via Higgsfield" },
+    "higgs-seedance": { emoji: "⚡", name: "Seedance 1.5",      price: "~$0.56/12s", audio: true, note: "via Higgsfield" },
+    higgsfield:       { emoji: "🎞", name: "Soul Standard",     price: "~$0.06",   audio: true,  note: "via Higgsfield" },
   };
   const maxDurForModel = MAX_DURATION[veoModel];
   const veoRate = RATES[veoModel];

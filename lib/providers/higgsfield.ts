@@ -39,11 +39,17 @@ export async function submitHiggsVideo(opts: {
   imageUrl?: string;
 }): Promise<{ id: string; status: string }> {
   const model = opts.model ?? "higgsfield-ai/dop/standard";
+  // Sora models use "seconds" not "duration" (duration caps at 12; seconds allows 20)
+  const isSoraModel = model.includes("sora");
   const body: Record<string, unknown> = {
     prompt: opts.prompt.slice(0, 2000),
-    duration: opts.durationSeconds ?? 20,
     aspect_ratio: opts.aspectRatio ?? "16:9",
   };
+  if (isSoraModel) {
+    body.seconds = opts.durationSeconds ?? 20;
+  } else {
+    body.duration = opts.durationSeconds ?? 15;
+  }
   if (opts.imageUrl) body.image_url = opts.imageUrl;
 
   const res = await fetch(`${BASE}/${model}`, {
@@ -94,10 +100,13 @@ export const HIGGS_PRICING: Record<string, number> = {
   "bytedance/seedance/v1.5/pro/text-to-video": 0.05,
   "kling-video/v3.0/pro/text-to-video": 0.06,
   "kling-video/v3.0/pro/image-to-video": 0.06,
-  // Short aliases (used by scene page modelKey)
-  "higgs-kling": 0.06,
-  "higgs-seedance": 0.05,
-  "higgsfield": 0.05,
+  "sora-2/text-to-video": 0.10,
+  "sora-2/image-to-video": 0.10,
+  // Short aliases — real pricing from Higgsfield dashboard (Apr 2026)
+  "higgs-kling": 0.274,      // ~$4.11 per 15s call
+  "higgs-seedance": 0.047,   // ~$0.56 per 12s call
+  "higgs-sora": 0.10,        // ~$1.20 per 12s call
+  "higgsfield": 0.005,       // ~$0.06 per call (Soul)
 };
 
 export function priceHiggs(model: string, seconds: number): number {

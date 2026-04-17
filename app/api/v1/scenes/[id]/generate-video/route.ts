@@ -342,6 +342,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       } else if (isHiggs) {
         const higgsModel = modelKey === "higgs-seedance" ? "bytedance/seedance/v1.5/pro/text-to-video"
           : modelKey === "higgs-kling" ? "kling-video/v3.0/pro/text-to-video"
+          : modelKey === "higgs-sora" ? "sora-2/text-to-video"
           : modelKey === "higgs-wan" ? "wan-ai/wan/v2.5/text-to-video"
           : modelKey === "higgsfield" ? "higgsfield-ai/soul/standard"
           : "higgsfield-ai/dop/standard";

@@ -1,0 +1,329 @@
+[
+  {
+    "id": "cmo1lzrhf00018kuzpsm215va",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 1,
+    "title": "The Mirror Slip",
+    "summary": "מירה חן חווה אובדן זיכרון פתאומי מול המראה בבוקר, כאשר השתקפותה נראית זרה לה.",
+    "scriptText": "Visual Style: Intimate psychological thriller. Shot on Arri Alexa 65 with Panavision C-Series anamorphic lens, 40mm, f/2.0. Natural morning light with warm 4500K color temperature. 35mm film grain, shallow depth of field. Photorealistic live-action, real actors with visible skin pores.\n\nCHARACTER: Maya Ellis (33) — olive skin with subtle freckles, sharp jawline, dark brown wavy hair pulled into a loose messy bun, wearing a charcoal oversized silk robe, lean athletic build. Understated, professional\n\nTITLE OVERLAY: Large clean white sans-serif text \"SEASON 1 · EPISODE 1\" centered on screen with 15% safe margins. Appears during the aerial approach (00:02-00:05) and fades out smoothly. A warm narrator voice reads \"Season One, Episode One\" in English, in sync with the text.\n\nTimeline:\n00:00-00:02: AERIAL ESTABLISHING SHOT. Bird's-eye view of a quiet suburban neighborhood at dawn. Soft golden light. Green trees lining a residential street. The camera begins descending.\n00:02-00:05: DESCENDING CRANE SHOT. Camera swoops down toward a specific two-story house with a small front garden. Title text \"SEASON 1 · EPISODE 1\" appears overlaid. Narrator reads it aloud.\n00:05-00:08: PUSH-IN TO HOUSE. Camera glides toward the front door, passes through it (seamless transition) into a dim hallway. Morning light streams through a side window.\n00:08-00:11: TRACKING SHOT THROUGH HALLWAY. Camera moves smoothly past a coat rack, framed photos on the wall, toward a half-open bathroom door at the end. Soft ambient sounds: clock ticking, distant birds.\n00:11-00:14: ENTERING BATHROOM. Camera pushes through the doorway into a modern bathroom. Maya stands at the marble sink, looking into the mirror. Her reflection stares back. Water drips from the tap — close-up of droplets hitting porcelain.\n00:14-00:15: CLOSE-UP ON MAYA'S FACE in the mirror. Her expression shifts from neutral to confused — a micro-expression of doubt crosses her features. Her reflection seems to blink out of sync.\n\nAudio: Continuous cinematic score — solo piano with soft pad underneath, 70 BPM, building subtle tension. Foley: birds chirping (exterior), footsteps on wooden floor, clock ticking, water dripping on porcelain, fabric rustling as Maya shifts. The score intensifies slightly at 00:14 when the reflection blinks.\n\nENDING: Last 1 second — quick, clean fade to black. Audio ducks to silence.",
+    "scriptSource": "brain-update",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "VIDEO_REVIEW",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: \nהמוזיקה היא מיקס של פסנתר, צ'לו וסינתיסייזר בס-תת, עם קצב של 80-100 BPM. המוזיקה נכנסת בדקה 00:06, כאשר המצלמה נכנסת לביתה של מירה, ובונה אווירה של מתח וחרדה. המוזיקה מגיעה לשיא בדקה 00:12, כאשר מירה רואה את השתקפותה במראה ומרגישה אובדן זיכרון.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX):\n* 00:00: צלילי רוח וגשם ברקע\n* 00:06: צלילי מצלמה נעה באוויר\n* 00:12: צלילי מים נופלים לכיור השיש\n* 00:14: צלילי נשימה חדה ולא סדירה של מירה\n\n🌫 אמביינס/רעש סביבה:\n* רוח רוחשת ברקע, 20dB, פאנינג לשמאל\n* צלילי תנועה של מים במרחק, 15dB, פאנינג לימין\n* האמ-באם של מוונטילטור, 10dB, מרכז\n* צלילי גשם על הזכוכית, 5dB, פאנינג למעלה\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync):\n* מירה: \"מה קורה לי?\" (00:14), קול חד ומלא פאנדה, ליפ-סינק צמוד\n* מירה: \"אני... אני לא זוכרת\" (00:16), קול שבור ולא בטוח, ליפ-סינק רופף\n* נשימה עמוקה ופאוזה בין השורות\n\n🎚 מעברי סאונד וצמצומים (Mix moves):\n* 00:12: המוזיקה",
+      "directorNotes": "שהסרטון יתחיל במבט עילי לבית בשכונה  שנכנס פנימה באפקטים עד שמגיע למקום שבו הדמות נמצאת",
+      "directorSheet": {
+        "audio": "Ambient city hum and rain streaks transition at 00:06 into a tense mix of piano, cello, and sub-bass synth (80-100 BPM). The score swells to a peak of anxiety at 00:12 as the camera reaches the villa.",
+        "scene": "A sprawling dystopian megalopolis choked in dense indigo fog and digital rain, transitioning to a secluded minimalist villa of glass and raw concrete. The lighting is cold and monolithic, emphasizing Maya's isolation.",
+        "shots": "[00:00-00:06] — Extreme Wide Shot of a dystopian megalopolis with swirling indigo fog and vertical digital rain streaks. [00:06-00:12] — High-speed cinematic tracking shot diving from the city heights toward a secluded glass and concrete villa.",
+        "style": "Cinematic Neo-Noir with High-End Architectural Minimalism. Desaturated palette of indigo and slate grey, punctuated by sharp amber city light accents to evoke a paranoid, sterile atmosphere.",
+        "camera": "A continuous, high-speed tracking one-shot that moves from a vista perspective to an intimate, invasive approach toward the villa to build tension.",
+        "effects": "Photorealistic 8K rendering of digital rain and volumetric indigo fog; smooth motion blur during the high-speed descent.",
+        "character": "Maya Ellis: Understated and professional with weary eyes, currently in a state of existential anxiety. She is the focal point of the transition from the vast city to the claustrophobic interior of her minimalist home.",
+        "technical": "2.39:1 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for Maya Ellis across all shots — no face drift.",
+        "generatedAt": "2026-04-16T21:18:00.550Z"
+      },
+      "lastVideoError": "sora job failed"
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:12.867Z",
+    "updatedAt": "2026-04-17T01:18:34.397Z"
+  },
+  {
+    "id": "cmo1lzrr100038kuzcqnw5brt",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 2,
+    "title": "Newsroom Confession",
+    "summary": "מירה נפגשת עם מאיה במערכת העיתון ומתוודה על רגעי הניתוק המפחידים שהיא חווה.",
+    "scriptText": "1. Visual Style — Professional live-action, high-end TV drama. Sharp focus on foreground characters. 2. Lens & Camera — 85mm long lens to compress space. Static Two-Shot, slightly low angle. 3. Lighting — Fluorescent office overheads mixed with warm desk lamps. 4. Color Palette — Navy blue, steel grey, accents of corporate orange. Emotional code: Trust and anxiety. 5. Character — Maya (in a blazer) and Maya Ellis (understated, professional). Maya listens intently, leaning forward. 6. Environment — Busy newsroom background with blurred figures, desks covered in papers and dual monitors. 7. Audio — Diegetic: Distant typing (Foley), muffled Walla of the newsroom. Score: Tense cello staccato, mid-tempo. 8. Timeline — 0-5s: Maya sits down heavily. 5-12s: She whispers her confession to Maya; Maya reaches across the desk to touch her hand. 12-18s: Maya looks over her shoulder, feeling watched. 18-20s: Maya grabs a laptop, signaling the start of the search.",
+    "scriptSource": "brain-10-scene-autogen",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "VIDEO_GENERATING",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ],
+      "soundNotes": "🎵 מוזיקה: \nהמוזיקה היא צ'לו דיסטרסי בקצב בינוני, 100-110 BPM, הנכנסת בשנייה 5 ובונה עצמה עד שנייה 12, כאשר מירה מתוודה. המוזיקה נושאת את הרגשות של חרדה ואי-ודאות.\n\n🔊 אפקטים מקדמת התמונה (Foley/SFX): \n* 0s: מירה יושבת בכבדות על הכיסא, עם קול עמום של רהיטים\n* 5s: מירה לוחשת את הווידוי, עם קול של שפתיים ונשימה\n* 8s: מאיה מושיטה ידה ונוגעת בידה של מירה, עם קול עדין של בד\n* 12s: מאיה מסתובבת, עם קול עמום של כיסא\n* 18s: מאיה לוקחת לפטופ, עם קול קליק\n\n🌫 אמביינס/רעש סביבה: \nהרקע הוא חדר חדשות עמוס, עם רעשים של:\n* מקלדות מרוחקות, 20dB, פאנינג לשמאל\n* קולות מרוחקים של אנשים, 15dB, פאנינג לימין\n* רעש של מסכים ומחשבים, 10dB, פאנינג למרכז\n* רעש של ניירות ודפים, 5dB, פאנינג למרכז\n\n🎙 דיאלוג ולחץ שפתיים (Lip-sync): \n* מירה: \"אני חווה רגעים של ניתוק\", רגש: חרדה, לחץ שפתיים: לוחש\n* מאיה: \"מה קורה?\", רגש: דאגה, לחץ שפתיים: טיגה קרובה\n* מירה: \"אני לא יודעת\", רג",
+      "directorSheet": {
+        "audio": "Distant typing and muffled newsroom walla in the background. A distressing cello score at 100-110 BPM enters at 00:05, building tension until the confession at 00:12 to underscore the feeling of uncertainty.",
+        "scene": "A bustling newsroom interior with dual monitors and paper-strewn desks. Foreground is sharp and intimate while the background features blurred figures and fluorescent overhead lighting to create a sense of being watched.",
+        "shots": "[00:00-00:04] — Static two-shot of Maya and Mira at a newsroom desk, capturing the professional distance. [00:04-00:08] — Tightening medium shot on Maya as she leans in, reacting to Mira's distress. [00:08-00:12] — Close-up on Maya's face, capturing the shift from professional curiosity to genuine fear.",
+        "style": "Sterile corporate aesthetic with a paranoid psychological undercurrent. Steel grey and navy blue palette contrasted by warm desk lamps to highlight the intimacy of the confession against a cold, professional backdrop.",
+        "camera": "An 85mm long lens compresses the newsroom space to enhance the claustrophobic feel, utilizing a slightly low angle to give the conversation weight.",
+        "effects": "None. The focus remains on realistic human performance and the psychological tension of the dialogue.",
+        "character": "Maya Ellis: Understated and professional, wearing a structured blazer with weary, intelligent eyes. She leans forward with an expression of intense focus and growing anxiety as she listens to the confession.",
+        "technical": "16:9 aspect ratio, 12 seconds total, 24fps. Lock identity to the reference images for every character across all shots — no face drift.",
+        "generatedAt": "2026-04-17T01:54:44.255Z"
+      },
+      "pendingVideoJob": {
+        "jobId": "video_69e1927d94d88190b91245891f5b0e720b7af509e6227e95",
+        "model": "sora-2",
+        "provider": "openai",
+        "submittedAt": "2026-04-17T01:53:01.798Z",
+        "durationSeconds": 20
+      }
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:13.213Z",
+    "updatedAt": "2026-04-17T01:54:44.261Z"
+  },
+  {
+    "id": "cmo1lzrvq00058kuzcenwao1f",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 3,
+    "title": "Digital Ghosting",
+    "summary": "מירה ומאיה מתחילות לנבור בארכיון הדיגיטלי ומגלות שחלק מהכתבות הישנות של מירה נעלמו.",
+    "scriptText": "1. Visual Style — Tech-thriller aesthetic, high-contrast screen reflections on faces. 2. Lens & Camera — 35mm wide. Tracking shot following the mouse cursor on a large screen, then pulling back to show both women. 3. Lighting — Dimly lit room, primary light source is the 6500K glow of the monitors. 4. Color Palette — Electric blue and deep shadows. Emotional code: Suspicion. 5. Character — Maya and Maya. Maya is frantic, Maya is focused, typing quickly. 6. Environment — Darkened research cubicle, stacks of folders, glowing server lights in the background. 7. Audio — Diegetic: Rapid keyboard clicks (Foley), mouse scrolls. Score: Pulsing electronic synth, rising tension. 8. Timeline — 0-5s: Screen shows a '404 Not Found' error. 5-12s: Maya scrolls through a list of articles; Maya points at a gap where her name should be. 12-18s: The screen flickers with a glitch effect. 18-20s: Maya’s phone on the desk vibrates violently, leading to the warning.",
+    "scriptSource": "brain-10-scene-autogen",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ]
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:13.382Z",
+    "updatedAt": "2026-04-16T17:42:16.471Z"
+  },
+  {
+    "id": "cmo1lzs0e00078kuz9pe7oigl",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 4,
+    "title": "The Cryptic Warning",
+    "summary": "מירה מקבלת הודעה מסתורית לטלפון הנייד שלה שמזהירה אותה להפסיק לחפור בעבר.",
+    "scriptText": "1. Visual Style — Noir-thriller, tight framing, claustrophobic. 2. Lens & Camera — Macro lens for the phone screen, switching to Dutch Angle on Maya’s face. 3. Lighting — Hard shadows, single overhead light flickering. 4. Color Palette — Harsh yellow and deep black. Emotional code: Threat. 5. Character — Maya Ellis, alone. Her face is pale, eyes wide with terror as she reads. 6. Environment — A narrow hallway outside the research room, concrete walls, industrial pipes. 7. Audio — Diegetic: Phone vibration (Impact), a low 'Whoosh' transition sound. Score: Piercing high-pitched violin note. 8. Timeline — 0-5s: Extreme Close-Up of the phone screen showing: 'STOP LOOKING MIRA'. 5-12s: Maya looks down the empty hallway; the lights flicker. 12-18s: She breathes sharply, clutching her throat. 18-20s: She turns and runs toward the exit, transitioning to the archive room.",
+    "scriptSource": "brain-10-scene-autogen",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ]
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:13.550Z",
+    "updatedAt": "2026-04-16T17:42:16.634Z"
+  },
+  {
+    "id": "cmo1lzs5600098kuzntqg7787",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 5,
+    "title": "The Vanishing Byline",
+    "summary": "בחיפוש בארכיון הפיזי, מירה מוצאת עותק מודפס של כתבה שלה, אך שמה נמחק ממנו פיזית.",
+    "scriptText": "1. Visual Style — Analog mystery, tactile textures, dust motes in the air. 2. Lens & Camera — 24mm wide angle, low to the ground, moving toward Maya. 3. Lighting — Volumetric dust motes in shafts of warm light (3200K). 4. Color Palette — Sepia, beige, aged paper yellow. Emotional code: Disbelief. 5. Character — Maya, disheveled, fingers stained with ink. 6. Environment — Basement archive, rows of heavy metal shelves, smell of old paper almost visible. 7. Audio — Diegetic: Paper rustling (Foley), heavy sliding of a metal drawer. Score: Melancholic piano melody. 8. Timeline — 0-5s: Maya pulls a dusty newspaper from a box. 5-12s: She finds the front-page story; her finger traces a blank white space where her byline should be. 12-18s: She finds a card tucked inside for Dr. Ethan Kim. 18-20s: She grips the card tightly, looking toward the clinic exit.",
+    "scriptSource": "brain-10-scene-autogen",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Dr. Ethan Kim",
+        "Maya Ellis"
+      ]
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:13.722Z",
+    "updatedAt": "2026-04-16T17:42:16.798Z"
+  },
+  {
+    "id": "cmo1lzs9y000b8kuziwvqlm1o",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 6,
+    "title": "The Gilded Cage",
+    "summary": "מירה מבקרת את ד\"ר איתן קים במרפאתו, שם הוא מציג לה סריקת מוח עם ממצאים בלתי מוסברים.",
+    "scriptText": "1. Visual Style — Clean, medical, slightly surreal. High key lighting. 2. Lens & Camera — 50mm, static Over-The-Shoulder (OTS) shots for dialogue. 3. Lighting — Bright white clinical light, sterile and cold. 4. Color Palette — White, teal, and the glowing purple of the brain scan. Emotional code: Confusion. 5. Character — Dr. Ethan Kim (intelligent, slightly disheveled) and Maya. Dr. Kim points to a screen. 6. Environment — Modern neurology clinic, high-tech monitors, glass walls. 7. Audio — Diegetic: Hum of medical equipment, soft dialogue (On-Mic). Score: Rhythmic, heartbeat-like synth. 8. Timeline — 0-5s: Dr. Kim pulls up a 3D brain model. 5-12s: He points to a glowing cluster of neurons that shouldn't be there; Maya looks horrified. 12-18s: He whispers, 'This isn't a lapse, Maya. It's an edit.' 18-20s: Maya stands up abruptly, heading for the door.",
+    "scriptSource": "brain-10-scene-autogen",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Dr. Ethan Kim",
+        "Maya Ellis"
+      ]
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:13.894Z",
+    "updatedAt": "2026-04-16T17:42:16.963Z"
+  },
+  {
+    "id": "cmo1lzseo000d8kuza0zz1dz1",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 7,
+    "title": "The Shadow in the Lobby",
+    "summary": "ביציאה מהמרפאה, מירה נתקלת בסוכנת רייצ'ל מורס שמעמידה פנים שהיא בביקורת אבטחה.",
+    "scriptText": "1. Visual Style — High-stakes corporate thriller. Wide, symmetrical shots. 2. Lens & Camera — 35mm, slow Dolly In toward the two women meeting. 3. Lighting — Harsh midday sun coming through large lobby windows, creating long shadows. 4. Color Palette — Slate grey, polished silver, black. Emotional code: Intimidation. 5. Character — Agent Rachel Morse (polished, intimidating) blocking Maya’s path. 6. Environment — High-ceilinged glass lobby, polished granite floors, security turnstiles. 7. Audio — Diegetic: Echoing footsteps (Foley), the hum of an elevator. Score: Low brass swells, menacing. 8. Timeline — 0-5s: Maya exits the elevator; Morse is standing right there. 5-12s: Morse offers a thin, cold smile and hands Maya a blank card. 12-18s: Morse leans in and whispers something inaudible; Maya’s face pales. 18-20s: Maya pushes past her into the rainy street.",
+    "scriptSource": "brain-10-scene-autogen",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Agent Rachel Morse",
+        "Maya Ellis"
+      ]
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:14.064Z",
+    "updatedAt": "2026-04-16T17:42:17.129Z"
+  },
+  {
+    "id": "cmo1lzsjd000f8kuz0h37pet3",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 8,
+    "title": "The Ink Witness",
+    "summary": "מירה פוגשת את לינה לי בבר אפלולי; לינה חושפת קעקועים שהם 'העוגן' היחיד שאי אפשר לשנות.",
+    "scriptText": "1. Visual Style — Gritty, neon-noir, heavy shadows. 2. Lens & Camera — 35mm, handheld, close proximity. 3. Lighting — Red and purple neon practicals, smoky atmosphere. 4. Color Palette — Crimson, deep violet, black. Emotional code: Desperation/Bonding. 5. Character — Lena Lee (edgy, avant-garde) and Maya. Lena is drinking whiskey. 6. Environment — A basement dive bar, graffiti on walls, flickering neon signs. 7. Audio — Diegetic: Muffled bass music (Exterior), glass clinking. Score: Distorted guitar feedback, slow tempo. 8. Timeline — 0-5s: Lena rolls up her sleeve in a single motion. 5-12s: Camera focuses on a complex geometric tattoo on her forearm; Lena says, 'They can't edit the skin.' 12-18s: Maya touches the tattoo, realizing the gravity of the conspiracy. 18-20s: A shadow passes the window outside; they both look up.",
+    "scriptSource": "brain-10-scene-autogen",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Lena Lee",
+        "Maya Ellis"
+      ]
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:14.233Z",
+    "updatedAt": "2026-04-16T17:42:17.291Z"
+  },
+  {
+    "id": "cmo1lzsoc000h8kuzxhx48rek",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 9,
+    "title": "The Pattern Emerges",
+    "summary": "מירה חוזרת לביתה ומגלה שחפצים אישיים בדירתה מתחילים להשתנות לנגד עיניה.",
+    "scriptText": "1. Visual Style — High-tension psychological horror. 2. Lens & Camera — 16mm wide, fast erratic pans and Tilts (Dutch Angle). 3. Lighting — Flickering apartment lights, thunderstorm outside providing flashes of light. 4. Color Palette — Sickly green and dark brown. Emotional code: Panic/Dread. 5. Character — Maya Ellis, alone, frantic, moving through her apartment. 6. Environment — A lived-in apartment that feels like it's rearranging itself; books shifting on shelves. 7. Audio — Diegetic: Thunder (Impact), floorboards creaking. Score: Increasing tempo, dissonant strings. 8. Timeline — 0-5s: Maya enters and drops her keys. 5-12s: She looks at a framed photo; the person next to her disappears in a blur of grain. 12-18s: She screams and runs into the bathroom, slamming the door. 18-20s: She stares at the bathroom mirror, preparing for the final reveal.",
+    "scriptSource": "brain-10-scene-autogen",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ]
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:14.412Z",
+    "updatedAt": "2026-04-16T17:42:17.456Z"
+  },
+  {
+    "id": "cmo1lzstb000j8kuzw40v4ojs",
+    "parentType": "episode",
+    "parentId": "cmny2i5k2000lu7yrxy2s63r6",
+    "episodeId": "cmny2i5k2000lu7yrxy2s63r6",
+    "lessonId": null,
+    "sceneNumber": 10,
+    "title": "The Shattered Reflection",
+    "summary": "מירה רואה את עצמה במראה, אך ההשתקפות מתחילה לחיות חיים משלה, ומירה מבינה שהיא כלואה.",
+    "scriptText": "1. Visual Style — Surrealist thriller, photorealistic but impossible. Final frame fades to pure black — continuity bridge to EP02. 2. Lens & Camera — 50mm, extreme close-up on Maya’s face and her reflection simultaneously. 3. Lighting — Single flickering bulb above the mirror. 4. Color Palette — Monochromatic with blood-red accents. Emotional code: Absolute terror. 5. Character — Maya Ellis. Her reflection stops moving when she moves. 6. Environment — Small, cramped bathroom. The mirror glass begins to crack from the inside. 7. Audio — Diegetic: Cracking glass (Impact), a distorted whisper of Maya's own voice. Score: Sudden silence, then a heavy sub-bass drop. 8. Timeline — 0-5s: Maya stares at her reflection; the reflection blinks while Maya’s eyes stay open. 5-12s: The reflection reaches out and grabs Maya’s real throat through the glass. 12-18s: Cracks spread across the screen; Maya’s scream is silent. 18.5-20s: Slow fade to black, audio ducks to silence. Final frame is pure black.",
+    "scriptSource": "brain-10-scene-autogen",
+    "dialogueJson": null,
+    "targetDurationSeconds": 20,
+    "status": "STORYBOARD_APPROVED",
+    "plannedBudget": null,
+    "actualCost": 0,
+    "tokenCost": 0,
+    "generationCost": 0,
+    "manualCost": 0,
+    "revisionCost": 0,
+    "memoryContext": {
+      "characters": [
+        "Maya Ellis"
+      ]
+    },
+    "styleConstraints": null,
+    "createdAt": "2026-04-16T15:03:14.591Z",
+    "updatedAt": "2026-04-16T17:42:17.619Z"
+  }
+]

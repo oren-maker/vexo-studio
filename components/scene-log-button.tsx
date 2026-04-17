@@ -39,7 +39,7 @@ const ACTION_LABEL: Record<string, string> = {
   brain_execute_create_scene: "🤖 הבמאי יצר סצנה",
 };
 
-const VIDEO_RATE: Record<string, number> = { "sora-2": 0.10, "sora-2-pro": 0.30, "higgs-kling": 0.06, "higgs-seedance": 0.05, "higgsfield": 0.05 };
+const VIDEO_RATE: Record<string, number> = { "sora-2": 0.10, "sora-2-pro": 0.30, "higgs-kling": 0.274, "higgs-seedance": 0.047, "higgsfield": 0.005 };
 const GROQ_ACTIONS = new Set(["critic_review", "sound_notes_generated", "remix_suggest", "director_sheet_generated", "breakdown_generated", "dialogue_generated", "lipsync_generated", "music_generated"]);
 
 // Show cost only ONCE per video lifecycle: on video_ready (the completion),

@@ -337,28 +337,44 @@ export async function POST(req: NextRequest) {
     } else if (action.type === "update_scene") {
       const brainSceneId = String(action.sceneId || "").trim();
       const pageSceneId = ctxKind === "scene" ? (ctxId || null) : null;
-      if (!brainSceneId && !pageSceneId) return NextResponse.json({ error: "sceneId חסר — פתח עמוד סצנה או שלח sceneId תקין" }, { status: 400 });
+      const brainSceneNumber = typeof action.sceneNumber === "number" ? action.sceneNumber : Number(action.sceneNumber) || null;
+      const brainEpisodeId = String(action.episodeId || "").trim() || (ctxKind === "episode" ? ctxId : null);
 
-      // Resolve which sceneId actually exists in DB. The brain sometimes emits
-      // a hallucinated / stale / concatenated id; when that happens and the user
-      // is on a scene page, fall back to the page-context id. This matches user
-      // intent ("update THIS scene") and avoids a confusing 404.
-      let sceneId: string;
+      // Resolve sceneId with cascading fallbacks:
+      //   1. brainSceneId exists in DB → use it
+      //   2. sceneNumber + episodeId → resolve to real scene
+      //   3. page context scene id → use it
+      //   4. most-recently-updated episode's sceneNumber → last resort
+      //   5. give up with helpful message
+      let sceneId: string | null = null;
+      let resolvedVia: string | null = null;
+
       if (brainSceneId) {
-        const brainExists = await prisma.scene.findUnique({ where: { id: brainSceneId }, select: { id: true } });
-        if (brainExists) {
-          sceneId = brainSceneId;
-        } else if (pageSceneId && pageSceneId !== brainSceneId) {
-          const pageExists = await prisma.scene.findUnique({ where: { id: pageSceneId }, select: { id: true } });
-          if (!pageExists) return NextResponse.json({ error: `סצנה ${brainSceneId} לא קיימת ב-DB וגם לא סצנת העמוד (${pageSceneId}). רענן ונסה שוב.` }, { status: 404 });
-          sceneId = pageSceneId;
-        } else {
-          return NextResponse.json({ error: `סצנה ${brainSceneId} לא קיימת ב-DB — ייתכן שהמזהה שהמוח שלח שגוי. פתח עמוד סצנה קיים ונסה שוב.` }, { status: 404 });
+        const exists = await prisma.scene.findUnique({ where: { id: brainSceneId }, select: { id: true } });
+        if (exists) { sceneId = brainSceneId; resolvedVia = "brain-id"; }
+      }
+      if (!sceneId && brainSceneNumber && brainEpisodeId) {
+        const byNumber = await prisma.scene.findFirst({ where: { episodeId: brainEpisodeId, sceneNumber: brainSceneNumber }, select: { id: true } });
+        if (byNumber) { sceneId = byNumber.id; resolvedVia = "number+episode"; }
+      }
+      if (!sceneId && pageSceneId) {
+        const exists = await prisma.scene.findUnique({ where: { id: pageSceneId }, select: { id: true } });
+        if (exists) { sceneId = pageSceneId; resolvedVia = "page-context"; }
+      }
+      if (!sceneId && brainSceneNumber) {
+        // Last resort: pick the scene with that number in the most recently-updated episode
+        const recentEp = await prisma.episode.findFirst({ orderBy: { updatedAt: "desc" }, select: { id: true } });
+        if (recentEp) {
+          const byNumber = await prisma.scene.findFirst({ where: { episodeId: recentEp.id, sceneNumber: brainSceneNumber }, select: { id: true } });
+          if (byNumber) { sceneId = byNumber.id; resolvedVia = "number+recent-episode"; }
         }
-      } else {
-        const pageExists = pageSceneId ? await prisma.scene.findUnique({ where: { id: pageSceneId }, select: { id: true } }) : null;
-        if (!pageExists) return NextResponse.json({ error: `סצנה ${pageSceneId} לא קיימת ב-DB. רענן את הדף ונסה שוב.` }, { status: 404 });
-        sceneId = pageSceneId!;
+      }
+
+      if (!sceneId) {
+        const detail = brainSceneId
+          ? `המוח שלח sceneId='${brainSceneId}' שלא קיים ב-DB${brainSceneNumber ? ` ו-sceneNumber=${brainSceneNumber} לא נמצא בפרק הפעיל` : ""}.`
+          : "המוח לא שלח sceneId או sceneNumber תקין.";
+        return NextResponse.json({ error: `${detail} פתח עמוד של הסצנה הספציפית או בקש מהמוח לעדכן בפעם הבאה עם sceneNumber + episodeId.`, aborted: true }, { status: 404 });
       }
 
       const data: Record<string, any> = {};

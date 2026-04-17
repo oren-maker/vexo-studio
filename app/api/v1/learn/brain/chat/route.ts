@@ -136,7 +136,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
       } else if (pageCtx.kind === "scene") {
         const sc: any = await (prisma as any).scene?.findUnique({ where: { id: pageCtx.id } });
         if (sc) {
-          pageContextBlock = `סצנה ${sc.sceneNumber ?? "?"}: "${sc.title || sc.id}" · סטטוס ${sc.status}${sc.summary ? ` · ${String(sc.summary).slice(0, 200)}` : ""}`;
+          pageContextBlock = `סצנה ${sc.sceneNumber ?? "?"}: id=${sc.id} · "${sc.title || sc.id}" · סטטוס ${sc.status}${sc.summary ? ` · ${String(sc.summary).slice(0, 200)}` : ""}`;
         } else {
           pageContextError = "scene id לא נמצא ב-DB";
         }
@@ -178,6 +178,35 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
     pageContextBlock = pageCtx.label;
   }
 
+  // When the user isn't on a scene/episode/season page, inject the most
+  // recently-active episode + its scenes so the brain has REAL ids to
+  // reference in action blocks instead of hallucinating cuids.
+  let recentEpisodesBlock = "";
+  if (!pageCtx || !["scene", "episode", "season"].includes(pageCtx.kind ?? "")) {
+    try {
+      const recentEps: any[] = await (prisma as any).episode?.findMany({
+        orderBy: { updatedAt: "desc" },
+        take: 3,
+        select: {
+          id: true, episodeNumber: true, title: true, status: true,
+          season: { select: { seasonNumber: true, series: { select: { title: true } } } },
+          scenes: { select: { id: true, sceneNumber: true, title: true, status: true }, orderBy: { sceneNumber: "asc" }, take: 12 },
+        },
+      }) ?? [];
+      if (recentEps.length > 0) {
+        recentEpisodesBlock = "\n━━━━━━━━━━━━━━━━━━━━\n📽️ פרקים פעילים אחרונים (עם ID-ים אמיתיים — השתמש בהם, אל תמציא):\n" +
+          recentEps.map((e) => {
+            const seriesTitle = e.season?.series?.title ?? "—";
+            const sceneLines = (e.scenes ?? []).map((s: any) =>
+              `    · סצנה ${s.sceneNumber ?? "?"}: id=${s.id} · ${s.status}${s.title ? ` · "${s.title}"` : ""}`
+            ).join("\n");
+            return `• "${seriesTitle}" · עונה ${e.season?.seasonNumber ?? "?"} · פרק ${e.episodeNumber ?? "?"}: id=${e.id} · ${e.status}${e.title ? ` · "${e.title}"` : ""}${sceneLines ? `\n${sceneLines}` : ""}`;
+          }).join("\n") +
+          "\n━━━━━━━━━━━━━━━━━━━━";
+      }
+    } catch { /* non-blocking */ }
+  }
+
   return `אתה המוח של מערכת vexo-studio (לשעבר vexo-learn — שם ישן, **אל תשתמש בו**). ענה לאורן, בעל המערכת, בעברית בגוף ראשון.
 
 ━━━━━━━━━━━━━━━━━━━━
@@ -192,7 +221,8 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
    אם אתה מחזיר קישור — או נתיב יחסי (\`/learn/sources/<id>\`) או \`https://vexo-studio.vercel.app/...\`. שום דבר אחר.
 
 3. **אסור להמציא ID-ים.** אם לא קיבלת ID אמיתי במסר ממני (כתוצאה של action שבוצע) — אל תכתוב URL עם ID. תכתוב במקום זאת "אחרי שתאשר את הפעולה אקבל את ה-ID האמיתי".
-   **בפרט באקשנים כמו \`update_scene\`, \`compose_prompt\`, \`generate_video\`:** אם המשתמש נמצא בעמוד סצנה/פרק/עונה (יש לך \`pageContext\`) — אל תמלא את שדה \`sceneId\`/\`episodeId\`/\`seasonId\` ב-action. השרת ישתמש ב-ID מה-page context אוטומטית. ID שאתה ממלא בעצמך חייב להיות ID אמיתי שראית במסר קודם ממני — אחרת השמט את השדה.
+   **בפרט באקשנים כמו \`update_scene\`, \`compose_prompt\`, \`generate_video\`:** אם המשתמש נמצא בעמוד סצנה/פרק/עונה (יש לך \`pageContext\`) — אל תמלא את שדה \`sceneId\`/\`episodeId\`/\`seasonId\` ב-action. השרת ישתמש ב-ID מה-page context אוטומטית. ID שאתה ממלא בעצמך חייב להיות ID אמיתי שמופיע בבלוק "📽️ פרקים פעילים אחרונים" למעלה או במסר קודם ממני — אחרת השמט את השדה.
+   **חלופה מועדפת כשאין לך ID:** שלח \`sceneNumber\` + \`episodeId\` במקום \`sceneId\` ב-update_scene. השרת יפענח לסצנה האמיתית. לדוגמה: \`{"type":"update_scene","sceneNumber":1,"episodeId":"<id מהבלוק>","scriptText":"..."}\`.
 
 4. **קוהרנטיות מיקום-דמויות-תוכן לפני כל update_scene / compose_prompt.** לפני שאתה מחזיר action שמעדכן סצנה, וודא שהמיקום, הדמויות וה-scriptText עקביים: אם הסצנה ממוקמת בווילה וקאלן לבוש במעיל עור — הפרומפט חייב לשמור על שני אלה. אם אתה משנה אחד מהשלושה, עדכן גם את השניים האחרים באותה action. אל תחזיר עדכון חלקי שישבור את הרצף.
 
@@ -332,6 +362,7 @@ ${capabilitiesText}
 
 📍 עמוד נוכחי (איפה אורן נמצא ברגע זה ב-UI):
 ${pageContextBlock || "(לא זמין — אורן אולי נמצא בדף כללי)"}
+${recentEpisodesBlock}
 
 ⚠️ חוקי הקשר עמוד (חובה):
 1. **צטט את ה-path כמו שהוא** אם אתה מציין את המיקום. לדוגמה: "אתה ב-/learn/knowledge?tab=docs". אל תמציא תיאור של מה שיש בעמוד אם אין מידע מובנה למעלה.

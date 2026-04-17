@@ -505,7 +505,7 @@ export default function ScenePage() {
 
         <Card title={he ? "דף הבמאי · Director Sheet" : "Director Sheet"} subtitle={he ? "8 סעיפים שמוזנים לפרומפט של ייצור הוידאו" : "8 sections fed into the video generation prompt"}>
           <div className="flex justify-end mb-3">
-            <button disabled={sheetBusy} onClick={buildSheet} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-50">
+            <button disabled={sheetBusy || scene.status === "APPROVED"} title={scene.status === "APPROVED" ? (he ? "הסצנה אושרה — לבטל אישור כדי לשנות" : "Scene approved — unapprove to edit") : undefined} onClick={buildSheet} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
               {sheetBusy ? (he ? "מייצר…" : "Generating…") : scene.memoryContext?.directorSheet ? (he ? "🔁 ייצר מחדש" : "🔁 Regenerate") : (he ? "✨ ייצר עם AI" : "✨ Generate with AI")}
             </button>
           </div>
@@ -561,11 +561,16 @@ export default function ScenePage() {
           <textarea
             defaultValue={scene.memoryContext?.directorNotes ?? ""}
             onBlur={(e) => saveDirectorNotes(e.target.value)}
+            readOnly={scene.status === "APPROVED"}
             rows={3}
             placeholder={he ? "כל הנחייה מקצועית נוספת: צבעוניות, תאורה, קצב, דברים שחשובים לך שיעברו לווידאו" : "Any additional professional note: colour, lighting, pacing, beats you want the video to honor"}
-            className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm"
+            className={`w-full px-3 py-2 rounded-lg border border-bg-main text-sm ${scene.status === "APPROVED" ? "opacity-70 bg-bg-main/60" : ""}`}
           />
-          <div className="text-[11px] text-text-muted mt-1">{he ? "יציאה שומרת" : "Blur saves"}</div>
+          <div className="text-[11px] text-text-muted mt-1">
+            {scene.status === "APPROVED"
+              ? (he ? "🔒 נעול — הסצנה מאושרת. לחץ \"ביטול אישור\" כדי לערוך." : "🔒 Locked — scene is approved. Click Unapprove to edit.")
+              : (he ? "יציאה שומרת" : "Blur saves")}
+          </div>
         </Card>
 
         {scene.videos && scene.videos.length > 0 && (
@@ -667,7 +672,7 @@ export default function ScenePage() {
         <Card title={he ? "מסגרות תשריט" : "Storyboard frames"} subtitle={`${scene.frames.length} ${he ? "מסגרות" : "frames"} · ${he ? "סה\"כ" : "total"}: $${scene.frames.reduce((s, f) => s + (f.cost ?? 0), 0).toFixed(4)}`}>
           {scene.frames.length > 0 && (
             <div className="flex justify-end mb-3">
-              <button disabled={regenBusy === "all"} onClick={regenAll} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-50">
+              <button disabled={regenBusy === "all" || scene.status === "APPROVED"} title={scene.status === "APPROVED" ? (he ? "הסצנה אושרה — לבטל אישור כדי לשנות" : "Scene approved — unapprove to edit") : undefined} onClick={regenAll} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
                 {regenBusy === "all" ? (he ? "מייצר מחדש…" : "Regenerating…") : (he ? "🔁 ייצר מחדש את כולם עם הדמויות" : "🔁 Regenerate all using gallery")}
               </button>
             </div>
@@ -700,10 +705,10 @@ export default function ScenePage() {
                     <div className="flex justify-between items-center">
                       <div className="font-semibold">{he ? `מסגרת ${f.orderIndex + 1}` : `Frame ${f.orderIndex + 1}`}</div>
                       <button
-                        disabled={regenBusy === f.id}
+                        disabled={regenBusy === f.id || scene.status === "APPROVED"}
                         onClick={(e) => { e.stopPropagation(); regenFrame(f.id); }}
-                        title={he ? "ייצר מחדש עם תמונות הדמויות" : "Regenerate using character refs"}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-accent text-accent disabled:opacity-50"
+                        title={scene.status === "APPROVED" ? (he ? "הסצנה אושרה — לבטל אישור כדי לשנות" : "Scene approved — unapprove to edit") : (he ? "ייצר מחדש עם תמונות הדמויות" : "Regenerate using character refs")}
+                        className="text-[10px] px-1.5 py-0.5 rounded border border-accent text-accent disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {regenBusy === f.id ? "…" : "🔁"}
                       </button>
@@ -758,7 +763,7 @@ export default function ScenePage() {
 
         <Card title={he ? "🔊 הערות סאונד" : "🔊 Sound notes"} subtitle={he ? "מוזיקה · אפקטים · דיבוב. ה-AI מצרף את זה ל-[Audio] של הוידאו" : "Music · SFX · dubbing — fed into the [Audio] section of the prompt"}>
           <div className="flex justify-end mb-2">
-            <button disabled={soundBusy} onClick={generateSoundNotes} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-50">
+            <button disabled={soundBusy || scene.status === "APPROVED"} title={scene.status === "APPROVED" ? (he ? "הסצנה אושרה — לבטל אישור כדי לשנות" : "Scene approved — unapprove to edit") : undefined} onClick={generateSoundNotes} className="text-xs px-3 py-1 rounded-lg border-2 border-accent text-accent font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
               {soundBusy ? (he ? "מייצר…" : "Generating…") : scene.memoryContext?.soundNotes ? (he ? "🔁 ייצר מחדש עם AI" : "🔁 Regenerate with AI") : (he ? "✨ ייצר עם AI" : "✨ Generate with AI")}
             </button>
           </div>
@@ -766,9 +771,10 @@ export default function ScenePage() {
             key={scene.memoryContext?.soundNotes ?? "empty"}
             defaultValue={scene.memoryContext?.soundNotes ?? ""}
             onBlur={(e) => saveSoundNotes(e.target.value)}
+            readOnly={scene.status === "APPROVED"}
             rows={Math.max(6, Math.min(40, (scene.memoryContext?.soundNotes ?? "").split("\n").length + 2))}
             placeholder={he ? "למשל: מוזיקה מתמתחת ברקע · תקתוקי שעון · נשימות כבדות של הדמות · קול טלפון מצלצל לעצירה חדה" : "e.g. tense music builds under · clock ticking · heavy breathing · phone ring, sharp cut"}
-            className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm whitespace-pre-wrap"
+            className={`w-full px-3 py-2 rounded-lg border border-bg-main text-sm whitespace-pre-wrap ${scene.status === "APPROVED" ? "opacity-70 bg-bg-main/60" : ""}`}
             style={{ resize: "vertical", minHeight: 120 }}
           />
           <div className="text-[11px] text-text-muted mt-2">{he ? "יציאה שומרת · שינויים נשמרים לצמיתות ללמידה עתידית" : "Blur saves · history preserved for future learning"}</div>

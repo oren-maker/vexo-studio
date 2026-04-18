@@ -79,7 +79,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // Poll even when status=DRAFT if a falRequestId is set — the user may
     // have edited the prompt mid-flight (build-prompt resets status to DRAFT)
     // but Sora keeps processing the already-submitted job.
-    if (opening && opening.provider === "openai" && opening.falRequestId && opening.status !== "READY" && opening.status !== "FAILED") {
+    // ALSO poll when status=FAILED — Sora may report transient "failed"
+    // and then complete successfully; we shouldn't lock the opening into
+    // FAILED if the job actually finished.
+    if (opening && opening.provider === "openai" && opening.falRequestId && opening.status !== "READY") {
       try {
         const res = await pollSoraVideo(opening.falRequestId);
         if (res.status === "completed") {
@@ -160,9 +163,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             include: { versions: { orderBy: { createdAt: "desc" }, take: 30 } },
           });
         } else if (res.status === "failed") {
+          // Persist the actual provider error message so the UI can show it
+          // instead of a hardcoded "moderation" guess. Stash in videoUri (text
+          // field, otherwise unused for Sora) prefixed with ERROR:.
+          const errMsg = (res.error?.message ?? "Sora returned failed without a message").slice(0, 500);
           await prisma.seasonOpening.update({
             where: { id: opening.id },
-            data: { status: "FAILED" },
+            data: { status: "FAILED", videoUri: `ERROR:${errMsg}` },
           });
           opening = await prisma.seasonOpening.findUnique({
             where: { seasonId: params.id },

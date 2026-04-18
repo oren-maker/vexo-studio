@@ -51,7 +51,7 @@ export default function SeasonPage() {
     params.set("tab", t);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
-  type Opening = { id: string; status: string; videoUrl: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; updatedAt: string; chunkIndex: number; chunkPrompts: string[] | null; chunkVideoIds: string[] | null; versions: { id: string; prompt: string; createdAt: string }[] };
+  type Opening = { id: string; status: string; videoUrl: string | null; videoUri: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; updatedAt: string; chunkIndex: number; chunkPrompts: string[] | null; chunkVideoIds: string[] | null; versions: { id: string; prompt: string; createdAt: string }[] };
   type OpeningCostBreakdown = { text: number; video: number; total: number; calls: number };
   type OpeningVideo = { id: string; fileUrl: string; at: string; model: string | null; durationSeconds: number | null; costUsd: number | null };
   const [opening, setOpening] = useState<Opening | null>(null);
@@ -684,11 +684,21 @@ export default function SeasonPage() {
           ) : (
             <div className="space-y-4">
               <div id="opening-status" />
-              {opening.status === "FAILED" ? (
+              {opening.status === "FAILED" ? (() => {
+                const realErr = opening.videoUri?.startsWith("ERROR:") ? opening.videoUri.slice(6) : null;
+                const isModeration = realErr ? /moderation/i.test(realErr) : false;
+                return (
                 <div className="bg-status-errBg rounded-lg p-5 text-center">
                   <div className="text-3xl mb-2">⚠️</div>
                   <div className="text-sm font-semibold text-status-errText mb-1">{lang === "he" ? "הייצור נכשל" : "Generation failed"}</div>
-                  <div className="text-xs text-status-errText mb-4">{lang === "he" ? "ייתכן שהפרומט נדחה על ידי מסנן ה-moderation של הספק (OpenAI/Google). נסה לערוך את הפרומט למילים נייטרליות יותר, או לבחור מודל אחר (SeeDance/VEO 3)." : "The prompt may have been blocked by the provider's moderation filter (OpenAI/Google). Edit the prompt to use more neutral language, or pick a different model (SeeDance/VEO 3)."}</div>
+                  {realErr ? (
+                    <div className="text-xs text-status-errText mb-4 text-left bg-bg-card rounded p-2 font-mono direction-ltr break-words">{realErr}</div>
+                  ) : (
+                    <div className="text-xs text-status-errText mb-4">{lang === "he" ? "סטטוס נכשל בלי הודעת שגיאה ספציפית. ייתכן שהוידאו דווקא הסתיים בהצלחה אצל הספק — לחץ 'אפס ונסה שוב' והדף יבדוק שוב." : "Failed status with no specific error. The video may actually be ready at the provider — click Reset to re-poll."}</div>
+                  )}
+                  {isModeration && (
+                    <div className="text-xs text-status-errText mb-4">{lang === "he" ? "Sora חסם את הוידאו אחרי הרינדור — בדרך כלל בגלל פיזיקה אנומלית בתוצר (כספית נגד הכבידה / מראה באיחור). בקש מהבמאי פתיחה אסתטית טהורה ללא רמזים עלילתיים, או בחר מודל אחר (VEO 3 / SeeDance)." : "Sora blocked the rendered output — typically due to anomalous physics in the result. Author a pure-aesthetic opening or switch model (VEO 3 / SeeDance)."}</div>
+                  )}
                   <div className="flex gap-2 justify-center flex-wrap">
                     <button onClick={async () => {
                       await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { status: "DRAFT" } });
@@ -698,7 +708,8 @@ export default function SeasonPage() {
                     <button onClick={() => setOpeningWizardOpen(true)} className="px-4 py-2 rounded-lg border border-accent text-accent text-sm font-semibold">{lang === "he" ? "✨ ערוך באשף" : "✨ Edit in wizard"}</button>
                   </div>
                 </div>
-              ) : (openingJob && !openingJob.done) || opening.status === "GENERATING" ? (
+                );
+              })() : (openingJob && !openingJob.done) || opening.status === "GENERATING" ? (
                 (() => {
                   const totalChunks = Math.max(opening.chunkPrompts?.length ?? 1, 1);
                   const activeIdx = (opening.chunkIndex ?? 0) + 1; // 1-based for display

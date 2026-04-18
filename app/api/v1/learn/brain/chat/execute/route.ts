@@ -432,6 +432,96 @@ export async function POST(req: NextRequest) {
       await prisma.seasonOpening.update({ where: { id: existing.id }, data });
       resultUrl = `/seasons/${seasonId}#opening`;
       resultText = `✅ עדכנתי את פרומפט הפתיחה של העונה (${prompt.length} תווים). גש ל-Opening ולחץ "יצר מחדש" כדי להפיק וידאו חדש.`;
+    } else if (action.type === "create_season") {
+      // Create a new season inside an existing series. seriesId explicit or inferred.
+      let seriesId = String(action.seriesId || "").trim();
+      if (!seriesId && ctxKind === "season" && ctxId) {
+        const s: any = await (prisma as any).season?.findUnique({ where: { id: ctxId }, select: { seriesId: true } });
+        if (s?.seriesId) seriesId = s.seriesId;
+      }
+      if (!seriesId) return NextResponse.json({ error: "seriesId חסר — שלח במפורש או פתח עמוד של סדרה" }, { status: 400 });
+      const title = typeof action.title === "string" ? action.title.trim() : null;
+      const description = typeof action.description === "string" ? action.description.trim() : null;
+      const last: any = await (prisma as any).season?.findFirst({
+        where: { seriesId },
+        orderBy: { seasonNumber: "desc" },
+        select: { seasonNumber: true },
+      });
+      const nextNumber = (last?.seasonNumber ?? 0) + 1;
+      const season: any = await (prisma as any).season.create({
+        data: { seriesId, seasonNumber: nextNumber, title, description, status: "DRAFT" },
+      });
+      await prisma.series.update({ where: { id: seriesId }, data: { totalSeasons: { increment: 1 } } });
+      resultUrl = `/seasons/${season.id}`;
+      resultText = `✅ יצרתי עונה ${nextNumber}${title ? ` — "${title}"` : ""}${description ? ` · ${description.slice(0, 100)}` : ""}.`;
+    } else if (action.type === "delete_scene") {
+      // Hard-delete only if status=DRAFT. Protects against losing approved work.
+      const sceneId = String(action.sceneId || "").trim() || (ctxKind === "scene" ? ctxId : null);
+      if (!sceneId) return NextResponse.json({ error: "sceneId חסר" }, { status: 400 });
+      const scene = await prisma.scene.findUnique({
+        where: { id: sceneId },
+        select: { id: true, sceneNumber: true, status: true, scriptText: true, episodeId: true, episode: { select: { seasonId: true } } },
+      });
+      if (!scene) return NextResponse.json({ error: "scene not found" }, { status: 404 });
+      if (scene.status !== "DRAFT") {
+        return NextResponse.json({
+          error: `לא ניתן למחוק סצנה במצב ${scene.status}. ראשית הורד סטטוס ל-DRAFT דרך update_scene, או מחק ידנית מה-UI אם זו מחיקה חירומית.`,
+          aborted: true,
+        }, { status: 400 });
+      }
+      // Snapshot the scriptText to PromptVersion-like log (SceneLog details) in case of regret
+      await (prisma as any).sceneLog.create({
+        data: {
+          sceneId,
+          action: "scene_deleted",
+          actor: "ai:brain",
+          actorName: "במאי AI",
+          details: { reason: "brain_delete_scene", priorScript: scene.scriptText?.slice(0, 500) ?? null, priorStatus: scene.status },
+        },
+      }).catch(() => {});
+      await prisma.scene.delete({ where: { id: sceneId } });
+      resultUrl = scene.episodeId && scene.episode ? `/seasons/${scene.episode.seasonId}/episodes/${scene.episodeId}` : null;
+      resultText = `🗑️ מחקתי סצנה ${scene.sceneNumber ?? "?"} (status היה DRAFT). ה-scriptText נשמר ב-SceneLog.`;
+    } else if (action.type === "archive_episode") {
+      const episodeId = String(action.episodeId || "").trim() || (ctxKind === "episode" ? ctxId : null);
+      if (!episodeId) return NextResponse.json({ error: "episodeId חסר" }, { status: 400 });
+      const ep: any = await (prisma as any).episode.update({
+        where: { id: episodeId },
+        data: { status: "ARCHIVED" },
+      });
+      resultUrl = `/seasons/${ep.seasonId}/episodes/${ep.id}`;
+      resultText = `📦 ארכבתי פרק ${ep.episodeNumber ?? "?"}${ep.title ? ` — "${ep.title}"` : ""}. ניתן לשחזר דרך update_episode → status=DRAFT.`;
+    } else if (action.type === "generate_character_portrait") {
+      const characterId = String(action.characterId || "").trim() || (ctxKind === "character" ? ctxId : null);
+      if (!characterId) return NextResponse.json({ error: "characterId חסר" }, { status: 400 });
+      const char: any = await (prisma as any).character?.findUnique({
+        where: { id: characterId },
+        select: { id: true, name: true, appearance: true, personality: true, gender: true, ageRange: true },
+      });
+      if (!char) return NextResponse.json({ error: "character not found" }, { status: 404 });
+      const customPrompt = typeof action.prompt === "string" ? action.prompt.trim() : null;
+      const prompt = customPrompt || [
+        `Professional cinematic portrait of ${char.name}.`,
+        char.appearance ? `Appearance: ${char.appearance}.` : "",
+        char.gender ? `Gender: ${char.gender}.` : "",
+        char.ageRange ? `Age: ${char.ageRange}.` : "",
+        char.personality ? `Personality hint: ${char.personality}.` : "",
+        "Photorealistic, natural lighting, neutral background, front-facing, shoulders-up composition, sharp focus on face.",
+      ].filter(Boolean).join(" ");
+      const { generateImageFromPrompt } = await import("@/lib/learn/gemini-image");
+      const engine: "nano-banana" | "imagen-4" = action.engine === "imagen-4" ? "imagen-4" : "nano-banana";
+      const img = await generateImageFromPrompt(prompt, undefined, engine);
+      await (prisma as any).characterMedia.create({
+        data: {
+          characterId,
+          mediaType: "portrait",
+          fileUrl: img.blobUrl,
+          sourceProviderId: img.model,
+          metadata: { engine, prompt: prompt.slice(0, 500), generatedBy: "brain-action", usdCost: img.usdCost },
+        },
+      });
+      resultUrl = `/characters/${characterId}`;
+      resultText = `🎨 יצרתי פורטרט ל-${char.name} (${engine}, ~$${img.usdCost.toFixed(3)}).\n${img.blobUrl}`;
     } else if (action.type === "search_memory") {
       // Brain explicitly asks for retrieval with a custom query.
       // Currently scopes to LearnSource library; future kinds: guide, knowledge, scene.

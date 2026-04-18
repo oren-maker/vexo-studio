@@ -285,7 +285,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragB
 
 ⚠️ **\`type\` חייב להיות EXACTLY אחד מהשמות באנגלית למטה.** אסור עברית, אסור "כן"/"לא"/"בצע", אסור שם שהמצאת. אם אתה לא בטוח איזו פעולה צריך — אל תחזיר action בכלל ושאל את אורן.
 
-16 סוגי פעולות שאתה יכול לבצע:
+20 סוגי פעולות שאתה יכול לבצע:
 1. \`compose_prompt\` — יצירת **פרומפט וידאו** מתיאור/נושא.
    פרמטרים: \`brief\` (תיאור הנושא, חובה) · \`sceneId\` (אופציונלי — אם הפרומפט הוא לסצנה ספציפית בהפקה)
    📌 **כלל קריטי לעבודה על פרקים/סצנות:**
@@ -322,6 +322,17 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragB
     מתי להשתמש: כשאורן רוצה לבנות רציפות בין סצנות או לבדוק מה הפריים האחרון של סצנה קיימת.
     דוגמה: \`{"type":"extract_last_frame","sceneId":"<id מ-page ctx>"}\`
     אין שדה confidence.
+17. \`create_season\` — עונה חדשה בתוך סדרה קיימת. פרמטרים: \`seriesId\` (חובה — או מ-page context של season; הבמאי ישלוף ממנו), \`title\`, \`description\` (אופציונליים). מספר העונה נבחר אוטומטית.
+    דוגמה: \`{"type":"create_season","seriesId":"<id>","title":"Silent Winter","description":"העונה השנייה — המעבר ל-Amsterdam","confidence":0.9}\`
+18. \`delete_scene\` — מחיקת סצנה **רק אם היא במצב DRAFT**. אם סצנה אושרה (STORYBOARD_APPROVED / APPROVED / LOCKED), סרב והצע ל-update_scene לסטטוס DRAFT קודם. פרמטרים: \`sceneId\` (חובה — או מ-page context).
+    הגנה: אסור למחוק סצנות שהושקע בהן כסף. אם בשאלה מתברר שאורן מתכוון "לארכב" ולא "למחוק" → השתמש ב-archive_episode במקום.
+    דוגמה: \`{"type":"delete_scene","sceneId":"<id>","confidence":0.85}\`
+19. \`archive_episode\` — סימון פרק כ-ARCHIVED (נשמר אבל מסונן מתצוגות ברירת מחדל). פרמטרים: \`episodeId\` (חובה — או מ-page context).
+    שחזור: update_episode עם status=DRAFT.
+    דוגמה: \`{"type":"archive_episode","episodeId":"<id>","confidence":0.9}\`
+20. \`generate_character_portrait\` — יצירת פורטרט מקצועי לדמות (nano-banana או imagen-4). פרמטרים: \`characterId\` (חובה — או מ-page context של character), \`prompt\` (אופציונלי — אם מסופק, מחליף את ה-auto-build מ-appearance/personality), \`engine\` (אופציונלי: "nano-banana" | "imagen-4", ברירת מחדל nano-banana).
+    התוצאה נשמרת אוטומטית כ-CharacterMedia (mediaType=portrait). השתמש בזה כש-appearance של דמות חסר רפרנס ויזואלי או כשאורן רוצה לרענן פורטרט קיים.
+    דוגמה: \`{"type":"generate_character_portrait","characterId":"<id>","engine":"imagen-4","confidence":0.85}\`
 
 🎬 **זרימת עבודה לייצור אוטונומי של פרק שלם** (כש-אורן אומר "תייצר פרק חדש על X"):
 א. החזר \`create_episode\` עם title+synopsis. חכה לאישור.

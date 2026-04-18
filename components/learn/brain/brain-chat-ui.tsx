@@ -34,6 +34,10 @@ function actionLabel(action: any): string {
     case "estimate_cost": return `💰 הערכת עלות (dry-run)`;
     case "search_memory": return `🔍 חיפוש בספרייה`;
     case "extract_last_frame": return `🖼️ שליפת frame אחרון`;
+    case "create_season": return `📂 צור עונה חדשה`;
+    case "delete_scene": return `🗑️ מחק סצנה (DRAFT בלבד)`;
+    case "archive_episode": return `📦 ארכב פרק`;
+    case "generate_character_portrait": return `🎨 פורטרט לדמות`;
     default: return `⚡ ${action.type}`;
   }
 }
@@ -131,6 +135,26 @@ const ACTION_STAGES: Record<string, string[]> = {
   extract_last_frame: [
     "🎞️ קריאת memoryContext של הסצנה...",
     "🖼️ החזרת bridgeFrameUrl או הנחיה לאישור...",
+  ],
+  create_season: [
+    "📂 שולף את הסדרה מה-DB...",
+    "🔢 מחשב seasonNumber הבא...",
+    "💾 שומר Season + מעדכן totalSeasons...",
+  ],
+  delete_scene: [
+    "🔒 מאמת status=DRAFT...",
+    "📝 שומר snapshot ב-SceneLog...",
+    "🗑️ מוחק מה-DB...",
+  ],
+  archive_episode: [
+    "📦 משנה status → ARCHIVED...",
+    "💾 שומר ב-Episode...",
+  ],
+  generate_character_portrait: [
+    "👤 שולף appearance + personality של הדמות...",
+    "📝 בונה פרומפט תמונה מובנה...",
+    "🎨 nano-banana/imagen מייצר תמונה...",
+    "💾 שומר ל-Vercel Blob + CharacterMedia...",
   ],
 };
 

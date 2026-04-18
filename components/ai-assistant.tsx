@@ -24,6 +24,10 @@ const VALID_ACTION_TYPES = new Set([
   "estimate_cost",
   "search_memory",
   "extract_last_frame",
+  "create_season",
+  "delete_scene",
+  "archive_episode",
+  "generate_character_portrait",
 ]);
 
 type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };

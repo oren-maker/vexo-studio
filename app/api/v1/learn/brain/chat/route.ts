@@ -55,10 +55,8 @@ async function callGeminiWithFallback(system: string, history: any[]): Promise<{
 
 type PageCtx = { path?: string; title?: string; kind?: string | null; id?: string | null; label?: string } | null | undefined;
 
-async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, currentMessage?: string): Promise<string> {
+async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragBlock = ""): Promise<string> {
   const latest = await prisma.dailyBrainCache.findFirst({ orderBy: { date: "desc" } });
-  const ragHits = currentMessage ? await retrieveRelevantSources(currentMessage, 5).catch(() => []) : [];
-  const ragBlock = formatRagBlock(ragHits);
   const [totalPrompts, totalGuides, totalNodes, pastChats, latestInsights, latestSeriesAnalysis, references] = await Promise.all([
     prisma.learnSource.count(),
     prisma.guide.count(),
@@ -139,7 +137,32 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, curr
       } else if (pageCtx.kind === "scene") {
         const sc: any = await (prisma as any).scene?.findUnique({ where: { id: pageCtx.id } });
         if (sc) {
-          pageContextBlock = `סצנה ${sc.sceneNumber ?? "?"}: id=${sc.id} · "${sc.title || sc.id}" · סטטוס ${sc.status}${sc.summary ? ` · ${String(sc.summary).slice(0, 200)}` : ""}`;
+          // Deep context: fetch N-1 (for continuity seed) and N+1 (for forward consistency)
+          // so brain can reason about what comes before/after this scene without Oren having to say it.
+          let siblingsBlock = "";
+          if (sc.episodeId && typeof sc.sceneNumber === "number") {
+            const [prevScene, nextScene] = await Promise.all([
+              prisma.scene.findFirst({
+                where: { episodeId: sc.episodeId, sceneNumber: sc.sceneNumber - 1 },
+                select: { id: true, sceneNumber: true, title: true, scriptText: true, memoryContext: true },
+              }),
+              prisma.scene.findFirst({
+                where: { episodeId: sc.episodeId, sceneNumber: sc.sceneNumber + 1 },
+                select: { id: true, sceneNumber: true, title: true, scriptText: true },
+              }),
+            ]);
+            const parts: string[] = [];
+            if (prevScene) {
+              const prevMem = (prevScene.memoryContext as Record<string, unknown> | null) ?? {};
+              const bridgeUrl = typeof prevMem.bridgeFrameUrl === "string" ? prevMem.bridgeFrameUrl : null;
+              parts.push(`◀️ סצנה קודמת ${prevScene.sceneNumber}${prevScene.title ? ` "${prevScene.title}"` : ""}:\n   script: ${prevScene.scriptText?.slice(0, 400) || "(ריק)"}${prevScene.scriptText && prevScene.scriptText.length > 400 ? "..." : ""}${bridgeUrl ? `\n   🖼️ last-frame (i2v seed): ${bridgeUrl}` : ""}`);
+            }
+            if (nextScene) {
+              parts.push(`▶️ סצנה הבאה ${nextScene.sceneNumber}${nextScene.title ? ` "${nextScene.title}"` : ""}:\n   script: ${nextScene.scriptText?.slice(0, 400) || "(ריק)"}${nextScene.scriptText && nextScene.scriptText.length > 400 ? "..." : ""}`);
+            }
+            if (parts.length > 0) siblingsBlock = `\n\n📖 רצף — הסצנות הסמוכות (לשמירה על עקביות):\n${parts.join("\n\n")}`;
+          }
+          pageContextBlock = `סצנה ${sc.sceneNumber ?? "?"}: id=${sc.id} · "${sc.title || sc.id}" · סטטוס ${sc.status}${sc.summary ? ` · ${String(sc.summary).slice(0, 200)}` : ""}${siblingsBlock}`;
         } else {
           pageContextError = "scene id לא נמצא ב-DB";
         }
@@ -262,7 +285,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, curr
 
 ⚠️ **\`type\` חייב להיות EXACTLY אחד מהשמות באנגלית למטה.** אסור עברית, אסור "כן"/"לא"/"בצע", אסור שם שהמצאת. אם אתה לא בטוח איזו פעולה צריך — אל תחזיר action בכלל ושאל את אורן.
 
-14 סוגי פעולות שאתה יכול לבצע:
+16 סוגי פעולות שאתה יכול לבצע:
 1. \`compose_prompt\` — יצירת **פרומפט וידאו** מתיאור/נושא.
    פרמטרים: \`brief\` (תיאור הנושא, חובה) · \`sceneId\` (אופציונלי — אם הפרומפט הוא לסצנה ספציפית בהפקה)
    📌 **כלל קריטי לעבודה על פרקים/סצנות:**
@@ -291,6 +314,14 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, curr
     מתי להשתמש: לפני כל generate_video עם משך ≥12s או מודל pro, אלא אם אורן כבר ציין שזה דחוף. אתה יכול להחזיר קודם estimate_cost ורק אחרי אישור — generate_video.
     דוגמה: \`{"type":"estimate_cost","operation":"generate_video","model":"sora-2","durationSec":20,"sourceId":"<id>"}\`
     אין שדה confidence ב-estimate_cost.
+15. \`search_memory\` — **שליפה סמנטית מהספרייה עם query מפורש.** בניגוד ל-RAG האוטומטי שמופיע מלמעלה על השאלה הנוכחית, זה בקשה ממוקדת שאתה בוחר לעשות. פרמטרים: \`query\` (חובה, עברית/אנגלית), \`k\` (אופציונלי, 1-10, ברירת מחדל 5).
+    מתי להשתמש: כשאתה צריך דוגמה ספציפית של פרומפט ("מה עשינו בעבר לפתיחה נוארית?"), או כשהמשתמש שואל "יש לך דומה ל-X?". זו דרך קצרה לתת לו רשימה ללא compose מלא.
+    דוגמה: \`{"type":"search_memory","query":"בלש נואר גשום לילה","k":5}\`
+    אין שדה confidence.
+16. \`extract_last_frame\` — **שליפת frame אחרון של סצנה** (ל-i2v seed של הסצנה הבאה). פרמטרים: \`sceneId\` (חובה — או מ-page context). אם הסצנה כבר APPROVED — מחזיר URL מוכן. אם לא — מסביר לאורן איך לחלץ (אישור הסצנה מפעיל את ffmpeg).
+    מתי להשתמש: כשאורן רוצה לבנות רציפות בין סצנות או לבדוק מה הפריים האחרון של סצנה קיימת.
+    דוגמה: \`{"type":"extract_last_frame","sceneId":"<id מ-page ctx>"}\`
+    אין שדה confidence.
 
 🎬 **זרימת עבודה לייצור אוטונומי של פרק שלם** (כש-אורן אומר "תייצר פרק חדש על X"):
 א. החזר \`create_episode\` עם title+synopsis. חכה לאישור.
@@ -503,7 +534,8 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    let system = await buildSystemPrompt(chat.id, pageContext, message);
+    const ragHits = await retrieveRelevantSources(message, 5).catch(() => []);
+    let system = await buildSystemPrompt(chat.id, pageContext, formatRagBlock(ragHits));
     // Deterministic intent hint — flash-lite frequently confuses "פרומפט" with "מדריך"
     const lower = message.toLowerCase();
     const mentionsPrompt = /פרומפט|פרומט|prompt/i.test(message);
@@ -598,7 +630,15 @@ export async function POST(req: NextRequest) {
       data: { updatedAt: new Date(), summarizedAt: null },
     });
 
-    return NextResponse.json({ ok: true, chatId: chat.id, reply, messageId: brainMsg.id });
+    // Citations: which library items influenced this reply. Rendered under the
+    // brain message in the UI so Oren can verify provenance + click through.
+    const citations = ragHits.map((h) => ({
+      id: h.id,
+      title: h.title,
+      score: h.score,
+      url: `/learn/sources/${h.id}`,
+    }));
+    return NextResponse.json({ ok: true, chatId: chat.id, reply, messageId: brainMsg.id, citations });
   } catch (e: any) {
     console.error("[brain-chat]", e);
     return NextResponse.json({ error: String(e?.message || e).slice(0, 400) }, { status: 500 });

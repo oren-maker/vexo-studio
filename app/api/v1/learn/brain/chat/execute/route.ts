@@ -432,6 +432,41 @@ export async function POST(req: NextRequest) {
       await prisma.seasonOpening.update({ where: { id: existing.id }, data });
       resultUrl = `/seasons/${seasonId}#opening`;
       resultText = `✅ עדכנתי את פרומפט הפתיחה של העונה (${prompt.length} תווים). גש ל-Opening ולחץ "יצר מחדש" כדי להפיק וידאו חדש.`;
+    } else if (action.type === "search_memory") {
+      // Brain explicitly asks for retrieval with a custom query.
+      // Currently scopes to LearnSource library; future kinds: guide, knowledge, scene.
+      const query = String(action.query || "").trim();
+      if (!query) return NextResponse.json({ error: "query required" }, { status: 400 });
+      const k = Math.max(1, Math.min(10, Number(action.k) || 5));
+      const { retrieveRelevantSources } = await import("@/lib/learn/rag");
+      const hits = await retrieveRelevantSources(query, k).catch(() => []);
+      if (hits.length === 0) {
+        resultText = `🔍 לא נמצאו תוצאות רלוונטיות ל-"${query}" בספרייה (סף דמיון 40%+).`;
+      } else {
+        const lines = hits.map((h, i) =>
+          `${i + 1}. [${(h.score * 100).toFixed(0)}%] "${h.title || "(ללא כותרת)"}"\n   ${h.preview.slice(0, 160)}...\n   🔗 /learn/sources/${h.id}`
+        );
+        resultText = `🔍 ${hits.length} תוצאות עבור "${query}":\n\n${lines.join("\n\n")}`;
+      }
+    } else if (action.type === "extract_last_frame") {
+      // Pull last-frame URL from scene.memoryContext (populated by approve flow).
+      // If not yet extracted, direct user to the approve endpoint which runs ffmpeg.
+      const sceneId = String(action.sceneId || "").trim() || (ctxKind === "scene" ? ctxId : null);
+      if (!sceneId) return NextResponse.json({ error: "sceneId חסר — פתח עמוד סצנה או שלח sceneId" }, { status: 400 });
+      const scene = await prisma.scene.findUnique({
+        where: { id: sceneId },
+        select: { id: true, sceneNumber: true, memoryContext: true, episodeId: true, status: true, episode: { select: { seasonId: true } } },
+      });
+      if (!scene) return NextResponse.json({ error: "scene not found" }, { status: 404 });
+      const mem = (scene.memoryContext as Record<string, unknown> | null) ?? {};
+      const existing = typeof mem.bridgeFrameUrl === "string" ? mem.bridgeFrameUrl : null;
+      if (existing) {
+        resultUrl = existing;
+        resultText = `🖼️ last-frame של סצנה ${scene.sceneNumber} (כבר קיים):\n${existing}\n\nהשתמש בו כ-i2v seed לסצנה הבאה.`;
+      } else {
+        resultUrl = scene.episodeId ? `/seasons/${scene.episode?.seasonId}/episodes/${scene.episodeId}/scenes/${sceneId}` : null;
+        resultText = `⏳ עדיין אין last-frame לסצנה ${scene.sceneNumber}. הוא מחושב אוטומטית כשהסצנה מאושרת (status=APPROVED). אשר את הסצנה כדי להפעיל extraction.`;
+      }
     } else if (action.type === "ask_question") {
       // Pure display-action: brain is asking Oren to pick. No DB write.
       // The UI renders options as clickable buttons; a click sends back a new user message.

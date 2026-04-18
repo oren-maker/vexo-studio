@@ -4,7 +4,8 @@ import { api } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
 import { linkifyText } from "./learn/linkify";
 
-type Message = { id: string; role: "user" | "director"; content: string; action?: { type: string; [k: string]: unknown } | null };
+type Citation = { id: string; title: string | null; score: number; url: string };
+type Message = { id: string; role: "user" | "director"; content: string; action?: { type: string; [k: string]: unknown } | null; citations?: Citation[] };
 
 const VALID_ACTION_TYPES = new Set([
   "compose_prompt",
@@ -21,6 +22,8 @@ const VALID_ACTION_TYPES = new Set([
   "update_opening_prompt",
   "ask_question",
   "estimate_cost",
+  "search_memory",
+  "extract_last_frame",
 ]);
 
 type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };
@@ -192,9 +195,9 @@ export function AiAssistant() {
       // a friendly 504 with JSON, an abort throws "signal is aborted without reason".
       let timedOut = false;
       const t = setTimeout(() => { timedOut = true; ctrl.abort(); }, 62_000);
-      let r: { reply?: string; chatId?: string; content?: string };
+      let r: { reply?: string; chatId?: string; content?: string; citations?: Citation[] };
       try {
-        r = await api<{ reply?: string; chatId?: string; content?: string }>("/api/v1/learn/brain/chat", {
+        r = await api<{ reply?: string; chatId?: string; content?: string; citations?: Citation[] }>("/api/v1/learn/brain/chat", {
           method: "POST",
           body: { message: text, chatId: chatId ?? undefined, pageContext: pageCtx },
           signal: ctrl.signal,
@@ -208,7 +211,7 @@ export function AiAssistant() {
       if (r.chatId && r.chatId !== chatId) setChatId(r.chatId);
       const reply = (r.reply ?? r.content ?? "").trim();
       const msgId = `b-${Date.now()}`;
-      setMessages((m) => [...m, { id: msgId, role: "director", ...parseBrainReply(reply) }]);
+      setMessages((m) => [...m, { id: msgId, role: "director", ...parseBrainReply(reply), citations: r.citations }]);
       // If Oren closed the bubble while we were waiting for the answer, flag
       // it so the launcher turns red and draws his attention back.
       if (!openRef.current) setUnread((n) => n + 1);
@@ -289,6 +292,9 @@ export function AiAssistant() {
                       {copiedId === m.id ? "✓" : "📋"}
                     </button>
                     {m.role === "director" ? linkifyText(m.content) : m.content}
+                    {m.role === "director" && m.citations && m.citations.length > 0 && (
+                      <CitationsBlock citations={m.citations} he={he} />
+                    )}
                     {m.action?.type === "ask_question" ? (
                       <AskQuestionOptions action={m.action} he={he} onPick={(opt) => send(opt)} />
                     ) : m.action ? (
@@ -430,6 +436,33 @@ function ConfidenceBadge({ action, he }: { action: { [k: string]: unknown }; he:
   return (
     <div className={`mt-2 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cls}`} title={he ? `ביטחון המוח בפעולה: ${pct}%` : `Brain confidence: ${pct}%`}>
       {icon} {label} · {pct}%
+    </div>
+  );
+}
+
+function CitationsBlock({ citations, he }: { citations: Citation[]; he: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2 text-[10px] opacity-70">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="text-text-muted hover:text-accent underline-offset-2 hover:underline"
+      >
+        {open ? "▼" : "▶"} {he ? `מקורות השפעה (${citations.length})` : `Sources (${citations.length})`}
+      </button>
+      {open && (
+        <ol className="mt-1.5 space-y-1 pl-4 pr-1">
+          {citations.map((c) => (
+            <li key={c.id} className="flex items-center gap-1.5">
+              <span className="text-accent font-mono">[{Math.round(c.score * 100)}%]</span>
+              <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline truncate max-w-[220px]">
+                {c.title || c.id.slice(-8)}
+              </a>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }

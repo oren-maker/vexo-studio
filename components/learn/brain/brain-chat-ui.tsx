@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { adminHeaders } from "@/lib/learn/admin-key";
 
-type Message = { id: string; role: "user" | "brain"; content: string; createdAt?: string };
+type Citation = { id: string; title: string | null; score: number; url: string };
+type Message = { id: string; role: "user" | "brain"; content: string; createdAt?: string; citations?: Citation[] };
 
 type ParsedAction = { action: any; raw: string };
 function parseAction(text: string): { stripped: string; action: ParsedAction | null } {
@@ -31,8 +32,37 @@ function actionLabel(action: any): string {
     case "import_source": return `➕ ייבא פוסט כמקור פרומפט`;
     case "ask_question": return `❓ שאלה למילוי`;
     case "estimate_cost": return `💰 הערכת עלות (dry-run)`;
+    case "search_memory": return `🔍 חיפוש בספרייה`;
+    case "extract_last_frame": return `🖼️ שליפת frame אחרון`;
     default: return `⚡ ${action.type}`;
   }
+}
+
+function CitationsBlock({ citations }: { citations: Citation[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2 text-[10px] opacity-70">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="text-slate-400 hover:text-cyan-300"
+      >
+        {open ? "▼" : "▶"} מקורות השפעה ({citations.length})
+      </button>
+      {open && (
+        <ol className="mt-1.5 space-y-1 pl-4 pr-1">
+          {citations.map((c) => (
+            <li key={c.id} className="flex items-center gap-1.5">
+              <span className="text-cyan-300 font-mono">[{Math.round(c.score * 100)}%]</span>
+              <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline truncate max-w-[220px]">
+                {c.title || c.id.slice(-8)}
+              </a>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
 }
 
 function confidenceBadge(action: any): { icon: string; label: string; cls: string; pct: number } | null {
@@ -92,6 +122,15 @@ const ACTION_STAGES: Record<string, string[]> = {
     "💰 מחשב תעריף ליחידה...",
     "🧮 מכפיל במשך המבוקש...",
     "📊 מחזיר הערכה (ללא חיוב)...",
+  ],
+  search_memory: [
+    "🔍 embedding של ה-query...",
+    "📚 סריקה סמנטית מעל 500 מקורות...",
+    "📊 מיון לפי דמיון + סינון סף 40%...",
+  ],
+  extract_last_frame: [
+    "🎞️ קריאת memoryContext של הסצנה...",
+    "🖼️ החזרת bridgeFrameUrl או הנחיה לאישור...",
   ],
 };
 
@@ -196,7 +235,7 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       if (!chatId) setChatId(data.chatId);
-      setMessages((m) => [...m, { id: data.messageId, role: "brain", content: data.reply }]);
+      setMessages((m) => [...m, { id: data.messageId, role: "brain", content: data.reply, citations: data.citations }]);
     } catch (e: any) {
       setError(String(e?.message || e));
       setMessages((m) => m.filter((x) => x.id !== tempId));
@@ -278,6 +317,9 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
                   {m.role === "user" ? "את/ה" : "🧠 המוח"}
                 </div>
                 {stripped}
+                {m.role === "brain" && m.citations && m.citations.length > 0 && (
+                  <CitationsBlock citations={m.citations} />
+                )}
                 {action && !done && action.action.type === "ask_question" && (
                   <div className="mt-3 bg-slate-950/60 border border-cyan-500/40 rounded-xl p-3">
                     <div className="text-xs font-semibold text-cyan-300 mb-2">❓ לחץ על אחת או הקלד תשובה משלך</div>

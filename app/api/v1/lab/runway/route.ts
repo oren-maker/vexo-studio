@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authenticate, isAuthResponse } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -21,6 +22,8 @@ function authHeaders(): Record<string, string> | null {
 // Body: { promptText, promptImage (URL), model?, ratio?, duration?, seed? }
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authenticate(req);
+    if (isAuthResponse(auth)) return auth;
     const headers = authHeaders();
     if (!headers) return NextResponse.json({ error: "RUNWAYML_API_KEY missing" }, { status: 500 });
     const { promptText, promptImage, model = "gen4_turbo", ratio = "1280:720", duration = 10 } = await req.json();
@@ -39,7 +42,7 @@ export async function POST(req: NextRequest) {
     const res = await fetch(`${BASE}/image_to_video`, { method: "POST", headers, body: JSON.stringify(body) });
     const text = await res.text();
     if (!res.ok) {
-      return NextResponse.json({ error: `Runway ${res.status}: ${text.slice(0, 400)}` }, { status: 500 });
+      return NextResponse.json({ error: `Runway ${res.status}: ${text.slice(0, 120)}` }, { status: 500 });
     }
     const data = JSON.parse(text);
     return NextResponse.json({ ok: true, taskId: data.id, model, duration });
@@ -52,6 +55,8 @@ export async function POST(req: NextRequest) {
 // ?id=<taskId>
 export async function GET(req: NextRequest) {
   try {
+    const auth = await authenticate(req);
+    if (isAuthResponse(auth)) return auth;
     const headers = authHeaders();
     if (!headers) return NextResponse.json({ error: "RUNWAYML_API_KEY missing" }, { status: 500 });
     const { searchParams } = new URL(req.url);

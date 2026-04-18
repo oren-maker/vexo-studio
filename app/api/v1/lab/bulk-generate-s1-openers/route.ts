@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticate, isAuthResponse } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -89,6 +90,8 @@ async function submitSeedance(prompt: string): Promise<{ requestId: string; erro
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await authenticate(req);
+  if (isAuthResponse(auth)) return auth;
   const { seasonId, limit, episodeNumber } = await req.json().catch(() => ({ seasonId: null }));
   const sid = seasonId || "cmny2goc10007u7yrbs849yo4";
 

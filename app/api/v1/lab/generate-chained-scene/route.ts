@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authenticate, isAuthResponse } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -35,6 +36,8 @@ async function submitSeedance(prompt: string): Promise<{ requestId: string; erro
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authenticate(req);
+    if (isAuthResponse(auth)) return auth;
     if (!GEMINI_API_KEY) return NextResponse.json({ error: "GEMINI_API_KEY missing" }, { status: 500 });
     const { sceneData } = await req.json().catch(() => ({ sceneData: null }));
     if (!sceneData) return NextResponse.json({ error: "sceneData required" }, { status: 400 });

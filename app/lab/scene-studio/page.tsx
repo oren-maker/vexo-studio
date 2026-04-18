@@ -237,6 +237,25 @@ export default function SceneStudioLab() {
   const [generateErr, setGenerateErr] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState(buildMayaSeedancePrompt());
 
+  // Maya reference images (fetched from DB Character "Maya")
+  const [mayaRefs, setMayaRefs] = useState<{ id: string; fileUrl: string }[]>([]);
+  const [selectedMayaRef, setSelectedMayaRef] = useState<string | null>(null);
+  const [mayaAppearance, setMayaAppearance] = useState<string | null>(null);
+  const [mayaLoadErr, setMayaLoadErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/v1/lab/maya-refs")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) { setMayaLoadErr(d.error); return; }
+        const imgs = (d.media || []).filter((m: any) => (m.mediaType || "").includes("image") || /\.(png|jpg|jpeg|webp)/i.test(m.fileUrl));
+        setMayaRefs(imgs);
+        if (imgs.length > 0) setSelectedMayaRef(imgs[0].fileUrl);
+        if (d.appearance) setMayaAppearance(d.appearance);
+      })
+      .catch((e) => setMayaLoadErr(String(e?.message || e)));
+  }, []);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem("lab-videos");
@@ -274,7 +293,12 @@ export default function SceneStudioLab() {
       const res = await fetch("/api/v1/lab/generate-video", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt: customPrompt, durationSeconds: duration, aspectRatio: aspect }),
+        body: JSON.stringify({
+          prompt: customPrompt,
+          durationSeconds: duration,
+          aspectRatio: aspect,
+          imageUrl: selectedMayaRef, // image-to-video for character identity preservation
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -576,6 +600,32 @@ export default function SceneStudioLab() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Maya reference image picker */}
+              <div>
+                <div className="text-xs font-semibold mb-2">🎭 רפרנס של מאיה (image-to-video — שומר על הזהות)</div>
+                {mayaLoadErr && <div className="text-xs text-amber-500 mb-2">⚠ {mayaLoadErr} — יפעל כ-text-to-video בלי רפרנס.</div>}
+                {mayaRefs.length === 0 && !mayaLoadErr && <div className="text-xs text-text-muted mb-2">טוען תמונות של מאיה...</div>}
+                {mayaRefs.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {mayaRefs.map((r) => {
+                      const isSel = r.fileUrl === selectedMayaRef;
+                      return (
+                        <button
+                          key={r.id}
+                          onClick={() => setSelectedMayaRef(r.fileUrl)}
+                          className={`shrink-0 rounded-lg border-2 overflow-hidden transition ${isSel ? "border-accent ring-2 ring-accent/40" : "border-bg-main opacity-60 hover:opacity-100"}`}
+                        >
+                          <img src={r.fileUrl} alt="Maya ref" className="w-20 h-20 object-cover" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedMayaRef && (
+                  <div className="text-[10px] text-emerald-500">✅ Seedance image-to-video ישתמש בתמונה הנבחרת כפריים פתיחה — הפנים והלבוש יישמרו</div>
+                )}
               </div>
 
               {/* Prompt preview — editable */}

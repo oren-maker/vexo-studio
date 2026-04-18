@@ -57,11 +57,18 @@ The first three scenes you've already authored:
 ${sceneBlock}
 
 Series canon you must respect:
-- Warm character-driven cinematic drama. NOT noir, NOT thriller, NOT psychological suspense.
-- World: luminous modern villa on an obsidian cliff, mercury-finish mirror walls, obsidian floors, tall glass windows, warm amber dawn light.
-- Palette: Arri Alexa color science, warm amber/cream, natural film grain. NO desaturation, NO blue shift.
-- Score: piano + soft strings + warm ambient pads. NO thriller beats, NO heavy bass.
-- Forbidden Sora-moderation atmospheres: psychological thriller · dread · noir · cold · paranoid · surveillance · shock.
+- Warm character-driven cinematic drama. Elegant, calm, sunlit.
+- World: luminous modern villa, polished stone floors, mirror walls, tall glass windows, warm amber dawn light.
+- Palette: Arri Alexa color science, warm amber/cream, natural film grain.
+- Score: piano + soft strings + warm ambient pads.
+
+SORA MODERATION SAFETY (HARD CONSTRAINTS — Sora rejected our previous opening, so follow these strictly):
+- USE ONLY POSITIVE PHRASING. Never write "no people", "no one", "without anyone", "empty of", "lacking" — instead just describe the objects without mentioning people at all.
+- NEVER imply physics defiance: do NOT write "against gravity", "defying physics", "impossibly", "supernatural". Instead use neutral observational verbs: "drifts upward", "rises slowly", "floats", "lifts gently".
+- AVOID: dreamlike, surreal, uncanny, eerie, strange, mysterious, anomaly, glitch, lag, delayed, defies, against, paranoid, dark, shadow-heavy, noir, thriller, psychological, surveillance.
+- PREFER: serene, graceful, luminous, tranquil, golden, gentle, slow, observed, quietly, softly.
+- The mirror "anomaly" should be shown VISUALLY only — describe what you see (the reflection moves a beat after the source) without labelling it as strange/anomalous/dreamlike.
+- Keep the description object-focused, calm, observational. Like an upscale perfume commercial.
 
 YOUR TASK — author a 20-second photorealistic OPENING TITLE SEQUENCE prompt for Sora 2.
 

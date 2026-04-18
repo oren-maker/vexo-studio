@@ -5,7 +5,8 @@ export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
 const BASE = "https://platform.higgsfield.ai";
-const MODEL = "bytedance/seedance/v1.5/pro/text-to-video";
+const TEXT_MODEL = "bytedance/seedance/v1.5/pro/text-to-video";
+const IMG_MODEL = "bytedance/seedance/v1/pro/image-to-video";
 
 function authHeader(): string | null {
   const id = (process.env.HIGGSFIELD_API_ID ?? "").trim();
@@ -19,14 +20,17 @@ export async function POST(req: NextRequest) {
   try {
     const auth = authHeader();
     if (!auth) return NextResponse.json({ error: "HIGGSFIELD credentials missing" }, { status: 500 });
-    const { prompt, durationSeconds = 5, aspectRatio = "16:9" } = await req.json();
+    const { prompt, durationSeconds = 5, aspectRatio = "16:9", imageUrl } = await req.json();
     if (!prompt || typeof prompt !== "string") return NextResponse.json({ error: "prompt required" }, { status: 400 });
 
-    const body = {
+    // Image-to-video preserves character identity; text-to-video is the fallback.
+    const MODEL = imageUrl ? IMG_MODEL : TEXT_MODEL;
+    const body: Record<string, unknown> = {
       prompt: prompt.slice(0, 2000),
       aspect_ratio: aspectRatio,
       duration: durationSeconds,
     };
+    if (imageUrl) body.image_url = imageUrl;
 
     const res = await fetch(`${BASE}/${MODEL}`, {
       method: "POST",

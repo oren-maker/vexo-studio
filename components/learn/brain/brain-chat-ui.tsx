@@ -81,7 +81,17 @@ const ACTION_STAGES: Record<string, string[]> = {
 
 export default function BrainChatUI({ initialChatId }: { initialChatId?: string }) {
   const router = useRouter();
-  const [chatId, setChatId] = useState<string | undefined>(initialChatId);
+  // Share chatId with the floating bubble (`AiAssistant`) via the same
+  // localStorage key so opening either surface shows the same conversation.
+  const [chatId, setChatId] = useState<string | undefined>(() => {
+    if (initialChatId) return initialChatId;
+    if (typeof window === "undefined") return undefined;
+    return localStorage.getItem("vexo-brain-chatId") ?? undefined;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (chatId) localStorage.setItem("vexo-brain-chatId", chatId);
+  }, [chatId]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -91,7 +101,16 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
   const [executingStages, setExecutingStages] = useState<string[]>([]);
   const [executed, setExecuted] = useState<Record<string, { text: string; url: string | null }>>({});
   const [pendingUpgrades, setPendingUpgrades] = useState(0);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+
+  async function copyMessage(id: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 1500);
+    } catch { /* clipboard blocked */ }
+  }
 
   useEffect(() => {
     learnFetch("/api/v1/learn/brain/upgrades").then((r) => r.json()).then((d) => {
@@ -222,15 +241,23 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
           return (
             <div
               key={m.id}
-              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex group ${m.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                className={`relative max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                   m.role === "user"
                     ? "bg-cyan-500/20 border border-cyan-500/40 text-cyan-50"
                     : "bg-purple-500/10 border border-purple-500/30 text-slate-100"
                 }`}
               >
+                <button
+                  type="button"
+                  onClick={() => copyMessage(m.id, stripped)}
+                  title="העתק"
+                  className={`absolute top-1 ${m.role === "user" ? "left-1" : "right-1"} opacity-0 group-hover:opacity-100 transition-opacity rounded-md w-6 h-6 flex items-center justify-center text-[11px] bg-slate-900/60 hover:bg-amber-500/30 text-slate-300 hover:text-amber-200`}
+                >
+                  {copiedId === m.id ? "✓" : "📋"}
+                </button>
                 <div className="text-[10px] uppercase mb-1 opacity-60">
                   {m.role === "user" ? "את/ה" : "🧠 המוח"}
                 </div>

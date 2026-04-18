@@ -89,13 +89,14 @@ async function submitSeedance(prompt: string): Promise<{ requestId: string; erro
 }
 
 export async function POST(req: NextRequest) {
-  const { seasonId } = await req.json().catch(() => ({ seasonId: null }));
-  const sid = seasonId || "cmny2goc10007u7yrbs849yo4"; // default to the known season
+  const { seasonId, limit, episodeNumber } = await req.json().catch(() => ({ seasonId: null }));
+  const sid = seasonId || "cmny2goc10007u7yrbs849yo4";
 
-  const episodes = await (prisma as any).episode.findMany({
-    where: { seasonId: sid },
+  let episodes = await (prisma as any).episode.findMany({
+    where: { seasonId: sid, ...(episodeNumber ? { episodeNumber } : {}) },
     orderBy: { episodeNumber: "asc" },
     select: { id: true, episodeNumber: true, title: true },
+    ...(limit ? { take: limit } : {}),
   });
 
   const characters = await (prisma as any).character.findMany({

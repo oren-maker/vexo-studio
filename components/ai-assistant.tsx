@@ -126,8 +126,17 @@ export function AiAssistant() {
   });
   const [pageCtx, setPageCtx] = useState<PageContext>(() => detectPageContext());
   const [unread, setUnread] = useState(0);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const openRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
+
+  async function copyToClipboard(id: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 1500);
+    } catch { /* clipboard blocked */ }
+  }
 
   // Keep ref in sync so in-flight send() can check open-state at response time
   useEffect(() => { openRef.current = open; }, [open]);
@@ -267,8 +276,16 @@ export function AiAssistant() {
                 </div>
               )}
               {messages.map((m) => (
-                <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-accent text-white" : "bg-bg-main text-text-primary"}`}>
+                <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} group`}>
+                  <div className={`relative max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-accent text-white" : "bg-bg-main text-text-primary"}`}>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(m.id, m.content)}
+                      title={he ? "העתק" : "Copy"}
+                      className={`absolute top-1 ${m.role === "user" ? "left-1" : "right-1"} opacity-0 group-hover:opacity-100 transition-opacity rounded-md w-6 h-6 flex items-center justify-center text-[11px] ${m.role === "user" ? "bg-white/20 hover:bg-white/30 text-white" : "bg-bg-card hover:bg-accent/10 text-text-muted hover:text-accent"}`}
+                    >
+                      {copiedId === m.id ? "✓" : "📋"}
+                    </button>
                     {m.role === "director" ? linkifyText(m.content) : m.content}
                     {m.action && (
                       <ExecuteActionButton

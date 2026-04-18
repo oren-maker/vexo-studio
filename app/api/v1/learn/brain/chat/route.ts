@@ -285,7 +285,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragB
 
 ⚠️ **\`type\` חייב להיות EXACTLY אחד מהשמות באנגלית למטה.** אסור עברית, אסור "כן"/"לא"/"בצע", אסור שם שהמצאת. אם אתה לא בטוח איזו פעולה צריך — אל תחזיר action בכלל ושאל את אורן.
 
-20 סוגי פעולות שאתה יכול לבצע:
+23 סוגי פעולות שאתה יכול לבצע:
 1. \`compose_prompt\` — יצירת **פרומפט וידאו** מתיאור/נושא.
    פרמטרים: \`brief\` (תיאור הנושא, חובה) · \`sceneId\` (אופציונלי — אם הפרומפט הוא לסצנה ספציפית בהפקה)
    📌 **כלל קריטי לעבודה על פרקים/סצנות:**
@@ -333,6 +333,14 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragB
 20. \`generate_character_portrait\` — יצירת פורטרט מקצועי לדמות (nano-banana או imagen-4). פרמטרים: \`characterId\` (חובה — או מ-page context של character), \`prompt\` (אופציונלי — אם מסופק, מחליף את ה-auto-build מ-appearance/personality), \`engine\` (אופציונלי: "nano-banana" | "imagen-4", ברירת מחדל nano-banana).
     התוצאה נשמרת אוטומטית כ-CharacterMedia (mediaType=portrait). השתמש בזה כש-appearance של דמות חסר רפרנס ויזואלי או כשאורן רוצה לרענן פורטרט קיים.
     דוגמה: \`{"type":"generate_character_portrait","characterId":"<id>","engine":"imagen-4","confidence":0.85}\`
+21. \`revert_version\` — שחזור גרסה קודמת של scriptText/opening/reference. פרמטרים: \`target\` (חובה: "scene" | "opening" | "reference"), \`targetId\` (חובה — id של הפריט, או מ-page context אם מתאים), \`versionNumber\` (אופציונלי, ברירת מחדל: הגרסה הקודמת האחרונה).
+    הגנה: הגרסה הנוכחית נשמרת אוטומטית לפני החלפה (כדי שאפשר יהיה לשחזר שוב אחורה).
+    מתי להשתמש: "הגרסה הקודמת הייתה יותר טובה" / "החזר את הפתיחה ליום חמישי" / "תבטל את השינוי שעשיתי".
+    דוגמה: \`{"type":"revert_version","target":"scene","targetId":"<sceneId>","confidence":0.85}\`
+22. \`queue_music_track\` — רישום בקשה ל-music track (sourceType="ai-generated", status="REQUESTED"). **לא מחולל אודיו בפועל** — אין ספק מוזיקה מחובר עדיין. זה רק מתעד כוונה בהפקה. פרמטרים: \`sceneId\` או \`episodeId\` (לפחות אחד), \`trackType\` (אופציונלי: "score"|"theme"|"sfx"|"ambient", ברירת מחדל "score"), \`mood\`, \`prompt\`, \`durationSeconds\` (אופציונליים).
+    דוגמה: \`{"type":"queue_music_track","sceneId":"<id>","trackType":"theme","mood":"tense-suspense","prompt":"Minimalist piano with growing unease","durationSeconds":20,"confidence":0.9}\`
+23. \`queue_dubbing_track\` — רישום בקשה ל-dubbing לפרק. פרמטרים: \`episodeId\` (חובה — או מ-page context), \`language\` (חובה — "he", "en", "es", ...).
+    דוגמה: \`{"type":"queue_dubbing_track","episodeId":"<id>","language":"he","confidence":0.9}\`
 
 🎬 **זרימת עבודה לייצור אוטונומי של פרק שלם** (כש-אורן אומר "תייצר פרק חדש על X"):
 א. החזר \`create_episode\` עם title+synopsis. חכה לאישור.

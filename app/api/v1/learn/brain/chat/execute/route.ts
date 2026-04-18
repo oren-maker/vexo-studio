@@ -432,6 +432,125 @@ export async function POST(req: NextRequest) {
       await prisma.seasonOpening.update({ where: { id: existing.id }, data });
       resultUrl = `/seasons/${seasonId}#opening`;
       resultText = `✅ עדכנתי את פרומפט הפתיחה של העונה (${prompt.length} תווים). גש ל-Opening ולחץ "יצר מחדש" כדי להפיק וידאו חדש.`;
+    } else if (action.type === "revert_version") {
+      // Roll back a scriptText / opening prompt / reference to a prior snapshot.
+      // target determines the source table; versionNumber optional (default: latest snapshot).
+      const target = String(action.target || "").trim();
+      const targetId = String(action.targetId || "").trim() || (
+        target === "scene" && ctxKind === "scene" ? ctxId :
+        target === "opening" && ctxKind === "season" ? ctxId :
+        null
+      );
+      if (!targetId) return NextResponse.json({ error: "targetId חסר (scene/opening/reference id)" }, { status: 400 });
+      const versionNumber = typeof action.versionNumber === "number" ? action.versionNumber : null;
+
+      if (target === "scene") {
+        const version = versionNumber
+          ? await prisma.sceneVersion.findFirst({ where: { sceneId: targetId, versionNumber }, orderBy: { versionNumber: "desc" } })
+          : await prisma.sceneVersion.findFirst({ where: { sceneId: targetId }, orderBy: { versionNumber: "desc" } });
+        if (!version) return NextResponse.json({ error: `לא נמצאה גרסה לסצנה ${targetId}` }, { status: 404 });
+        if (!version.scriptSnapshot) return NextResponse.json({ error: "הגרסה לא מכילה scriptSnapshot" }, { status: 400 });
+        const sc: any = await (prisma as any).scene.update({
+          where: { id: targetId },
+          data: { scriptText: version.scriptSnapshot, scriptSource: "brain-revert" },
+          include: { episode: { select: { seasonId: true } } },
+        });
+        await (prisma as any).sceneLog.create({
+          data: {
+            sceneId: targetId,
+            action: "scene_reverted",
+            actor: "ai:brain",
+            actorName: "במאי AI",
+            details: { toVersion: version.versionNumber, reason: "brain revert_version" },
+          },
+        }).catch(() => {});
+        resultUrl = sc.episode ? `/seasons/${sc.episode.seasonId}/episodes/${sc.episodeId}/scenes/${sc.id}` : null;
+        resultText = `⏪ שחזרתי את scriptText של סצנה ${sc.sceneNumber ?? "?"} לגרסה ${version.versionNumber}.`;
+      } else if (target === "opening") {
+        // targetId is either seasonId (preferred) or openingId
+        const opening = await prisma.seasonOpening.findFirst({
+          where: { OR: [{ seasonId: targetId }, { id: targetId }] },
+        });
+        if (!opening) return NextResponse.json({ error: "opening לא נמצא" }, { status: 404 });
+        const snapshot = versionNumber
+          ? await prisma.seasonOpeningPromptVersion.findFirst({
+              where: { openingId: opening.id },
+              orderBy: { createdAt: "desc" },
+              skip: Math.max(0, versionNumber - 1),
+            })
+          : await prisma.seasonOpeningPromptVersion.findFirst({
+              where: { openingId: opening.id },
+              orderBy: { createdAt: "desc" },
+            });
+        if (!snapshot) return NextResponse.json({ error: "אין גרסה קודמת ל-opening" }, { status: 404 });
+        // Archive current prompt before overwriting
+        if (opening.currentPrompt && opening.currentPrompt !== snapshot.prompt) {
+          await prisma.seasonOpeningPromptVersion.create({
+            data: { openingId: opening.id, prompt: opening.currentPrompt },
+          });
+        }
+        await prisma.seasonOpening.update({ where: { id: opening.id }, data: { currentPrompt: snapshot.prompt } });
+        resultUrl = `/seasons/${opening.seasonId}#opening`;
+        resultText = `⏪ שחזרתי את פרומפט הפתיחה לגרסה קודמת (${new Date(snapshot.createdAt).toLocaleDateString("he-IL")}).`;
+      } else if (target === "reference") {
+        const ref = await prisma.brainReference.findUnique({ where: { id: targetId } });
+        if (!ref) return NextResponse.json({ error: "reference not found" }, { status: 404 });
+        const version = versionNumber
+          ? await prisma.brainReferenceVersion.findFirst({ where: { referenceId: targetId, version: versionNumber } })
+          : await prisma.brainReferenceVersion.findFirst({ where: { referenceId: targetId }, orderBy: { version: "desc" } });
+        if (!version) return NextResponse.json({ error: "אין גרסה קודמת ל-reference" }, { status: 404 });
+        const updated = await prisma.brainReference.update({
+          where: { id: targetId },
+          data: { name: version.name, shortDesc: version.shortDesc, longDesc: version.longDesc, tags: version.tags },
+        });
+        resultUrl = `/learn/knowledge?tab=${updated.kind}`;
+        resultText = `⏪ שחזרתי את ${updated.kind} "${updated.name}" לגרסה ${version.version}.`;
+      } else {
+        return NextResponse.json({ error: `target לא נתמך: "${target}". בחר scene / opening / reference.` }, { status: 400 });
+      }
+    } else if (action.type === "queue_music_track") {
+      // Creates a MusicTrack row in REQUESTED status. Actual audio generation is
+      // downstream work (no music provider integrated yet) — this records intent
+      // so the director can plan production; a later cron or manual step generates.
+      const sceneId = String(action.sceneId || "").trim() || (ctxKind === "scene" ? ctxId : null);
+      const episodeId = String(action.episodeId || "").trim() || (ctxKind === "episode" ? ctxId : null);
+      if (!sceneId && !episodeId) return NextResponse.json({ error: "sceneId או episodeId חסר" }, { status: 400 });
+      const trackType = String(action.trackType || "score").trim();
+      const mood = typeof action.mood === "string" ? action.mood.trim() : null;
+      const prompt = typeof action.prompt === "string" ? action.prompt.trim() : null;
+      const durationSeconds = typeof action.durationSeconds === "number" ? action.durationSeconds : null;
+      const track: any = await (prisma as any).musicTrack.create({
+        data: {
+          entityType: sceneId ? "SCENE" : "EPISODE",
+          entityId: sceneId || episodeId,
+          sceneId,
+          episodeId,
+          trackType,
+          sourceType: "ai-generated",
+          mood,
+          prompt,
+          durationSeconds,
+          status: "REQUESTED",
+        },
+      });
+      resultUrl = sceneId ? `/scenes/${sceneId}` : (episodeId ? `/episodes/${episodeId}` : null);
+      resultText = `🎵 רשמתי בקשה ל-music track (${trackType}${mood ? ` · mood=${mood}` : ""}${durationSeconds ? ` · ${durationSeconds}s` : ""}). Status=REQUESTED — לייצור בפועל יש לחבר ספק מוזיקה (suno/mubert/וכד').\nID: ${track.id}`;
+    } else if (action.type === "queue_dubbing_track") {
+      const episodeId = String(action.episodeId || "").trim() || (ctxKind === "episode" ? ctxId : null);
+      if (!episodeId) return NextResponse.json({ error: "episodeId חסר" }, { status: 400 });
+      const language = String(action.language || "").trim();
+      if (!language) return NextResponse.json({ error: "language חסר (למשל 'he', 'en')" }, { status: 400 });
+      const track: any = await (prisma as any).dubbingTrack.create({
+        data: {
+          entityType: "EPISODE",
+          entityId: episodeId,
+          episodeId,
+          language,
+          status: "REQUESTED",
+        },
+      });
+      resultUrl = `/episodes/${episodeId}`;
+      resultText = `🗣️ רשמתי בקשה ל-dubbing (${language}). Status=REQUESTED.\nID: ${track.id}`;
     } else if (action.type === "create_season") {
       // Create a new season inside an existing series. seriesId explicit or inferred.
       let seriesId = String(action.seriesId || "").trim();

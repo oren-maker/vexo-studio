@@ -28,6 +28,9 @@ const VALID_ACTION_TYPES = new Set([
   "delete_scene",
   "archive_episode",
   "generate_character_portrait",
+  "revert_version",
+  "queue_music_track",
+  "queue_dubbing_track",
 ]);
 
 type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };

@@ -38,6 +38,9 @@ function actionLabel(action: any): string {
     case "delete_scene": return `🗑️ מחק סצנה (DRAFT בלבד)`;
     case "archive_episode": return `📦 ארכב פרק`;
     case "generate_character_portrait": return `🎨 פורטרט לדמות`;
+    case "revert_version": return `⏪ שחזור גרסה`;
+    case "queue_music_track": return `🎵 רישום track מוזיקה`;
+    case "queue_dubbing_track": return `🗣️ רישום dubbing`;
     default: return `⚡ ${action.type}`;
   }
 }
@@ -155,6 +158,19 @@ const ACTION_STAGES: Record<string, string[]> = {
     "📝 בונה פרומפט תמונה מובנה...",
     "🎨 nano-banana/imagen מייצר תמונה...",
     "💾 שומר ל-Vercel Blob + CharacterMedia...",
+  ],
+  revert_version: [
+    "🔍 שולף את הגרסה המבוקשת מהסנאפשוט...",
+    "💾 שומר את הגרסה הנוכחית לפני החלפה...",
+    "⏪ מחליף ל-scriptText/prompt הישן...",
+  ],
+  queue_music_track: [
+    "🎵 רושם MusicTrack בסטטוס REQUESTED...",
+    "💾 מחכה לספק מוזיקה (עתידי)...",
+  ],
+  queue_dubbing_track: [
+    "🗣️ רושם DubbingTrack לשפה המבוקשת...",
+    "💾 status=REQUESTED — מחכה לצוות דיבוב...",
   ],
 };
 

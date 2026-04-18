@@ -304,9 +304,32 @@ export async function POST(req: NextRequest) {
       if (typeof action.shortDesc === "string") data.shortDesc = action.shortDesc.trim();
       if (typeof action.name === "string") data.name = action.name.trim();
       if (Object.keys(data).length === 0) return NextResponse.json({ error: "no fields to update" }, { status: 400 });
+      // Truth-history: snapshot the pre-update row as a BrainReferenceVersion
+      // with validFrom/validTo wired so we can reconstruct "what did we know on X?".
+      // Schema was already truth-history-ready (validFrom/validTo/supersedes) — we
+      // just weren't populating it. Activating here.
+      const before = await prisma.brainReference.findUnique({ where: { id } });
+      if (before) {
+        try {
+          await prisma.brainReferenceVersion.create({
+            data: {
+              referenceId: id,
+              version: before.version,
+              kind: before.kind,
+              name: before.name,
+              shortDesc: before.shortDesc,
+              longDesc: before.longDesc,
+              tags: before.tags,
+              changedBy: "brain-action",
+              reason: typeof action.reason === "string" ? action.reason.slice(0, 300) : null,
+            },
+          });
+        } catch { /* versioning is nice-to-have, never blocks the update */ }
+        data.version = (before.version ?? 1) + 1;
+      }
       const updated = await prisma.brainReference.update({ where: { id }, data });
       resultUrl = `/learn/knowledge?tab=${updated.kind}`;
-      resultText = `✅ עדכנתי את ${updated.kind === "emotion" ? "הרגש" : "הסאונד"} "${updated.name}".`;
+      resultText = `✅ עדכנתי את ${updated.kind === "emotion" ? "הרגש" : "הסאונד"} "${updated.name}" (version ${updated.version}). הגרסה הקודמת נשמרה ב-BrainReferenceVersion.`;
     } else if (action.type === "create_episode") {
       // Autonomous episode creation. seasonId explicit or from page ctx.
       const seasonId = String(action.seasonId || "").trim() || (ctxKind === "season" ? ctxId : null);

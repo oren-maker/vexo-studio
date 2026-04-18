@@ -72,9 +72,24 @@ export async function GET(req: NextRequest) {
   });
   const archivedMessages = await prisma.brainMessage.count({ where: { createdAt: { lt: passiveCutoff } } });
 
+  // 3) InsightsSnapshot retention — hourly snapshots older than 14 days are
+  //    redundant once the corresponding daily-report has been written. Drop
+  //    them to keep the table lean.
+  const insightsCutoff = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const insightsDeleted = await prisma.insightsSnapshot.deleteMany({
+    where: { kind: "hourly", takenAt: { lt: insightsCutoff } },
+  });
+
+  // 4) ActionOutcome retention — keep 180 days of calibration data. Anything
+  //    older than that is stale for ECE purposes (model weights drift).
+  const outcomeCutoff = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+  const outcomesDeleted = await (prisma as any).actionOutcome?.deleteMany({
+    where: { createdAt: { lt: outcomeCutoff } },
+  }) ?? { count: 0 };
+
   return NextResponse.json({
     ok: true,
-    policy: { hotDays: HOT_DAYS, passiveDays: PASSIVE_DAYS },
+    policy: { hotDays: HOT_DAYS, passiveDays: PASSIVE_DAYS, insightsHourlyDays: 14, actionOutcomeDays: 180 },
     counts: {
       hotMessages,
       passiveMessages,
@@ -83,6 +98,8 @@ export async function GET(req: NextRequest) {
     applied: {
       chatsSummarized: summarized,
       messagesRedacted,
+      insightsHourlyDeleted: insightsDeleted.count,
+      actionOutcomesDeleted: outcomesDeleted.count,
     },
     timestamp: now.toISOString(),
   });

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticate, isAuthResponse } from "@/lib/auth";
+import { rateLimit } from "@/lib/learn/rate-limit";
+import { logUsage } from "@/lib/learn/usage-tracker";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
+
+const SEEDANCE_USD_PER_SEC = 0.047;
 
 const BASE = "https://platform.higgsfield.ai";
 const MODEL = "bytedance/seedance/v1.5/pro/text-to-video";
@@ -90,10 +94,15 @@ async function submitSeedance(prompt: string): Promise<{ requestId: string; erro
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await authenticate(req);
-  if (isAuthResponse(auth)) return auth;
+  const ctx = await authenticate(req);
+  if (isAuthResponse(ctx)) return ctx;
+  const rl = rateLimit(`lab-bulk:${ctx.user.id}`, 2, 600_000); // 2 per 10min — this fires up to 18 clips
+  if (!rl.allowed) return NextResponse.json({ error: `rate limit: retry in ${Math.ceil(rl.resetMs / 1000)}s` }, { status: 429 });
   const { seasonId, limit, episodeNumber } = await req.json().catch(() => ({ seasonId: null }));
-  const sid = seasonId || "cmny2goc10007u7yrbs849yo4";
+  if (!seasonId || typeof seasonId !== "string") {
+    return NextResponse.json({ error: "seasonId required" }, { status: 400 });
+  }
+  const sid = seasonId;
 
   let episodes = await (prisma as any).episode.findMany({
     where: { seasonId: sid, ...(episodeNumber ? { episodeNumber } : {}) },
@@ -130,6 +139,16 @@ export async function POST(req: NextRequest) {
     });
     // Fire 2 variants per scene (different seeds baked into submission)
     const [v1, v2] = await Promise.all([submitSeedance(basePrompt), submitSeedance(basePrompt)]);
+    for (const [variant, part] of [[1, v1], [2, v2]] as const) {
+      if (!part.error) {
+        await logUsage({
+          model: MODEL,
+          operation: "video-gen",
+          videoSeconds: 10,
+          meta: { lab: true, bulk: true, episodeId: ep.id, sceneId: scene.id, variant, requestId: part.requestId, usdCostOverride: 10 * SEEDANCE_USD_PER_SEC, userId: ctx.user.id },
+        });
+      }
+    }
     results.push({
       episode: { id: ep.id, number: ep.episodeNumber, title: ep.title },
       scene: { id: scene.id, number: scene.sceneNumber, title: scene.title },

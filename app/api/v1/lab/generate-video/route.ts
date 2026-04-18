@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authenticate, isAuthResponse } from "@/lib/auth";
+import { rateLimit } from "@/lib/learn/rate-limit";
+import { logUsage } from "@/lib/learn/usage-tracker";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
+
+// Higgsfield Seedance pricing (USD per second)
+const SEEDANCE_USD_PER_SEC = 0.047;
 
 const BASE = "https://platform.higgsfield.ai";
 const TEXT_MODEL = "bytedance/seedance/v1.5/pro/text-to-video";
@@ -18,6 +24,11 @@ function authHeader(): string | null {
 // Lab-only: build + submit + return request_id. Client polls separately.
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await authenticate(req);
+    if (isAuthResponse(ctx)) return ctx;
+    const rl = rateLimit(`lab-generate:${ctx.user.id}`, 10, 60_000);
+    if (!rl.allowed) return NextResponse.json({ error: `rate limit: retry in ${Math.ceil(rl.resetMs / 1000)}s` }, { status: 429 });
+
     const auth = authHeader();
     if (!auth) return NextResponse.json({ error: "HIGGSFIELD credentials missing" }, { status: 500 });
     const { prompt, durationSeconds = 5, aspectRatio = "16:9", imageUrl } = await req.json();
@@ -43,6 +54,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Higgsfield ${res.status}: ${text.slice(0, 400)}` }, { status: 500 });
     }
     const data = await res.json();
+    await logUsage({
+      model: MODEL,
+      operation: "video-gen",
+      videoSeconds: Number(durationSeconds) || 0,
+      meta: { lab: true, requestId: data.request_id ?? data.id, usdCostOverride: (Number(durationSeconds) || 0) * SEEDANCE_USD_PER_SEC, userId: ctx.user.id },
+    });
     return NextResponse.json({
       ok: true,
       requestId: data.request_id ?? data.id ?? "",
@@ -56,6 +73,8 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const ctx = await authenticate(req);
+    if (isAuthResponse(ctx)) return ctx;
     const auth = authHeader();
     if (!auth) return NextResponse.json({ error: "HIGGSFIELD credentials missing" }, { status: 500 });
     const { searchParams } = new URL(req.url);

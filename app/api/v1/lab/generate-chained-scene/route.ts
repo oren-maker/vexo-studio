@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticate, isAuthResponse } from "@/lib/auth";
+import { rateLimit } from "@/lib/learn/rate-limit";
+import { logUsage } from "@/lib/learn/usage-tracker";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
+
+const SEEDANCE_USD_PER_SEC = 0.047;
 
 const BASE = "https://platform.higgsfield.ai";
 const MODEL = "bytedance/seedance/v1.5/pro/text-to-video";
@@ -36,8 +40,10 @@ async function submitSeedance(prompt: string): Promise<{ requestId: string; erro
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authenticate(req);
-    if (isAuthResponse(auth)) return auth;
+    const ctx = await authenticate(req);
+    if (isAuthResponse(ctx)) return ctx;
+    const rl = rateLimit(`lab-chain:${ctx.user.id}`, 5, 60_000);
+    if (!rl.allowed) return NextResponse.json({ error: `rate limit: retry in ${Math.ceil(rl.resetMs / 1000)}s` }, { status: 429 });
     if (!GEMINI_API_KEY) return NextResponse.json({ error: "GEMINI_API_KEY missing" }, { status: 500 });
     const { sceneData } = await req.json().catch(() => ({ sceneData: null }));
     if (!sceneData) return NextResponse.json({ error: "sceneData required" }, { status: 400 });
@@ -67,6 +73,18 @@ Character identity MUST stay identical between parts. Hard rules like "NO GLASSE
     const parsed = JSON.parse(text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim());
 
     const [a, b] = await Promise.all([submitSeedance(parsed.partA), submitSeedance(parsed.partB)]);
+
+    // Log each successfully submitted part at 10s each
+    for (const [label, part] of [["A", a], ["B", b]] as const) {
+      if (!part.error) {
+        await logUsage({
+          model: MODEL,
+          operation: "video-gen",
+          videoSeconds: 10,
+          meta: { lab: true, chained: label, requestId: part.requestId, usdCostOverride: 10 * SEEDANCE_USD_PER_SEC, userId: ctx.user.id },
+        });
+      }
+    }
 
     return NextResponse.json({
       ok: true,

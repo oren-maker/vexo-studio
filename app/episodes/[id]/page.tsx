@@ -63,12 +63,23 @@ export default function EpisodePage() {
     }
   }
 
+  const [siblingEps, setSiblingEps] = useState<Array<{ id: string; episodeNumber: number; title: string | null }>>([]);
   async function load() {
-    setEp(await api(`/api/v1/episodes/${id}`));
+    const e: Episode = await api(`/api/v1/episodes/${id}`);
+    setEp(e);
     setScenes(await api(`/api/v1/episodes/${id}/scenes`));
     setCosts(await api(`/api/v1/episodes/${id}/costs`).catch(() => null));
+    if (e?.seasonId) {
+      const list = await api<Array<{ id: string; episodeNumber: number; title: string | null }>>(
+        `/api/v1/seasons/${e.seasonId}/episodes`
+      ).catch(() => []);
+      setSiblingEps(list ?? []);
+    }
   }
   useEffect(() => { load(); }, [id]);
+
+  const nextEp = ep ? siblingEps.find((s) => s.episodeNumber === ep.episodeNumber + 1) : null;
+  const prevEp = ep ? siblingEps.find((s) => s.episodeNumber === ep.episodeNumber - 1) : null;
 
   async function createScene(e: React.FormEvent) {
     e.preventDefault();
@@ -102,7 +113,23 @@ export default function EpisodePage() {
   return (
     <div translate="no" className="notranslate space-y-6">
       {ep.seasonId && (
-        <Link href={`/seasons/${ep.seasonId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">{lang === "he" ? "→ חזרה לעונה" : "← Back to season"}</Link>
+        <div className="flex items-center justify-between gap-2">
+          <Link href={`/seasons/${ep.seasonId}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">
+            {he ? "→ חזרה לעונה" : "← Back to season"}
+          </Link>
+          <div className="flex items-center gap-3">
+            {prevEp && (
+              <Link href={`/episodes/${prevEp.id}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline" title={prevEp.title ?? ""}>
+                {he ? `← פרק קודם (EP${String(prevEp.episodeNumber).padStart(2, "0")})` : `→ Prev episode (EP${String(prevEp.episodeNumber).padStart(2, "0")})`}
+              </Link>
+            )}
+            {nextEp && (
+              <Link href={`/episodes/${nextEp.id}`} className="inline-flex items-center gap-1 text-sm text-accent hover:underline font-semibold" title={nextEp.title ?? ""}>
+                {he ? `הפרק הבא (EP${String(nextEp.episodeNumber).padStart(2, "0")}) ←` : `Next episode (EP${String(nextEp.episodeNumber).padStart(2, "0")}) →`}
+              </Link>
+            )}
+          </div>
+        </div>
       )}
       <div className="flex justify-between items-start gap-4">
         <div className="flex-1 min-w-0">

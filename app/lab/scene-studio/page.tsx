@@ -180,13 +180,48 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
   );
 }
 
+// Build a Seedance-ready prompt focused on Maya for the opening scene context
+function buildMayaSeedancePrompt(): string {
+  return `1. VISUAL STYLE — Cinematic photoreal 8K psychological thriller, neo-noir aesthetic with soft volumetric morning mist. Gritty modern realism with sharp focal planes.
+
+2. FILM STOCK & LENS — Shot on Arri Alexa 35 with 35mm anamorphic lens, f/1.8 aperture for buttery shallow depth of field, subtle horizontal lens flare from practical tungsten warm-light sources. Gentle film grain overlay.
+
+3. COLOR PALETTE & GRADE — Dominated by deep midnight blue and rain-washed teal with punctuating warm amber from practical lamps. Crushed blacks in the hallway, muted skin tones, slight cyan shift in the shadows. Neo-noir color grading with gentle vignette.
+
+4. LIGHTING & ATMOSPHERE — Moody diffused overcast dawn light filtering through floor-to-ceiling rain-streaked windows. Volumetric god-rays cutting through steam from a coffee mug. Single warm tungsten practical lamp in the background creating amber rim-light on hair. Wet-floor reflections catching the blue exterior light.
+
+5. CHARACTER / SUBJECT — MAYA, 28-year-old neuroscientist. Shoulder-length curly black hair, sharp alert green eyes behind square minimalist glasses. Wearing a fitted navy-blue wool sweater, dark slim jeans, and warm coral-red socks visible above soft slippers. Holds a steaming white ceramic mug of coffee in both hands, thumb absently tracing the rim. Expression: attentive, almost predatory in its focus — slight tilt of head, eyes narrowing. Skin tone: warm olive. Makeup-free, a few freckles visible. Face and wardrobe remain fully consistent across every frame, no drift or morphing.
+
+6. AUDIO / SOUND DESIGN — Soft bare-foot-to-wooden-floor soundscape (muted creaks). Distant city rain against glass in the background. Subtle ceramic ring as the mug settles against her palm. A low sub-bass heartbeat fading in barely perceptible at 3s. No dialogue. Ambient room tone: silent hum of a modern apartment.
+
+7. TIMELINE — TIMECODED BEATS:
+[0-2s] WIDE TRACKING SHOT — camera dollies slowly behind Maya as she walks barefoot down a dim narrow hallway. Steam coils from the mug. Warm amber practical glow pools around her silhouette. Sound: soft footsteps, distant rain.
+[2-4s] MEDIUM PROFILE SHOT — she pauses at an open doorway, the half-open bedroom visible in deep background bokeh. She glances sideways into the dark room, head tilting 8 degrees. Rim-light catches the edge of her glasses. Sound: one single footstep stops, silence.
+[4-5s] TIGHT CLOSE-UP — Maya's face fills the frame. Her green eyes narrow by a fraction of a millimeter, pupils contracting. A single drop of steam curls upward past her cheek. The subtle sub-bass heartbeat peaks and cuts to silence. She exhales — a barely visible puff in the cool air.
+
+8. QUALITY BOOSTERS — Photorealistic 8K, ultra-detailed hair strands, perfect volumetric steam simulation, consistent character identity across all cuts, perfect motion blur on camera movement, high dynamic range, cinematic bokeh circles from background practicals, no artifacts, no morphing, no warped hands, no extra fingers.`;
+}
+
+type LabVideo = {
+  id: string;
+  number: number;
+  requestId: string;
+  status: "queued" | "in_progress" | "completed" | "failed";
+  videoUrl: string | null;
+  prompt: string;
+  model: string;
+  durationSec: number;
+  createdAt: string;
+  error?: string;
+};
+
 export default function SceneStudioLab() {
   const [scriptText, setScriptText] = useState(SEED_SCENE.scriptText);
   const [directorNotes, setDirectorNotes] = useState(SEED_SCENE.directorNotes);
   const [soundNotes, setSoundNotes] = useState(SEED_SCENE.soundNotes);
   const [generateOpen, setGenerateOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(VIDEO_MODELS[0]);
-  const [duration, setDuration] = useState(10);
+  const [selectedModel, setSelectedModel] = useState(VIDEO_MODELS.find((m) => m.id === "seedance-v1-pro") || VIDEO_MODELS[0]);
+  const [duration, setDuration] = useState(5);
   const [aspect, setAspect] = useState<"16:9" | "9:16">("16:9");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -195,6 +230,74 @@ export default function SceneStudioLab() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
+
+  // Video gallery (persisted to localStorage so videos survive refresh)
+  const [videos, setVideos] = useState<LabVideo[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [generateErr, setGenerateErr] = useState<string | null>(null);
+  const [customPrompt, setCustomPrompt] = useState(buildMayaSeedancePrompt());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("lab-videos");
+      if (raw) setVideos(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem("lab-videos", JSON.stringify(videos)); } catch {}
+  }, [videos]);
+
+  // Poll in-progress videos every 5s
+  useEffect(() => {
+    const inProgress = videos.filter((v) => v.status === "queued" || v.status === "in_progress");
+    if (inProgress.length === 0) return;
+    const timer = setInterval(async () => {
+      for (const v of inProgress) {
+        try {
+          const r = await fetch(`/api/v1/lab/generate-video?id=${v.requestId}`);
+          const data = await r.json();
+          setVideos((prev) => prev.map((x) => x.requestId === v.requestId
+            ? { ...x, status: data.status, videoUrl: data.videoUrl || x.videoUrl, error: data.error }
+            : x
+          ));
+        } catch {}
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [videos]);
+
+  async function generateWithMaya() {
+    setGenerating(true);
+    setGenerateErr(null);
+    try {
+      const res = await fetch("/api/v1/lab/generate-video", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt: customPrompt, durationSeconds: duration, aspectRatio: aspect }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const num = videos.length + 1;
+      const newVid: LabVideo = {
+        id: `lab-${Date.now()}`,
+        number: num,
+        requestId: data.requestId,
+        status: data.status || "queued",
+        videoUrl: null,
+        prompt: customPrompt,
+        model: data.model || "seedance",
+        durationSec: duration,
+        createdAt: new Date().toISOString(),
+      };
+      setVideos((v) => [...v, newVid]);
+      setGenerateOpen(false);
+    } catch (e: any) {
+      setGenerateErr(e?.message || String(e));
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   const estimatedCost = selectedModel.rate * duration;
   const hasDialogue = /[A-Z]+:\s/.test(scriptText);
@@ -367,6 +470,45 @@ export default function SceneStudioLab() {
           </div>
         )}
 
+        {/* Video gallery — all generated + uploaded videos */}
+        {videos.length > 0 && (
+          <Card title={`🎥 וידאואים שנוצרו (${videos.length})`} subtitle="כל היצירות נשמרות ב-localStorage. מתעדכן אוטומטית בזמן ה-render">
+            <div className="space-y-4">
+              {videos.map((v) => (
+                <div key={v.id} className="bg-bg-main border border-bg-main rounded-lg p-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-accent text-white px-2 py-0.5 rounded text-xs font-bold">וידאו {v.number}</span>
+                      <span className="text-xs text-text-muted">{v.model.split("/").pop()}</span>
+                      <span className="text-xs text-text-muted">{v.durationSec}s · {new Date(v.createdAt).toLocaleString("he-IL")}</span>
+                    </div>
+                    <div>
+                      {v.status === "completed" && <span className="text-xs bg-emerald-500/20 text-emerald-600 px-2 py-0.5 rounded">✅ מוכן</span>}
+                      {v.status === "in_progress" && <span className="text-xs bg-amber-500/20 text-amber-600 px-2 py-0.5 rounded">⏳ בעבודה</span>}
+                      {v.status === "queued" && <span className="text-xs bg-slate-500/20 text-slate-500 px-2 py-0.5 rounded">📥 בתור</span>}
+                      {v.status === "failed" && <span className="text-xs bg-red-500/20 text-red-600 px-2 py-0.5 rounded">❌ נכשל</span>}
+                    </div>
+                  </div>
+                  {v.videoUrl && (
+                    <video src={v.videoUrl} controls className="w-full rounded bg-black" />
+                  )}
+                  {!v.videoUrl && v.status !== "failed" && (
+                    <div className="h-32 flex items-center justify-center text-xs text-text-muted bg-black/20 rounded">
+                      ⏳ Seedance מעבד את הווידאו... (~60-90 שניות)
+                    </div>
+                  )}
+                  {v.error && <div className="text-xs text-red-500 mt-2">⚠ {v.error}</div>}
+                  {v.videoUrl && (
+                    <a href={v.videoUrl} target="_blank" rel="noopener" className="text-xs text-accent hover:underline mt-2 inline-block">
+                      🔗 קישור ישיר
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         <footer className="text-center text-xs text-text-muted pt-8">
           🧪 מעבדת Scene Studio · ניסוי בלבד · לא מחובר ל-DB או לסצנה האמיתית
         </footer>
@@ -436,20 +578,38 @@ export default function SceneStudioLab() {
                 </div>
               </div>
 
+              {/* Prompt preview — editable */}
+              <div>
+                <div className="text-xs font-semibold mb-2">📝 פרומפט (בנוי ממאיה + תסריט + הערות במאי)</div>
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  rows={10}
+                  className="w-full bg-bg-main rounded-lg px-3 py-2 text-[11px] font-mono resize-y border border-bg-main"
+                />
+                <div className="text-[10px] text-text-muted mt-1">{customPrompt.split(/\s+/).length} מילים · כולל 8 סעיפים קולנועיים</div>
+              </div>
+
               {/* Cost */}
               <div className="bg-bg-main border border-bg-main rounded-lg p-3 text-center">
                 <div className="text-xs text-text-muted">עלות משוערת</div>
                 <div className="text-3xl font-black text-accent num">${estimatedCost.toFixed(2)}</div>
                 <div className="text-[11px] text-text-muted mt-1">{duration}s × ${selectedModel.rate}/שנייה</div>
               </div>
+
+              {generateErr && <div className="text-xs text-red-500 bg-red-500/10 border border-red-500/30 rounded p-2">⚠ {generateErr}</div>}
             </div>
             <div className="px-5 py-3 border-t border-bg-main flex gap-2">
-              <label className="flex-1 px-4 py-2 rounded-lg bg-bg-main border border-bg-main cursor-pointer text-sm font-semibold hover:bg-accent/10 text-center">
-                📁 העלה MP4 במקום
+              <label className="px-4 py-2 rounded-lg bg-bg-main border border-bg-main cursor-pointer text-sm font-semibold hover:bg-accent/10 text-center">
+                📁 העלה MP4
                 <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
               </label>
-              <button disabled className="flex-1 px-4 py-2 rounded-lg bg-accent/30 text-white text-sm font-semibold cursor-not-allowed" title="כבוי במעבדה">
-                🎬 צור ב-{selectedModel.name} (כבוי)
+              <button
+                onClick={generateWithMaya}
+                disabled={generating}
+                className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-light text-white text-sm font-semibold disabled:opacity-50"
+              >
+                {generating ? "⏳ שולח..." : `🎬 צור ב-Seedance 2 · $${estimatedCost.toFixed(2)}`}
               </button>
             </div>
           </div>

@@ -46,9 +46,13 @@ export function OpeningWizard({
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [buildBusy, setBuildBusy] = useState(false);
   const [buildErr, setBuildErr] = useState<string | null>(null);
+  const [buildElapsed, setBuildElapsed] = useState(0);
 
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  type SceneCtx = { number: number; summary: string; excerpt: string; bridge: string | null };
+  const [sceneCtx, setSceneCtx] = useState<{ scenes: SceneCtx[]; connection: string | null } | null>(null);
 
   // Fetch style suggestions on mount
   useEffect(() => {
@@ -71,6 +75,23 @@ export function OpeningWizard({
     if (duration > max) setDuration(max);
   }, [model, duration]);
 
+  // Pull the first 3 scenes + their bridge for inline plot context
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api<{ scenes: SceneCtx[]; connection: string | null }>(`/api/v1/seasons/${seasonId}/opening/context`);
+        setSceneCtx(r);
+      } catch { /* non-blocking */ }
+    })();
+  }, [seasonId]);
+
+  // Tick a per-second elapsed counter while building so the user sees progress.
+  useEffect(() => {
+    if (!buildBusy) { setBuildElapsed(0); return; }
+    const t = setInterval(() => setBuildElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [buildBusy]);
+
   const rate = MODEL_INFO[model].pricePerSec;
   const estUsd = rate * duration;
 
@@ -89,9 +110,17 @@ export function OpeningWizard({
           duration, aspectRatio: aspect, model,
           customPromptSeed: styleKey === "custom" ? customStyle : undefined,
         },
+        signal: AbortSignal.timeout(75_000),
       });
       setOpeningId(r.openingId); setPrompt(r.prompt); setStep(4);
-    } catch (e) { setBuildErr((e as Error).message); }
+    } catch (e) {
+      const err = e as Error;
+      if (err.name === "TimeoutError" || err.name === "AbortError") {
+        setBuildErr(he ? "ה-AI לא הגיב תוך 75 שניות. לחץ '🔁 נסה שוב'." : "AI didn't respond within 75s. Click 'Retry'.");
+      } else {
+        setBuildErr(err.message);
+      }
+    }
     finally { setBuildBusy(false); }
   }
 
@@ -247,15 +276,38 @@ export function OpeningWizard({
 
           {step === 4 && (
             <div>
+              {sceneCtx && sceneCtx.scenes.length > 0 && (
+                <div className="mb-3 bg-bg-main rounded-lg p-3 text-xs space-y-2 border border-bg-main">
+                  <div className="font-semibold text-text-muted">{he ? "📖 הקשר עלילתי (3 סצנות פתיחה)" : "📖 Plot context (first 3 scenes)"}</div>
+                  {sceneCtx.scenes.map((s) => (
+                    <div key={s.number} className="leading-relaxed">
+                      <span className="font-bold">SC{s.number}:</span> {s.summary || s.excerpt}
+                    </div>
+                  ))}
+                  {sceneCtx.connection && (
+                    <div className="pt-2 border-t border-bg-card text-accent">
+                      <span className="font-bold">{he ? "החיבור: " : "Connection: "}</span>{sceneCtx.connection}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between items-center mb-2">
                 <div className="text-sm font-semibold">{he ? "פרומט (ניתן לעריכה)" : "Prompt (editable)"}</div>
-                {buildBusy && <span className="text-xs text-text-muted">{he ? "שומר…" : "Saving…"}</span>}
+                {buildBusy && <span className="text-xs text-text-muted">{he ? `🤖 בונה… ${buildElapsed}s` : `🤖 Building… ${buildElapsed}s`}</span>}
               </div>
-              {buildErr && <div className="bg-status-errBg text-status-errText rounded-lg p-2 text-xs mb-2">{buildErr}</div>}
+              {buildErr && (
+                <div className="bg-status-errBg text-status-errText rounded-lg p-2 text-xs mb-2 flex items-center justify-between gap-2">
+                  <span>{buildErr}</span>
+                  <button onClick={buildPrompt} className="px-2 py-1 rounded bg-accent text-white text-xs whitespace-nowrap">🔁 {he ? "נסה שוב" : "Retry"}</button>
+                </div>
+              )}
               {!prompt && !buildBusy ? (
                 <button onClick={buildPrompt} className="w-full py-3 rounded-lg bg-accent text-white font-semibold">🤖 {he ? "ייצר פרומט עם AI" : "Generate prompt with AI"}</button>
               ) : buildBusy && !prompt ? (
-                <div className="text-center py-8 text-text-muted text-sm">{he ? "🤖 ה-AI בונה פרומט משולב עם הדמויות והסגנון…" : "🤖 AI is building the prompt…"}</div>
+                <div className="text-center py-8 text-text-muted text-sm space-y-2">
+                  <div>{he ? `🤖 ה-AI בונה פרומט משולב עם הדמויות והסגנון… (${buildElapsed}s)` : `🤖 AI is building the prompt… (${buildElapsed}s)`}</div>
+                  {buildElapsed > 30 && <div className="text-xs">{he ? "לוקח קצת זמן — Gemini עמוס. עוד עד 75s ואז יהיה כפתור 'נסה שוב'." : "Taking a bit — Gemini busy. Up to 75s before retry."}</div>}
+                </div>
               ) : (
                 <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onBlur={saveEditedPrompt} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm font-mono" />
               )}

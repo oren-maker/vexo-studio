@@ -29,8 +29,19 @@ function actionLabel(action: any): string {
     case "ai_guide": return `🤖 צור מדריך AI`;
     case "import_instagram_guide": return `📷 ייבא פוסט Instagram כמדריך`;
     case "import_source": return `➕ ייבא פוסט כמקור פרומפט`;
+    case "ask_question": return `❓ שאלה למילוי`;
+    case "estimate_cost": return `💰 הערכת עלות (dry-run)`;
     default: return `⚡ ${action.type}`;
   }
+}
+
+function confidenceBadge(action: any): { icon: string; label: string; cls: string; pct: number } | null {
+  const c = typeof action?.confidence === "number" ? action.confidence : null;
+  if (c === null) return null;
+  const pct = Math.round(c * 100);
+  if (c >= 0.85) return { icon: "🟢", label: "בטוח", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40", pct };
+  if (c >= 0.65) return { icon: "🟡", label: "חלקית", cls: "bg-amber-500/15 text-amber-300 border-amber-500/40", pct };
+  return { icon: "🔴", label: "לא בטוח", cls: "bg-red-500/15 text-red-300 border-red-500/40", pct };
 }
 
 function actionDetail(action: any): string {
@@ -76,6 +87,11 @@ const ACTION_STAGES: Record<string, string[]> = {
     "⏳ VEO מייצר סרטון (1-2 דקות)...",
     "📥 מוריד קובץ MP4...",
     "💾 שומר ל-Vercel Blob + GeneratedVideo...",
+  ],
+  estimate_cost: [
+    "💰 מחשב תעריף ליחידה...",
+    "🧮 מכפיל במשך המבוקש...",
+    "📊 מחזיר הערכה (ללא חיוב)...",
   ],
 };
 
@@ -163,14 +179,14 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
     }
   }
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text || loading) return;
     setError(null);
     setLoading(true);
     const tempId = `tmp-${Date.now()}`;
     setMessages((m) => [...m, { id: tempId, role: "user", content: text }]);
-    setInput("");
+    if (!overrideText) setInput("");
     try {
       const res = await learnFetch("/api/v1/learn/brain/chat", {
         method: "POST",
@@ -262,9 +278,42 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
                   {m.role === "user" ? "את/ה" : "🧠 המוח"}
                 </div>
                 {stripped}
-                {action && !done && (
+                {action && !done && action.action.type === "ask_question" && (
+                  <div className="mt-3 bg-slate-950/60 border border-cyan-500/40 rounded-xl p-3">
+                    <div className="text-xs font-semibold text-cyan-300 mb-2">❓ לחץ על אחת או הקלד תשובה משלך</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(Array.isArray(action.action.options) ? action.action.options : [])
+                        .filter((o: unknown): o is string => typeof o === "string" && o.trim().length > 0)
+                        .slice(0, 5)
+                        .map((opt: string, i: number) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              setExecuted((e) => ({ ...e, [m.id]: { text: `נבחר: ${opt}`, url: null } }));
+                              send(opt);
+                            }}
+                            className="text-xs px-3 py-1.5 rounded-full border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200 font-semibold"
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+                {action && !done && action.action.type !== "ask_question" && (
                   <div className="mt-3 bg-slate-950/60 border border-amber-500/40 rounded-xl p-3">
-                    <div className="text-xs font-semibold text-amber-300 mb-1">{actionLabel(action.action)}</div>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <div className="text-xs font-semibold text-amber-300">{actionLabel(action.action)}</div>
+                      {(() => {
+                        const b = confidenceBadge(action.action);
+                        return b ? (
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${b.cls}`} title={`ביטחון: ${b.pct}%`}>
+                            {b.icon} {b.label} · {b.pct}%
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     <div className="text-[11px] text-slate-400 mb-2 break-all">{actionDetail(action.action)}</div>
                     <div className="flex gap-2">
                       <button
@@ -349,7 +398,7 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
           disabled={loading}
         />
         <button
-          onClick={send}
+          onClick={() => send()}
           disabled={loading || !input.trim()}
           className="bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-semibold px-5 rounded-xl text-sm"
         >

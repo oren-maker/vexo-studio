@@ -19,6 +19,8 @@ const VALID_ACTION_TYPES = new Set([
   "create_scene",
   "update_scene",
   "update_opening_prompt",
+  "ask_question",
+  "estimate_cost",
 ]);
 
 type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };
@@ -173,13 +175,13 @@ export function AiAssistant() {
 
   useEffect(() => { if (open) endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, open]);
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text || busy) return;
     setErr(null); setBusy(true);
     const userMsg: Message = { id: `u-${Date.now()}`, role: "user", content: text };
     setMessages((m) => [...m, userMsg]);
-    setInput("");
+    if (!overrideText) setInput("");
     try {
       // Hit the migrated vexo-learn brain — same engine as /learn/brain/chat,
       // wired into the full DailyBrainCache + KnowledgeNode + Guide context.
@@ -287,22 +289,27 @@ export function AiAssistant() {
                       {copiedId === m.id ? "✓" : "📋"}
                     </button>
                     {m.role === "director" ? linkifyText(m.content) : m.content}
-                    {m.action && (
-                      <ExecuteActionButton
-                        action={m.action}
-                        chatId={chatId}
-                        pageCtx={pageCtx}
-                        he={he}
-                        onResult={(text, url) => {
-                          const link = url ? `\n🔗 ${url.startsWith("http") ? url : `https://vexo-studio.vercel.app${url}`}` : "";
-                          setMessages((msgs) => [
-                            ...msgs,
-                            { id: `exec-${Date.now()}`, role: "director", content: `✅ ${text || "בוצע"}${link}` },
-                          ]);
-                        }}
-                        onError={(msg) => setErr(msg)}
-                      />
-                    )}
+                    {m.action?.type === "ask_question" ? (
+                      <AskQuestionOptions action={m.action} he={he} onPick={(opt) => send(opt)} />
+                    ) : m.action ? (
+                      <>
+                        <ConfidenceBadge action={m.action} he={he} />
+                        <ExecuteActionButton
+                          action={m.action}
+                          chatId={chatId}
+                          pageCtx={pageCtx}
+                          he={he}
+                          onResult={(text, url) => {
+                            const link = url ? `\n🔗 ${url.startsWith("http") ? url : `https://vexo-studio.vercel.app${url}`}` : "";
+                            setMessages((msgs) => [
+                              ...msgs,
+                              { id: `exec-${Date.now()}`, role: "director", content: `✅ ${text || "בוצע"}${link}` },
+                            ]);
+                          }}
+                          onError={(msg) => setErr(msg)}
+                        />
+                      </>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -331,7 +338,7 @@ export function AiAssistant() {
                 disabled={busy}
               />
               <button
-                onClick={send}
+                onClick={() => send()}
                 disabled={busy || !input.trim()}
                 className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-50"
               >
@@ -408,5 +415,53 @@ function ExecuteActionButton({
         ? `⏳ ${he ? "מבצע…" : "Running…"} ${label}`
         : `✅ ${he ? "אשר ובצע" : "Confirm & Execute"}: ${label}`}
     </button>
+  );
+}
+
+function ConfidenceBadge({ action, he }: { action: { [k: string]: unknown }; he: boolean }) {
+  const c = typeof action.confidence === "number" ? action.confidence : null;
+  if (c === null) return null;
+  const pct = Math.round(c * 100);
+  const { icon, cls, label } = c >= 0.85
+    ? { icon: "🟢", cls: "bg-emerald-100 text-emerald-700 border-emerald-300", label: he ? "בטוח" : "Confident" }
+    : c >= 0.65
+    ? { icon: "🟡", cls: "bg-amber-100 text-amber-700 border-amber-300", label: he ? "חלקית בטוח" : "Partial" }
+    : { icon: "🔴", cls: "bg-red-100 text-red-700 border-red-300", label: he ? "לא בטוח" : "Low" };
+  return (
+    <div className={`mt-2 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cls}`} title={he ? `ביטחון המוח בפעולה: ${pct}%` : `Brain confidence: ${pct}%`}>
+      {icon} {label} · {pct}%
+    </div>
+  );
+}
+
+function AskQuestionOptions({
+  action,
+  he,
+  onPick,
+}: {
+  action: { [k: string]: unknown };
+  he: boolean;
+  onPick: (text: string) => void;
+}) {
+  const rawOpts = Array.isArray(action.options) ? (action.options as unknown[]) : [];
+  const opts = rawOpts
+    .map((o) => (typeof o === "string" ? o.trim() : ""))
+    .filter((s) => s.length > 0)
+    .slice(0, 5);
+  if (opts.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {opts.map((opt, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onPick(opt)}
+          className="text-[12px] px-3 py-1.5 rounded-full border border-accent/40 bg-accent/5 hover:bg-accent/15 text-accent font-semibold transition"
+        >
+          {opt}
+        </button>
+      ))}
+      <span className="text-[10px] text-text-muted self-center">{he ? "(או הקלד תשובה משלך)" : "(or type your own)"}</span>
+    </div>
   );
 }

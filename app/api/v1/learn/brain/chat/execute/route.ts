@@ -43,7 +43,10 @@ export async function POST(req: NextRequest) {
 
     // Calibration gate — if the brain is less than 65% confident, don't execute.
     // This prevents automating actions the brain itself flagged as risky.
-    if (typeof action.confidence === "number" && action.confidence < 0.65) {
+    // Non-mutating "meta" actions (ask_question, estimate_cost) bypass the gate
+    // because they have no side-effects and exist precisely to resolve uncertainty.
+    const META_ACTIONS = new Set(["ask_question", "estimate_cost"]);
+    if (!META_ACTIONS.has(action.type) && typeof action.confidence === "number" && action.confidence < 0.65) {
       return NextResponse.json({
         error: `abstention — המוח סימן ביטחון נמוך (${Math.round(action.confidence * 100)}%). תשאל שאלת הבהרה לפני שתאשר.`,
         aborted: true,
@@ -429,6 +432,38 @@ export async function POST(req: NextRequest) {
       await prisma.seasonOpening.update({ where: { id: existing.id }, data });
       resultUrl = `/seasons/${seasonId}#opening`;
       resultText = `✅ עדכנתי את פרומפט הפתיחה של העונה (${prompt.length} תווים). גש ל-Opening ולחץ "יצר מחדש" כדי להפיק וידאו חדש.`;
+    } else if (action.type === "ask_question") {
+      // Pure display-action: brain is asking Oren to pick. No DB write.
+      // The UI renders options as clickable buttons; a click sends back a new user message.
+      const question = String(action.question || "").trim();
+      if (!question) return NextResponse.json({ error: "question required" }, { status: 400 });
+      resultText = question;
+    } else if (action.type === "estimate_cost") {
+      // Dry-run pricing — no generation happens, no billing.
+      const op = String(action.operation || "").trim();
+      if (op === "generate_video") {
+        const durationSec = Math.max(1, Math.min(60, Number(action.durationSec) || 20));
+        const model = String(action.model || "sora-2");
+        const sourceId = typeof action.sourceId === "string" ? action.sourceId.trim() : "";
+        const RATES: Record<string, number> = {
+          "sora-2": 0.10,
+          "sora-2-pro": 0.30,
+          "google-veo-3.1-fast-generate-preview": 0.15,
+          "google-veo-3.1-generate-preview": 0.50,
+          "google-veo-3.1-lite-generate-preview": 0.05,
+          "veo3-fast": 0.15,
+          "veo3-pro": 0.50,
+          "vidu-q1": 0.08,
+          "seedance": 0.047,
+          "kling": 0.274,
+        };
+        const rate = RATES[model] ?? 0.10;
+        const usd = +(rate * durationSec).toFixed(2);
+        resultText = `💰 הערכת עלות (dry-run):\n• מודל: ${model}\n• משך: ${durationSec}s\n• מחיר ליחידה: $${rate.toFixed(3)}/sec\n• סה"כ משוער: **~$${usd}**\n\n⚠️ הערכה בלבד. רזולוציה/retries/tokens עשויים לשנות ±10%.\nלהרצה בפועל — החזר \`generate_video\` עם אותם פרמטרים.`;
+        resultUrl = sourceId ? `/learn/sources/${sourceId}` : null;
+      } else {
+        return NextResponse.json({ error: `estimate_cost: לא נתמך operation="${op}". כרגע תומך רק ב-"generate_video".` }, { status: 400 });
+      }
     } else {
       return NextResponse.json({ error: `unknown action type: ${action.type}` }, { status: 400 });
     }

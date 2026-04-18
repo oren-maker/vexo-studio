@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/learn/db";
 import { requireAdmin } from "@/lib/learn/auth";
 import { logUsage } from "@/lib/learn/usage-tracker";
+import { retrieveRelevantSources, formatRagBlock } from "@/lib/learn/rag";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -54,8 +55,10 @@ async function callGeminiWithFallback(system: string, history: any[]): Promise<{
 
 type PageCtx = { path?: string; title?: string; kind?: string | null; id?: string | null; label?: string } | null | undefined;
 
-async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Promise<string> {
+async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, currentMessage?: string): Promise<string> {
   const latest = await prisma.dailyBrainCache.findFirst({ orderBy: { date: "desc" } });
+  const ragHits = currentMessage ? await retrieveRelevantSources(currentMessage, 5).catch(() => []) : [];
+  const ragBlock = formatRagBlock(ragHits);
   const [totalPrompts, totalGuides, totalNodes, pastChats, latestInsights, latestSeriesAnalysis, references] = await Promise.all([
     prisma.learnSource.count(),
     prisma.guide.count(),
@@ -259,7 +262,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
 
 ⚠️ **\`type\` חייב להיות EXACTLY אחד מהשמות באנגלית למטה.** אסור עברית, אסור "כן"/"לא"/"בצע", אסור שם שהמצאת. אם אתה לא בטוח איזו פעולה צריך — אל תחזיר action בכלל ושאל את אורן.
 
-12 סוגי פעולות שאתה יכול לבצע:
+14 סוגי פעולות שאתה יכול לבצע:
 1. \`compose_prompt\` — יצירת **פרומפט וידאו** מתיאור/נושא.
    פרמטרים: \`brief\` (תיאור הנושא, חובה) · \`sceneId\` (אופציונלי — אם הפרומפט הוא לסצנה ספציפית בהפקה)
    📌 **כלל קריטי לעבודה על פרקים/סצנות:**
@@ -280,6 +283,14 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx): Pro
 12. \`update_opening_prompt\` — עדכון פרומפט **פתיחת עונה**. פרמטרים: \`seasonId\` (חובה — או מ-page context של season), \`prompt\` (חובה, פרומפט וידאו מלא באנגלית, 200-600 מילים), אופציונלי: \`duration\` (Sora עד 20s, VEO עד 8s), \`model\` (sora-2 / sora-2-pro / google-veo-3.1-*), \`aspectRatio\` (16:9/9:16/1:1).
     מתי להשתמש: אורן בעמוד עונה או מזכיר "הפתיחה של הסדרה/העונה" ורוצה לשנות את תיאור הפתיחה (כיוון מצלמה, סגנון ויזואלי, מוזיקה, תאורה).
     הגרסה הישנה של הפרומפט נשמרת ב-SeasonOpeningPromptVersion אוטומטית — כלום לא הולך לאיבוד.
+13. \`ask_question\` — **שאל את אורן שאלת הבהרה במקום לנחש.** השתמש בזה כשאתה לא בטוח באיזה מקור/סצנה/פרמטר להשתמש, או כשיש אפשרויות ברורות. פרמטרים: \`question\` (חובה, השאלה בעברית) · \`options\` (אופציונלי, מערך של 2-5 מחרוזות קצרות שאורן יוכל ללחוץ במקום להקליד).
+    מתי להשתמש: במקום להחזיר action עם confidence<0.65, או כשיש ambiguity שאתה יכול לפתור בקליק.
+    דוגמה: \`{"type":"ask_question","question":"לאיזו סצנה הפרומפט הזה?","options":["סצנה 1","סצנה 2","סצנה 3","חדשה"]}\`
+    אין שדה confidence ב-ask_question.
+14. \`estimate_cost\` — **dry-run הערכת עלות לפני הרצה יקרה.** שימושי לפני \`generate_video\` של Sora 20s ($2) או VEO Pro 8s ($4). פרמטרים: \`operation\` (חובה: "generate_video" · אולי בהמשך "compose_prompt"), \`durationSec\`, \`model\`, \`sourceId\` (אופציונלי, לקישור).
+    מתי להשתמש: לפני כל generate_video עם משך ≥12s או מודל pro, אלא אם אורן כבר ציין שזה דחוף. אתה יכול להחזיר קודם estimate_cost ורק אחרי אישור — generate_video.
+    דוגמה: \`{"type":"estimate_cost","operation":"generate_video","model":"sora-2","durationSec":20,"sourceId":"<id>"}\`
+    אין שדה confidence ב-estimate_cost.
 
 🎬 **זרימת עבודה לייצור אוטונומי של פרק שלם** (כש-אורן אומר "תייצר פרק חדש על X"):
 א. החזר \`create_episode\` עם title+synopsis. חכה לאישור.
@@ -354,6 +365,8 @@ ${cinematographyText}
 
 ⚙️ יכולות המערכת שלי (כל מה שאתה יכול לבקש ממני לבצע בפועל):
 ${capabilitiesText}
+
+${ragBlock ? `${ragBlock}\n\n💡 ה-RAG למעלה מציג פרומפטים דומים מהספרייה לפי סמיכות סמנטית לשאלה הנוכחית של אורן. השתמש בהם כהשראה ועקביות סגנון — אל תעתיק טקסטואלית.` : ""}
 
 📝 כשמבקשים ממך לשדרג תיאור ברפרנס ("שדרג את הרגש X" / "שפר את התיאור של הסאונד Y") — החזר בלוק action:
 \`\`\`action
@@ -490,7 +503,7 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    let system = await buildSystemPrompt(chat.id, pageContext);
+    let system = await buildSystemPrompt(chat.id, pageContext, message);
     // Deterministic intent hint — flash-lite frequently confuses "פרומפט" with "מדריך"
     const lower = message.toLowerCase();
     const mentionsPrompt = /פרומפט|פרומט|prompt/i.test(message);

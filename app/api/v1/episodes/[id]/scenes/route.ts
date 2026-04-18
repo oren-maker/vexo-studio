@@ -22,13 +22,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try {
     const ctx = await authenticate(req); if (isAuthResponse(ctx)) return ctx;
     await assertEpisodeInOrg(params.id, ctx.organizationId);
-    // UI never reads frame fields from this endpoint — only needs scene rows.
-    // Replace frames include with _count so the list page can show "N frames".
-    return ok(await prisma.scene.findMany({
+    const scenes = await prisma.scene.findMany({
       where: { episodeId: params.id },
       orderBy: { sceneNumber: "asc" },
       include: { _count: { select: { frames: true } } },
-    }));
+    });
+    // Scene.actualCost is never populated — the UI list was showing $0.00
+    // for every scene. Compute live from CostEntry per-scene and override.
+    // Grouped aggregation by entityId (sceneId) keeps this to one round-trip.
+    if (scenes.length > 0) {
+      const agg = await prisma.costEntry.groupBy({
+        by: ["entityId"],
+        where: { entityType: "SCENE", entityId: { in: scenes.map((s) => s.id) } },
+        _sum: { totalCost: true },
+      });
+      const costBySceneId = new Map<string, number>();
+      for (const row of agg) costBySceneId.set(row.entityId, row._sum.totalCost ?? 0);
+      for (const s of scenes) {
+        (s as unknown as { actualCost: number }).actualCost = +(costBySceneId.get(s.id) ?? 0).toFixed(4);
+      }
+    }
+    return ok(scenes);
   } catch (e) { return handleError(e); }
 }
 

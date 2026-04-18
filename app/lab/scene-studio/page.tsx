@@ -257,10 +257,32 @@ export default function SceneStudioLab() {
   }, []);
 
   useEffect(() => {
+    // Merge server-generated videos (via curl) with local-generated (via UI)
+    let local: LabVideo[] = [];
     try {
       const raw = localStorage.getItem("lab-videos");
-      if (raw) setVideos(JSON.parse(raw));
+      if (raw) local = JSON.parse(raw);
     } catch {}
+    fetch("/api/v1/lab/videos")
+      .then((r) => r.json())
+      .then((d) => {
+        const server: LabVideo[] = (d.videos || []).map((v: any) => ({
+          id: v.id,
+          number: v.number,
+          requestId: v.requestId,
+          status: v.status,
+          videoUrl: v.videoUrl,
+          prompt: v.note || "",
+          model: v.model,
+          durationSec: v.durationSec,
+          createdAt: v.createdAt,
+        }));
+        // Merge — server first, then locals with numbers above max
+        const maxServerNum = server.length ? Math.max(...server.map((s) => s.number)) : 0;
+        const localsRenumbered = local.map((v, i) => ({ ...v, number: maxServerNum + i + 1 }));
+        setVideos([...server, ...localsRenumbered]);
+      })
+      .catch(() => setVideos(local));
   }, []);
 
   useEffect(() => {

@@ -1829,3 +1829,23 @@ model BrainMessage {
 
   @@index([chatId, createdAt])
 }
+
+// ActionOutcome — calibration dataset. Every brain action execute attempt logs
+// a row so we can compute Expected Calibration Error (ECE): does "confidence
+// 0.85" actually correspond to 85% accept rate? Bucketed analysis lives on
+// /learn/insights (calibration panel).
+model ActionOutcome {
+  id         String   @id @default(cuid())
+  chatId     String?
+  actionType String // "compose_prompt" | "generate_video" | ...
+  confidence Float? // 0–1, null if action had no confidence field
+  outcome    String // "accepted" | "rejected" | "error" | "aborted-low-confidence"
+  errorMsg   String?  @db.Text // first 500 chars of the error if any
+  durationMs Int? // wall-clock of execute handler
+  sceneId    String? // if action was scoped to a scene
+  meta       Json? // arbitrary extras (e.g. which params were supplied)
+  createdAt  DateTime @default(now())
+
+  @@index([actionType, createdAt])
+  @@index([outcome, createdAt])
+}

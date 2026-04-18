@@ -406,7 +406,20 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
                         {executingId === m.id ? "⏳ מבצע..." : "✅ אשר ובצע"}
                       </button>
                       <button
-                        onClick={() => setExecuted((e) => ({ ...e, [m.id]: { text: "בוטל", url: null } }))}
+                        onClick={() => {
+                          setExecuted((e) => ({ ...e, [m.id]: { text: "בוטל", url: null } }));
+                          // Log calibration rejection so ECE reflects reality, not just accepts.
+                          learnFetch("/api/v1/learn/brain/chat/outcome", {
+                            method: "POST",
+                            headers: adminHeaders({ "content-type": "application/json" }),
+                            body: JSON.stringify({
+                              chatId,
+                              actionType: action.action.type,
+                              confidence: typeof action.action.confidence === "number" ? action.action.confidence : null,
+                              outcome: "rejected",
+                            }),
+                          }).catch(() => {});
+                        }}
                         disabled={executingId === m.id}
                         className="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 border border-slate-700 text-xs px-3 py-1.5 rounded"
                       >

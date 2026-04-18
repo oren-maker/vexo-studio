@@ -34,11 +34,42 @@ function slugify(text: string): string {
   return transliterated || "guide";
 }
 
+async function logOutcome(params: {
+  chatId: string | null;
+  actionType: string;
+  confidence: number | null;
+  outcome: "accepted" | "rejected" | "error" | "aborted-low-confidence";
+  errorMsg?: string | null;
+  durationMs?: number;
+  sceneId?: string | null;
+  meta?: Record<string, unknown>;
+}) {
+  try {
+    await (prisma as any).actionOutcome.create({
+      data: {
+        chatId: params.chatId,
+        actionType: params.actionType,
+        confidence: params.confidence,
+        outcome: params.outcome,
+        errorMsg: params.errorMsg?.slice(0, 500) ?? null,
+        durationMs: params.durationMs,
+        sceneId: params.sceneId,
+        meta: params.meta as object | undefined,
+      },
+    });
+  } catch { /* never block the response on telemetry */ }
+}
+
 export async function POST(req: NextRequest) {
   const unauth = await requireAdmin(req);
   if (unauth) return unauth;
+  const startedAt = Date.now();
+  let parsedAction: any = null;
+  let parsedChatId: string | null = null;
   try {
     const { action, chatId, pageContext } = await req.json();
+    parsedAction = action;
+    parsedChatId = chatId ?? null;
     if (!action?.type) return NextResponse.json({ error: "action.type required" }, { status: 400 });
 
     // Calibration gate — if the brain is less than 65% confident, don't execute.
@@ -47,6 +78,12 @@ export async function POST(req: NextRequest) {
     // because they have no side-effects and exist precisely to resolve uncertainty.
     const META_ACTIONS = new Set(["ask_question", "estimate_cost"]);
     if (!META_ACTIONS.has(action.type) && typeof action.confidence === "number" && action.confidence < 0.65) {
+      await logOutcome({
+        chatId: chatId ?? null,
+        actionType: action.type,
+        confidence: action.confidence,
+        outcome: "aborted-low-confidence",
+      });
       return NextResponse.json({
         error: `abstention — המוח סימן ביטחון נמוך (${Math.round(action.confidence * 100)}%). תשאל שאלת הבהרה לפני שתאשר.`,
         aborted: true,
@@ -735,9 +772,25 @@ export async function POST(req: NextRequest) {
       }).catch(() => {});
     }
 
+    await logOutcome({
+      chatId: parsedChatId,
+      actionType: action.type,
+      confidence: typeof action.confidence === "number" ? action.confidence : null,
+      outcome: "accepted",
+      durationMs: Date.now() - startedAt,
+      sceneId: action.sceneId || (ctxKind === "scene" ? ctxId : null),
+    });
     return NextResponse.json({ ok: true, text: resultText, url: resultUrl });
   } catch (e: any) {
     console.error("[brain-chat-execute]", e);
+    await logOutcome({
+      chatId: parsedChatId,
+      actionType: parsedAction?.type ?? "unknown",
+      confidence: typeof parsedAction?.confidence === "number" ? parsedAction.confidence : null,
+      outcome: "error",
+      errorMsg: String(e?.message || e),
+      durationMs: Date.now() - startedAt,
+    });
     return NextResponse.json({ error: String(e?.message || e).slice(0, 400) }, { status: 500 });
   }
 }

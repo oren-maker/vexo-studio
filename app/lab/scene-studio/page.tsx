@@ -12,22 +12,43 @@ const SEED_SCENE = {
   title: "The Descent",
   episodeTitle: "Shattered Reflections",
   episodeNumber: 1,
-  scriptText: `[00:00-00:02] Title Card: SEASON 1 · EPISODE 1.
-[00:02-00:08] A crane shot descends through dense clouds over a monolithic city at dawn. Neon signs flicker through the mist.
-[00:08-00:14] Camera tracks through a tall window into an apartment — a MAN stands before a tall mirror, buttoning a crisp shirt.
-[00:14-00:20] CLOSE-UP on his reflection. The reflection's eyes hold a moment too long, then smile without him.
-[00:20-00:24] Wide shot: he steps back, unsettled. Rain streaks the window behind him.
-[00:24-00:30] Hard cut to black. SFX: a low, metallic hum rises and then abruptly stops.`,
+  synopsis: `סצנת הפתיחה של הסדרה. בוקר גשום בעיר המונוליטית. הגיבור — מיקאל — מתלבש מול המראה כשההשתקפות שלו מתנהגת באופן עצמאי לרגע. זו הרמיזה הראשונה לכך שהמציאות סביבו נסדקת. מאיה, חברתו, נוכחת בדירה ברקע — גיבורת-משנה שתהפוך למובילה בהמשך העונה.`,
+  plot: `🎬 עלילה מקרוסקופית — העונה הראשונה עוקבת אחרי מיקאל (איש ארכיטקט 34) שמגלה שהמציאות שלו מבוצעת מחדש בכל בוקר ע"י AI לא ידוע. מאיה (28, מדענית נוירו-מדעית) היא היחידה ששמה לב לסדקים — היא הופכת למובילה מדעית של החקירה. הסצנה הזו היא הטריגר: החיוך של ההשתקפות הוא ה"באג" הראשון שמיקאל רואה.
+
+🎯 מטרת הסצנה:
+1. לבסס אווירה פסיכולוגית (מראה + השתקפות לא צייתנית)
+2. להציג את מיקאל ללא דיאלוג — רק ויזואליה
+3. להרמיז על מאיה ברקע (כרגע לא ברור שהיא תהיה חשובה)
+4. להטמיע את הצליל המטאלי שיחזור לאורך כל העונה כמוטיב`,
+  characters: [
+    {
+      id: "mikael",
+      name: "Mikael (מיקאל)",
+      role: "Protagonist",
+      age: 34,
+      description: "ארכיטקט בכיר, גבוה (185 ס״מ), שיער חום קצר, עיניים חומות, זקן קצר מוזנח. בוקר: חולצה לבנה מקורצפת, מכנסיים שחורים, מבט מהורהר. התנהגות: מאופק, מדוד, כמעט חרד — כמו מישהו שתמיד חש שמשהו עוקב אחריו.",
+      visualRef: "Timothée Chalamet מתוך Dune, במשקל יותר",
+    },
+    {
+      id: "maya",
+      name: "Maya (מאיה)",
+      role: "Deuteragonist",
+      age: 28,
+      description: "מדענית נוירו-מדע, שיער שחור מתולתל באורך כתפיים, עיניים ירוקות חדות, משקפיים מרובעים. לובשת סוודר כחול כהה + מכנסי ג'ינס כהים + גרביים בצבע אדום חם. ביד: ספל קפה מאיד. התנהגות: ערנית, סקרנית, מהירה להבחין בפרטים. לא בסצנה הזו במרכז אבל תופיע ברקע חולפת דרך המסדרון ב-00:16 (0.5 שניות).",
+      visualRef: "Zendaya × Florence Pugh, mixed — כהה יותר ורצינית",
+    },
+  ],
   directorNotes: `- שמור על חיוך של ההשתקפות למקסימום 0.3 שניות (כדי שיהיה "האם ראיתי את זה?" לא ברור).
 - המצלמה שולטת מעל הגיבור בסצנה 8-14s — הוא קטן יחסית לחדר.
-- גשם זורם אופקי על החלון, לא אנכי (לחץ רוח).`,
+- גשם זורם אופקי על החלון, לא אנכי (לחץ רוח).
+- מאיה חולפת ברקע ב-00:16 — רק צלליתה נראית ("blurry defocus"), היא לא במוקד.`,
   soundNotes: `[00:00-00:02] Title music — cold, synth pad, single sustained note in D minor (low volume, 25%).
 [00:02-00:08] City ambience: distant traffic, one subway rumble at 00:05. Wind.
 [00:08-00:14] Footsteps on wooden floor (soft). Fabric rustle. Heart-beat sub-bass starts fading in at 00:13 (very quiet, 10%).
 [00:14-00:20] Complete silence except the heartbeat (rising to 40%).
 [00:20-00:24] Rain on glass (heavy but dampened — interior POV).
 [00:24-00:30] Metallic hum: starts 5 Hz sub, rises to 200 Hz over 3s, cuts at 00:29.5. TOTAL silence after.`,
-  critic: { score: 0.82, feedback: "התסריט מצוין — המקצב של השתקפות ששיחקת עם הזמן יוצר מתח פסיכולוגי. בדוק: שמור על ההרגשה של 'משהו לא בסדר' בלי לרמוז יותר מדי. העיתוי של ההחזר המטאלי ב-00:24 — אולי הקדם ל-00:22 כדי לקשר חזותית לנטילת ההלם של הגיבור." },
+  critic: { score: 0.82, feedback: "התסריט מצוין — המקצב של השתקפות ששיחקת עם הזמן יוצר מתח פסיכולוגי. בדוק: שמור על ההרגשה של 'משהו לא בסדר' בלי לרמוז יותר מדי. העיתוי של ההחזר המטאלי ב-00:24 — אולי הקדם ל-00:22 כדי לקשר חזותית לנטילת ההלם של הגיבור. רעיון: מאיה ברקע — אל תתן לה דיאלוג, אבל אולי תיצור שני פריימים שלה מסתכלת אל הדלת של החדר שלו (הרמזה)." },
 };
 
 const VIDEO_MODELS = [
@@ -225,6 +246,35 @@ export default function SceneStudioLab() {
             🎬 צור וידאו
           </button>
         </header>
+
+        {/* Synopsis */}
+        <Card title="📖 תקציר הסצנה" subtitle="מה קורה כאן — תמצית למנהלי הפקה">
+          <p className="text-sm text-text-secondary leading-relaxed">{SEED_SCENE.synopsis}</p>
+        </Card>
+
+        {/* Plot — macro */}
+        <Card title="🎬 עלילה" subtitle="הקשר רחב + מטרות הסצנה">
+          <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">{SEED_SCENE.plot}</div>
+        </Card>
+
+        {/* Characters */}
+        <Card title="🎭 דמויות" subtitle={`${SEED_SCENE.characters.length} דמויות בסצנה`}>
+          <div className="space-y-3">
+            {SEED_SCENE.characters.map((c) => (
+              <div key={c.id} className="bg-bg-main border border-bg-main rounded-lg p-3">
+                <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold">{c.name}</span>
+                    <span className="text-[10px] bg-accent/20 text-accent px-2 py-0.5 rounded uppercase tracking-wider">{c.role}</span>
+                    <span className="text-xs text-text-muted">גיל {c.age}</span>
+                  </div>
+                </div>
+                <div className="text-sm text-text-secondary leading-relaxed">{c.description}</div>
+                <div className="text-[11px] text-text-muted mt-2">🎨 רפרנס ויזואלי: {c.visualRef}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
 
         {/* Script */}
         <Card title="📝 תסריט הסצנה" subtitle="טקסט עם timecodes שיוזן לפרומפט של הוידאו">

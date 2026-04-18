@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       prompt: prompt.slice(0, 2000),
       aspect_ratio: aspectRatio,
       duration: durationSeconds,
+      seed: Math.floor(Math.random() * 1_000_000),
     };
     if (imageUrl) body.image_url = imageUrl;
 

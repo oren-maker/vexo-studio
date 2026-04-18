@@ -75,12 +75,18 @@ YOUR TASK — author a 20-second photorealistic OPENING TITLE SEQUENCE prompt fo
 CRITICAL CONSTRAINTS for THIS opening (these override prior openings):
 1. NO face, NO body, NO silhouette of a person on screen at any point.
    But the opening must FEEL like Maya's world — her presence is suggested through her objects:
-   the BLACK SILK ROBE draped softly over the back of a designer chair, an open hardcover BOOK face-down on the obsidian table, a PORCELAIN TEACUP with steam curling up, a HAIRBRUSH near the mirror, fresh JASMINE in a vase. These are her things; the viewer senses her without seeing her.
+   the BLACK SILK ROBE draped softly over the back of a designer chair, an open hardcover BOOK face-down on the obsidian table, a PORCELAIN TEACUP with steam curling up, fresh JASMINE in a crystal vase. These are her things; the viewer senses her without seeing her.
    This is the canonical villa — luminous modern, obsidian cliff, mercury mirror walls, tall glass windows, warm amber dawn — exactly the world from SC1-3 (no new architecture, no new palette).
-2. The plot mystery to tease (without spoiling):
-   "A villa where the mirrors do not quite obey the laws of reflection."
-   Show the mirror behaving strangely on its own — a delayed reflection of the steam from her teacup, a droplet of mercury rolling up a vertical surface, the jasmine reflected with a half-second lag, the silk robe's reflection rippling when the real robe is still.
-   Pure object-level intrigue. Elegant. Restrained. Maya is felt, never seen.
+2. NO PLOT ANOMALY in this opening. Sora's POST-RENDER moderation has blocked our prior openings at 99% completion when they showed mirrors lagging or mercury defying gravity (the model treats anomalous physics as deceptive content). For THIS opening we tease only the WORLD AESTHETIC — the mystery starts in scene 1, not the title sequence. Think prestige TV title sequences (Westworld, The Crown): pure mood and atmosphere, no plot reveal.
+   Mirrors in this opening reflect NORMALLY. Mercury (if shown at all) sits still. Steam rises naturally. Reflections sync with their sources. NOTHING defies physics.
+3. What to actually show:
+   - A wide of the cliff villa at warm amber dawn (golden ocean horizon through tall glass).
+   - A graceful interior pull-in across the polished obsidian floor.
+   - The silk robe draped on a chair, catching warm light.
+   - The teacup steaming on a low table, jasmine in the background.
+   - A close, beautiful pass over a mercury-finish mirror wall — pure surface reflection of the room itself, no anomaly.
+   - The title 'ECHOES OF TOMORROW' in clean white sans-serif, centered with 15% safe margins.
+   - A calm warm male narrator speaks the title once at 00:18.
 3. End on the title card "ECHOES OF TOMORROW" — clean white sans-serif, centered, 15% safe margins,
    held steady on a final stable frame.
 4. Single warm narrator line at the very end (00:18-00:20): "Echoes of Tomorrow" — calm male voice in English. No other dialogue.
@@ -100,7 +106,7 @@ Respond with ONLY valid JSON:
 }`;
 
   console.log("━━━ calling director for elegant characterless opening ━━━\n");
-  const MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"];
+  const MODELS = ["gemini-3-flash-preview", "gemini-flash-latest", "gemini-2.5-flash"];
   let revised: any = null;
   let usedModel = "";
   for (const model of MODELS) {
@@ -109,7 +115,7 @@ Respond with ONLY valid JSON:
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: 3000 },
+          generationConfig: { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: 6000, thinkingConfig: { thinkingBudget: 0 } },
         }),
         signal: AbortSignal.timeout(60_000),
       });

@@ -28,6 +28,15 @@ type Participation = {
 };
 type LogRow = { id: string; at: string; kind: string; title: string; detail: string | null; actor: string | null };
 
+type BibleData = {
+  character: { id: string; name: string; roleType: string | null; characterType: string | null; gender: string | null; ageRange: string | null; appearance: string | null; personality: string | null; wardrobeRules: string | null; speechStyle: string | null; continuityLock: boolean; notes: string | null };
+  portraits: { id: string; fileUrl: string; mediaType: string }[];
+  stats: { episodeCount: number; sceneMentionCount: number; firstAppearance: SceneMention | null; lastAppearance: SceneMention | null };
+  episodes: { episodeId: string; episodeNumber: number | null; title: string; seasonNumber: number | null; seriesTitle: string | null }[];
+  sceneMentions: SceneMention[];
+};
+type SceneMention = { sceneId: string; episodeId: string; episodeNumber: number | null; sceneNumber: number; seriesTitle: string | null; snippet: string };
+
 export default function CharacterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const lang = useLang();
@@ -35,13 +44,14 @@ export default function CharacterDetailPage() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [part, setPart] = useState<Participation | null>(null);
   const [log, setLog] = useState<LogRow[]>([]);
+  const [bible, setBible] = useState<BibleData | null>(null);
   // URL-persisted tab
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  type CTab = "gallery" | "log" | "participation";
+  type CTab = "gallery" | "log" | "participation" | "bible";
   const rawTab = (searchParams?.get("tab") ?? "gallery") as CTab;
-  const tab: CTab = (["gallery", "log", "participation"] as const).includes(rawTab as CTab) ? rawTab : "gallery";
+  const tab: CTab = (["gallery", "log", "participation", "bible"] as const).includes(rawTab as CTab) ? rawTab : "gallery";
   const setTab = (t: CTab) => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("tab", t);
@@ -78,7 +88,10 @@ export default function CharacterDetailPage() {
     if (tab === "log" && log.length === 0) {
       api<LogRow[]>(`/api/v1/characters/${id}/log`).then(setLog).catch(() => setLog([]));
     }
-  }, [tab, id, part, log.length]);
+    if (tab === "bible" && !bible) {
+      api<BibleData>(`/api/v1/characters/${id}/bible`).then(setBible).catch(() => setBible(null));
+    }
+  }, [tab, id, part, log.length, bible]);
 
   if (!character) return <div className="text-text-muted">{he ? "טוען…" : "Loading…"}</div>;
 
@@ -115,6 +128,7 @@ export default function CharacterDetailPage() {
           { id: "gallery", label: he ? "גלריה" : "Gallery", count: character.media.length },
           { id: "log", label: he ? "לוג" : "Log", count: null as number | null },
           { id: "participation", label: he ? "השתתפות" : "Participation", count: part?.totalEpisodes ?? null },
+          { id: "bible", label: he ? "תיק דמות" : "Bible", count: null as number | null },
         ] as const).map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t.id ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text-secondary"}`}>
             {t.label}{t.count != null && <span className="text-text-muted"> ({t.count})</span>}
@@ -260,6 +274,68 @@ export default function CharacterDetailPage() {
                   </ul>
                 </div>
               ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {tab === "bible" && (
+        <Card
+          title={he ? `📖 תיק דמות של ${character.name}` : `📖 ${character.name} bible`}
+          subtitle={bible ? `${bible.stats.episodeCount} ${he ? "פרקים" : "episodes"} · ${bible.stats.sceneMentionCount} ${he ? "אזכורים" : "mentions"}` : (he ? "טוען…" : "Loading…")}
+        >
+          {!bible ? (
+            <div className="text-center py-6 text-text-muted">{he ? "טוען…" : "Loading…"}</div>
+          ) : (
+            <div className="space-y-6">
+              {/* Core facts */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {[
+                  { label: he ? "תפקיד" : "Role", value: bible.character.roleType },
+                  { label: he ? "סוג" : "Type", value: bible.character.characterType },
+                  { label: he ? "מגדר" : "Gender", value: bible.character.gender },
+                  { label: he ? "גיל" : "Age range", value: bible.character.ageRange },
+                ].filter((f) => f.value).map((f) => (
+                  <div key={f.label} className="bg-bg-main rounded p-2">
+                    <div className="text-[10px] uppercase text-text-muted">{f.label}</div>
+                    <div className="font-semibold">{f.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {bible.character.appearance && (
+                <div><div className="text-xs font-semibold text-accent mb-1 uppercase">{he ? "מראה" : "Appearance"}</div><p className="text-sm text-text-secondary whitespace-pre-wrap">{bible.character.appearance}</p></div>
+              )}
+              {bible.character.personality && (
+                <div><div className="text-xs font-semibold text-accent mb-1 uppercase">{he ? "אישיות" : "Personality"}</div><p className="text-sm text-text-secondary whitespace-pre-wrap">{bible.character.personality}</p></div>
+              )}
+              {bible.character.wardrobeRules && (
+                <div><div className="text-xs font-semibold text-accent mb-1 uppercase">{he ? "תלבושת" : "Wardrobe"}</div><p className="text-sm text-text-secondary whitespace-pre-wrap">{bible.character.wardrobeRules}</p></div>
+              )}
+              {bible.character.speechStyle && (
+                <div><div className="text-xs font-semibold text-accent mb-1 uppercase">{he ? "סגנון דיבור" : "Speech"}</div><p className="text-sm text-text-secondary whitespace-pre-wrap">{bible.character.speechStyle}</p></div>
+              )}
+
+              {/* Timeline */}
+              {bible.sceneMentions.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold text-accent mb-2 uppercase">{he ? "ציר זמן — אזכורים בסצנות" : "Scene mentions"}</div>
+                  <ul className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                    {bible.sceneMentions.map((m) => (
+                      <li key={m.sceneId} className="bg-bg-main rounded-lg p-3">
+                        <Link href={`/scenes/${m.sceneId}`} className="block">
+                          <div className="flex items-center gap-2 mb-1 text-xs text-text-muted">
+                            {m.seriesTitle && <span>{m.seriesTitle}</span>}
+                            <span>·</span>
+                            <span className="font-mono">EP{String(m.episodeNumber ?? 0).padStart(2, "0")} · SC{String(m.sceneNumber).padStart(2, "0")}</span>
+                          </div>
+                          <div className="text-sm text-text-secondary italic">{m.snippet}</div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </Card>

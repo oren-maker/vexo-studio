@@ -13,6 +13,35 @@ const AUTO_CREATE_PROVIDERS: Record<string, { category: string; apiUrl?: string 
   "Higgsfield":    { category: "VIDEO", apiUrl: "https://platform.higgsfield.ai" },
 };
 
+export class BudgetExceededError extends Error {
+  constructor(public projectId: string, public planned: number, public projected: number) {
+    super(`Budget exceeded: project ${projectId} planned=$${planned.toFixed(2)} projected=$${projected.toFixed(2)}. Raise plannedBudget to continue.`);
+    this.name = "BudgetExceededError";
+  }
+}
+
+// Budget gate + spend calculation used by chargeUsd below.
+// Returns { pct, projected, planned } if a budget is set; null otherwise.
+// Throws BudgetExceededError when pct >= 1.0 (hard cap).
+async function checkProjectBudget(projectId: string, incomingCost: number): Promise<{ pct: number; projected: number; planned: number } | null> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { plannedBudget: true },
+  });
+  if (!project?.plannedBudget || project.plannedBudget <= 0) return null;
+  const agg = await prisma.costEntry.aggregate({
+    where: { projectId },
+    _sum: { totalCost: true },
+  });
+  const currentSpend = agg._sum.totalCost ?? 0;
+  const projected = +(currentSpend + incomingCost).toFixed(6);
+  const pct = projected / project.plannedBudget;
+  if (pct >= 1.0) {
+    throw new BudgetExceededError(projectId, project.plannedBudget, projected);
+  }
+  return { pct, projected, planned: project.plannedBudget };
+}
+
 export async function chargeUsd(opts: {
   organizationId: string;
   projectId?: string | null;
@@ -28,6 +57,13 @@ export async function chargeUsd(opts: {
 }) {
   const qty = opts.quantity ?? 1;
   const total = +(opts.unitCost * qty).toFixed(6);
+
+  // Budget gate — throws if project spend + this cost exceeds plannedBudget.
+  // Silent no-op if no budget is set.
+  let budgetInfo: { pct: number; projected: number; planned: number } | null = null;
+  if (opts.projectId && total > 0) {
+    budgetInfo = await checkProjectBudget(opts.projectId, total);
+  }
 
   // Pull provider + wallet in one round-trip — was previously a second
   // findUnique on the wallet inside this same call.
@@ -89,5 +125,11 @@ export async function chargeUsd(opts: {
   }
   await Promise.all(writes);
 
-  return { totalCost: total, providerId };
+  return {
+    totalCost: total,
+    providerId,
+    // Callers can surface this to the UI: pct >= 0.8 → yellow banner, < 0.8 → no banner.
+    // 1.0+ is impossible here because checkProjectBudget would have thrown.
+    budgetWarning: budgetInfo && budgetInfo.pct >= 0.8 ? budgetInfo : null,
+  };
 }

@@ -141,6 +141,7 @@ export function AiAssistant() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const openRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   async function copyToClipboard(id: string, text: string) {
     try {
@@ -166,6 +167,28 @@ export function AiAssistant() {
   useEffect(() => {
     if (chatId) localStorage.setItem("vexo-brain-chatId", chatId);
   }, [chatId]);
+
+  // Global keyboard shortcuts: / opens+focuses chat, Esc closes.
+  // Ignored when the user is already in an input/textarea elsewhere so typing
+  // "/" inside a prompt field doesn't hijack focus.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const inField = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
+      if (e.key === "/" && !inField) {
+        e.preventDefault();
+        setOpen(true);
+        setTimeout(() => textareaRef.current?.focus(), 50);
+        return;
+      }
+      if (e.key === "Escape" && openRef.current) {
+        setOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Load existing messages if we have a persisted chatId
   useEffect(() => {
@@ -342,11 +365,19 @@ export function AiAssistant() {
 
             <div className="px-3 py-2 border-t border-bg-main flex items-end gap-2">
               <textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); return; }
+                  // ArrowUp on empty input → recall last user message for quick edit/resend
+                  if (e.key === "ArrowUp" && !input) {
+                    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                    if (lastUser) { e.preventDefault(); setInput(lastUser.content); }
+                  }
+                }}
                 rows={2}
-                placeholder={he ? "שאל את הבמאי… (Enter לשליחה)" : "Ask the director… (Enter to send)"}
+                placeholder={he ? "שאל את הבמאי… (Enter שליחה · ↑ הודעה אחרונה · Esc סגור)" : "Ask the director… (Enter send · ↑ recall · Esc close)"}
                 className="flex-1 px-3 py-2 rounded-lg border border-bg-main text-sm resize-none"
                 disabled={busy}
               />

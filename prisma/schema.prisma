@@ -437,6 +437,7 @@ model Project {
   thumbnailUrl                String?
   genreTag                    String?
   styleGuide                  Json?
+  plannedBudget               Float? // optional project-level soft+hard cap in USD; when set, chargeUsd blocks at 100% and warns at 80%
   createdAt                   DateTime      @default(now())
   updatedAt                   DateTime      @updatedAt
 

@@ -151,7 +151,7 @@ function buildCommands(raw: string, currentPath: string, router: Router): Comman
   if (/project|פרויקט/.test(q) || q === "") add({ id: "nav-projects", label: "📁 פרויקטים", hint: "/projects", run: () => router.push("/projects") });
   if (/source|מקור|spring/.test(q)) add({ id: "nav-sources", label: "📥 מקורות", hint: "/learn/sources", run: () => router.push("/learn/sources") });
   if (/guide|מדריך/.test(q)) add({ id: "nav-guides", label: "📘 מדריכים", hint: "/learn/guides", run: () => router.push("/learn/guides") });
-  if (/consistency|עקביות|אי-עקב/.test(q)) add({ id: "api-consistency", label: "🔍 בדיקת עקביות (API)", hint: "GET /api/v1/learn/insights/consistency", run: () => { window.open("/api/v1/learn/insights/consistency", "_blank"); } });
+  if (/consistency|עקביות|אי-עקב/.test(q)) add({ id: "nav-inconsistencies", label: "🔍 בדיקת אי-עקביות", hint: "/learn/inconsistencies", run: () => router.push("/learn/inconsistencies") });
   if (/calibration|קליב/.test(q)) add({ id: "api-calibration", label: "🎯 ECE קליברציה (API)", hint: "GET /api/v1/learn/insights/calibration", run: () => { window.open("/api/v1/learn/insights/calibration", "_blank"); } });
 
   // === Season-scoped ===

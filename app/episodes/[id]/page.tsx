@@ -101,6 +101,20 @@ export default function EpisodePage() {
     await api(`/api/v1/episodes/${id}/seo/generate`, { method: "POST" });
     alert(he ? "ה-SEO נוצר מחדש" : "SEO regenerated");
   }
+  const [recapBusy, setRecapBusy] = useState(false);
+  const [recapUrl, setRecapUrl] = useState<string | null>(null);
+  async function generateRecap() {
+    if (recapBusy) return;
+    setRecapBusy(true); setRecapUrl(null);
+    try {
+      const r = await api<{ url: string; sceneCount: number; durationSec: number }>(
+        `/api/v1/episodes/${id}/recap`,
+        { method: "POST", body: { perFrameSec: 2 } },
+      );
+      setRecapUrl(r.url);
+    } catch (e: unknown) { alert((e as Error).message); }
+    finally { setRecapBusy(false); }
+  }
   async function saveField(field: "title" | "synopsis", value: string) {
     await api(`/api/v1/episodes/${id}`, { method: "PATCH", body: { [field]: value } });
     load();
@@ -188,6 +202,14 @@ export default function EpisodePage() {
       <div className="flex gap-2 flex-wrap">
         <Link href={`/episodes/${id}/seo`} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">SEO</Link>
         <button onClick={generateSEO} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm">Auto-generate SEO</button>
+        <button onClick={generateRecap} disabled={recapBusy} className="px-3 py-1.5 rounded-lg border border-bg-main text-sm disabled:opacity-50">
+          {recapBusy ? "🎞 " + (he ? "מייצר recap..." : "Building recap...") : "🎞 " + (he ? "ייצר Recap" : "Build recap")}
+        </button>
+        {recapUrl && (
+          <a href={recapUrl} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-sm hover:bg-emerald-500/30">
+            ✓ {he ? "צפה ב-recap" : "View recap"}
+          </a>
+        )}
         <button onClick={publish} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold ml-auto">Publish to YouTube</button>
       </div>
 

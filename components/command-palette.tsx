@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { CheatSheet } from "@/components/cheat-sheet";
 
 // Command palette — Cmd/Ctrl+K anywhere in vexo-studio.
 // Rule-based parser (no LLM call) for instant response on common intents.
@@ -51,9 +52,11 @@ export function CommandPalette() {
     setOpen(false);
   }
 
-  if (!open) return null;
+  if (!open) return <CheatSheet />;
 
   return (
+    <>
+    <CheatSheet />
     <div className="fixed inset-0 z-[100] bg-black/50 flex items-start justify-center pt-[15vh] px-4" onClick={() => setOpen(false)}>
       <div className="w-full max-w-xl bg-bg-card border border-bg-main rounded-xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center border-b border-bg-main px-4">
@@ -93,10 +96,11 @@ export function CommandPalette() {
         <div className="border-t border-bg-main px-4 py-1.5 flex items-center gap-3 text-[10px] text-text-muted">
           <span>↑↓ ניווט</span>
           <span>↵ בצע</span>
-          <span className="ms-auto">⌘K לפתיחה/סגירה</span>
+          <span className="ms-auto">⌘K לפתיחה/סגירה · ? לקיצורים</span>
         </div>
       </div>
     </div>
+    </>
   );
 }
 

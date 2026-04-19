@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
+import { EpisodeCompletionPanel } from "@/components/episode-completion-panel";
 import { EpisodeMergedVideo } from "@/components/episode-merged-video";
 import { useLang } from "@/lib/i18n";
 
@@ -210,7 +211,20 @@ export default function EpisodePage() {
             ✓ {he ? "צפה ב-recap" : "View recap"}
           </a>
         )}
+        <button
+          onClick={async () => {
+            try {
+              const r = await api<{ url: string; usdCost: number }>(`/api/v1/episodes/${id}/generate-thumbnail`, { method: "POST" });
+              alert(he ? `✓ thumbnail נוצר ($${r.usdCost.toFixed(3)}) — רענן לראות אותו` : `✓ thumbnail generated ($${r.usdCost.toFixed(3)})`);
+            } catch (e) { alert((e as Error).message); }
+          }}
+          className="px-3 py-1.5 rounded-lg border border-bg-main text-sm"
+        >🖼 {he ? "ייצר thumbnail" : "Generate thumbnail"}</button>
         <button onClick={publish} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold ml-auto">Publish to YouTube</button>
+      </div>
+
+      <div className="mt-4">
+        <EpisodeCompletionPanel episodeId={id} he={he} />
       </div>
 
       <div className="flex gap-1 border-b border-bg-main">

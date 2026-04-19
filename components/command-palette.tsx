@@ -146,7 +146,9 @@ function buildCommands(raw: string, currentPath: string, router: Router): Comman
   if (/chat|צ'?אט|שיחה/.test(q) || q === "") add({ id: "nav-brain-chat", label: "💬 צ'אט עם הבמאי", hint: "/learn/brain/chat", run: () => router.push("/learn/brain/chat") });
   if (/insights|תובנות/.test(q)) add({ id: "nav-insights", label: "📊 תובנות", hint: "/learn/insights", run: () => router.push("/learn/insights") });
   if (/consciousness|תודעה/.test(q)) add({ id: "nav-consciousness", label: "🌀 תודעה", hint: "/learn/consciousness", run: () => router.push("/learn/consciousness") });
-  if (/tokens|עלות|tokens/.test(q)) add({ id: "nav-tokens", label: "💰 צריכת טוקנים", hint: "/learn/tokens", run: () => router.push("/learn/tokens") });
+  if (/tokens|טוקנים/.test(q)) add({ id: "nav-tokens", label: "💰 צריכת טוקנים", hint: "/learn/tokens", run: () => router.push("/learn/tokens") });
+  if (/cost|עלות|עלויות/.test(q)) add({ id: "nav-costs", label: "💰 לוח עלויות", hint: "/learn/costs", run: () => router.push("/learn/costs") });
+  if (/failed|נכשל|retry|רטריי/.test(q)) add({ id: "nav-failed", label: "💥 עבודות שנכשלו", hint: "/learn/failed-jobs", run: () => router.push("/learn/failed-jobs") });
   if (/upgrade|שדרוג/.test(q)) add({ id: "nav-upgrades", label: "⬆️ שדרוגי מוח", hint: "/learn/brain/upgrades", run: () => router.push("/learn/brain/upgrades") });
   if (/project|פרויקט/.test(q) || q === "") add({ id: "nav-projects", label: "📁 פרויקטים", hint: "/projects", run: () => router.push("/projects") });
   if (/source|מקור|spring/.test(q)) add({ id: "nav-sources", label: "📥 מקורות", hint: "/learn/sources", run: () => router.push("/learn/sources") });

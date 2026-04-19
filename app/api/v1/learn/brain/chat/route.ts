@@ -3,6 +3,7 @@ import { prisma } from "@/lib/learn/db";
 import { requireAdmin } from "@/lib/learn/auth";
 import { logUsage } from "@/lib/learn/usage-tracker";
 import { retrieveRelevantSources, formatRagBlock } from "@/lib/learn/rag";
+import { rateLimit, ipKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -512,6 +513,17 @@ export async function POST(req: NextRequest) {
   const unauth = await requireAdmin(req);
   if (unauth) return unauth;
   if (!API_KEY) return NextResponse.json({ error: "GEMINI_API_KEY missing" }, { status: 500 });
+
+  // Rate gate — 30 msgs/min per IP. Protects against runaway cost from a
+  // looping client. requireAdmin already bounds this to authenticated users,
+  // but an authenticated client can still spin.
+  const rl = rateLimit(`brain-chat:${ipKey(req)}`, { max: 30, windowMs: 60_000 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: `rate limit: 30 messages/minute. try again in ${Math.ceil(rl.retryAfterMs / 1000)}s.` },
+      { status: 429, headers: { "retry-after": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
 
   try {
     const { chatId, message, pageContext } = await req.json();

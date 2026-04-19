@@ -153,6 +153,8 @@ function buildCommands(raw: string, currentPath: string, router: Router): Comman
   if (/tokens|טוקנים/.test(q)) add({ id: "nav-tokens", label: "💰 צריכת טוקנים", hint: "/learn/tokens", run: () => router.push("/learn/tokens") });
   if (/cost|עלות|עלויות/.test(q)) add({ id: "nav-costs", label: "💰 לוח עלויות", hint: "/learn/costs", run: () => router.push("/learn/costs") });
   if (/failed|נכשל|retry|רטריי/.test(q)) add({ id: "nav-failed", label: "💥 עבודות שנכשלו", hint: "/learn/failed-jobs", run: () => router.push("/learn/failed-jobs") });
+  if (/preset|תבנית|תבניות/.test(q)) add({ id: "nav-presets", label: "📚 תבניות פרומפט", hint: "/learn/presets", run: () => router.push("/learn/presets") });
+  if (/search|חיפוש|חפש/.test(q)) add({ id: "nav-search", label: "🔍 חיפוש גלובלי", hint: "/learn/search/all", run: () => router.push(`/learn/search/all?q=${encodeURIComponent(raw)}`) });
   if (/undo|בטל|חזור|לבטל/.test(q)) add({
     id: "undo-last",
     label: "⏪ בטל את הפעולה האחרונה",

@@ -8,6 +8,8 @@ import { useLang } from "@/lib/i18n";
 import SceneActivityLog from "@/components/scene-activity-log";
 import SceneLogButton from "@/components/scene-log-button";
 import { SceneVersionsDiff } from "@/components/scene-versions-diff";
+import { SceneShotList } from "@/components/scene-shot-list";
+import { SceneMemoryViewer } from "@/components/scene-memory-viewer";
 
 type Frame = { id: string; orderIndex: number; beatSummary: string | null; imagePrompt: string | null; status: string; generatedImageUrl: string | null; approvedImageUrl: string | null; cost?: number; model?: string; lastChargedAt?: string | null };
 type Comment = { id: string; body: string; resolved: boolean; createdAt: string; user: { id: string; fullName: string; email: string } };
@@ -21,7 +23,7 @@ const VIDEO_MODEL_PRETTY: Record<string, string> = {
   "veo3-pro": "💎 VEO 3 Pro",
 };
 type DirectorSheet = { style: string; scene: string; character: string; shots: string; camera: string; effects: string; audio: string; technical: string; generatedAt: string };
-type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string; soundNotes?: string; bridgeFrameUrl?: string; bridgeFrameUrls?: string[]; seedImageUrl?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[]; scriptMentionsNotInCast?: string[] };
+type Scene = { id: string; sceneNumber: number; title: string | null; summary: string | null; scriptText: string | null; status: string; actualCost: number; episodeId: string | null; memoryContext?: { characters?: string[]; directorSheet?: DirectorSheet; directorNotes?: string; soundNotes?: string; bridgeFrameUrl?: string; bridgeFrameUrls?: string[]; seedImageUrl?: string; shotList?: unknown[]; shotListGeneratedAt?: string } | null; frames: Frame[]; criticReviews: Critic[]; comments: Comment[]; sceneCharacters?: SceneChar[]; videos?: SceneVideo[]; scriptMentionsNotInCast?: string[] };
 
 export default function ScenePage() {
   const { id } = useParams<{ id: string }>();
@@ -524,6 +526,8 @@ export default function ScenePage() {
               <SceneVersionsDiff sceneId={scene.id} he={he} />
             </div>
           </details>
+          {scene.memoryContext?.shotList && <SceneShotList shots={scene.memoryContext.shotList} he={he} />}
+          <SceneMemoryViewer memory={scene.memoryContext} he={he} />
         </Card>
 
         <Card title={he ? "דף הבמאי · Director Sheet" : "Director Sheet"} subtitle={he ? "8 סעיפים שמוזנים לפרומפט של ייצור הוידאו" : "8 sections fed into the video generation prompt"}>

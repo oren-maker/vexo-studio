@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams, usePathname } from "next/navigat
 import { api } from "@/lib/api";
 import { Card } from "@/components/page-shell";
 import { EpisodeCompletionPanel } from "@/components/episode-completion-panel";
+import { EpisodeThumbnailPreview } from "@/components/episode-thumbnail-preview";
 import { EpisodeMergedVideo } from "@/components/episode-merged-video";
 import { useLang } from "@/lib/i18n";
 
@@ -223,7 +224,8 @@ export default function EpisodePage() {
         <button onClick={publish} className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-semibold ml-auto">Publish to YouTube</button>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 space-y-3">
+        <EpisodeThumbnailPreview episodeId={id} he={he} />
         <EpisodeCompletionPanel episodeId={id} he={he} />
       </div>
 

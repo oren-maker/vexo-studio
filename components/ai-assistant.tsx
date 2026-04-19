@@ -139,9 +139,42 @@ export function AiAssistant() {
   const [pageCtx, setPageCtx] = useState<PageContext>(() => detectPageContext());
   const [unread, setUnread] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
   const openRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recogRef = useRef<{ stop: () => void } | null>(null);
+
+  function toggleVoice() {
+    if (listening) { recogRef.current?.stop(); return; }
+    const SR = (typeof window !== "undefined" ? (window as unknown as { webkitSpeechRecognition?: new () => unknown; SpeechRecognition?: new () => unknown }).webkitSpeechRecognition ?? (window as unknown as { SpeechRecognition?: new () => unknown }).SpeechRecognition : null);
+    if (!SR) { setErr(he ? "הדפדפן הזה לא תומך בזיהוי דיבור (נסה Chrome)" : "This browser does not support speech recognition (try Chrome)"); return; }
+    const recog = new SR() as { lang: string; continuous: boolean; interimResults: boolean; start: () => void; stop: () => void; onresult: (e: unknown) => void; onerror: (e: unknown) => void; onend: () => void };
+    recog.lang = he ? "he-IL" : "en-US";
+    recog.continuous = false;
+    recog.interimResults = true;
+    let finalText = "";
+    recog.onresult = (ev: unknown) => {
+      const e = ev as { results: { isFinal: boolean; 0: { transcript: string } }[] };
+      let interim = "";
+      for (let i = 0; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setInput(finalText + interim);
+    };
+    recog.onerror = (ev: unknown) => {
+      const e = ev as { error?: string };
+      setErr(he ? `שגיאת זיהוי קול: ${e.error ?? "unknown"}` : `speech error: ${e.error ?? "unknown"}`);
+      setListening(false);
+    };
+    recog.onend = () => { setListening(false); recogRef.current = null; };
+    recogRef.current = { stop: () => recog.stop() };
+    setListening(true);
+    setErr(null);
+    recog.start();
+  }
 
   async function copyToClipboard(id: string, text: string) {
     try {
@@ -381,6 +414,14 @@ export function AiAssistant() {
                 className="flex-1 px-3 py-2 rounded-lg border border-bg-main text-sm resize-none"
                 disabled={busy}
               />
+              <button
+                type="button"
+                onClick={toggleVoice}
+                title={he ? "דיבור במקום הקלדה" : "Voice input"}
+                className={`px-3 py-2 rounded-lg text-lg border ${listening ? "bg-red-500 text-white border-red-500 animate-pulse" : "bg-bg-main text-text-muted border-bg-main hover:text-accent hover:border-accent"}`}
+              >
+                {listening ? "⏺" : "🎤"}
+              </button>
               <button
                 onClick={() => send()}
                 disabled={busy || !input.trim()}

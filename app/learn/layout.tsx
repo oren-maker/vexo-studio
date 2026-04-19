@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AuthGuard } from "@/components/auth-guard";
+import { CommandPalette } from "@/components/command-palette";
 
 const groups = [
   {
@@ -152,6 +153,7 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
           {children}
         </main>
       </div>
+      <CommandPalette />
     </AuthGuard>
   );
 }

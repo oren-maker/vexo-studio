@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AuthGuard } from "@/components/auth-guard";
 import { Topbar } from "@/components/topbar";
 import { AiAssistant } from "@/components/ai-assistant";
+import { CommandPalette } from "@/components/command-palette";
 import { RtlEffect } from "@/components/rtl-effect";
 import { AutoT } from "@/components/translator";
 
@@ -23,6 +24,7 @@ export default function SeriesLayout({ children }: { children: React.ReactNode }
           <Topbar title="Series" />
           <main className="flex-1 p-6 overflow-y-auto"><AutoT>{children}</AutoT></main>
         <AiAssistant />
+        <CommandPalette />
         </div>
       </div>
     </AuthGuard>

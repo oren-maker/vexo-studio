@@ -187,6 +187,17 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
     if (typeof window === "undefined") return;
     if (chatId) localStorage.setItem("vexo-brain-chatId", chatId);
   }, [chatId]);
+
+  // Command palette can stash a query in sessionStorage; pick it up on mount
+  // so ⌘K → "create scene 5" lands in the chat input, ready to send.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const prefill = sessionStorage.getItem("vexo-command-palette-prefill");
+    if (prefill) {
+      setInput(prefill);
+      sessionStorage.removeItem("vexo-command-palette-prefill");
+    }
+  }, []);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);

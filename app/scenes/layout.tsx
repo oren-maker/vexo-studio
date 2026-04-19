@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { AuthGuard } from "@/components/auth-guard";
 import { Topbar } from "@/components/topbar";
 import { AiAssistant } from "@/components/ai-assistant";
+import { CommandPalette } from "@/components/command-palette";
 import { RtlEffect } from "@/components/rtl-effect";
 import { AutoT } from "@/components/translator";
 import { ProjectNav } from "@/components/project-nav";
@@ -45,6 +46,7 @@ export default function ScenesLayout({ children }: { children: React.ReactNode }
           <main className="flex-1 p-6 overflow-y-auto"><AutoT>{children}</AutoT></main>
         </div>
         <AiAssistant />
+        <CommandPalette />
       </div>
     </AuthGuard>
   );

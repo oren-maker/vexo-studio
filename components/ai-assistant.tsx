@@ -31,6 +31,7 @@ const VALID_ACTION_TYPES = new Set([
   "revert_version",
   "queue_music_track",
   "queue_dubbing_track",
+  "generate_shot_list",
 ]);
 
 type PageContext = { path: string; title: string; kind: string | null; id: string | null; label: string };

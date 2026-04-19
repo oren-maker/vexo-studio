@@ -286,7 +286,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragB
 
 ⚠️ **\`type\` חייב להיות EXACTLY אחד מהשמות באנגלית למטה.** אסור עברית, אסור "כן"/"לא"/"בצע", אסור שם שהמצאת. אם אתה לא בטוח איזו פעולה צריך — אל תחזיר action בכלל ושאל את אורן.
 
-23 סוגי פעולות שאתה יכול לבצע:
+24 סוגי פעולות שאתה יכול לבצע:
 1. \`compose_prompt\` — יצירת **פרומפט וידאו** מתיאור/נושא.
    פרמטרים: \`brief\` (תיאור הנושא, חובה) · \`sceneId\` (אופציונלי — אם הפרומפט הוא לסצנה ספציפית בהפקה)
    📌 **כלל קריטי לעבודה על פרקים/סצנות:**
@@ -342,6 +342,9 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragB
     דוגמה: \`{"type":"queue_music_track","sceneId":"<id>","trackType":"theme","mood":"tense-suspense","prompt":"Minimalist piano with growing unease","durationSeconds":20,"confidence":0.9}\`
 23. \`queue_dubbing_track\` — רישום בקשה ל-dubbing לפרק. פרמטרים: \`episodeId\` (חובה — או מ-page context), \`language\` (חובה — "he", "en", "es", ...).
     דוגמה: \`{"type":"queue_dubbing_track","episodeId":"<id>","language":"he","confidence":0.9}\`
+24. \`generate_shot_list\` — פירוק scriptText ל-shot list מובנה (4-10 shots, כל shot עם shotType/lensMm/movement/subject/action/durationSec/notes). Gemini מייצר JSON, נשמר ב-Scene.memoryContext.shotList. פרמטרים: \`sceneId\` (חובה — או מ-page context של scene). ה-scriptText חייב להיות ≥50 תווים.
+    מתי להשתמש: כשאורן מבקש "תן לי shot list", "תפרק את הסצנה", "איך אני מצלם את זה".
+    דוגמה: \`{"type":"generate_shot_list","sceneId":"<id>","confidence":0.85}\`
 
 🎬 **זרימת עבודה לייצור אוטונומי של פרק שלם** (כש-אורן אומר "תייצר פרק חדש על X"):
 א. החזר \`create_episode\` עם title+synopsis. חכה לאישור.
@@ -507,6 +510,26 @@ ${pastChatsText}
 - אם אורן ביקש פרומפט חדש ואתה בטעות כתבת אותו בצ'אט — שגיאה! חובה להשתמש ב-\`compose_prompt\` action.
 
 🎲 seed של המסר הזה (השתמש בו להשראה יצירתית ייחודית, לא חזרה על משהו קודם): ${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// Inspector endpoint: dry-runs buildSystemPrompt without hitting Gemini.
+// Lets /learn/brain/last-prompt show exactly what the brain would see next.
+export async function GET(req: NextRequest) {
+  const unauth = await requireAdmin(req);
+  if (unauth) return unauth;
+  const url = new URL(req.url);
+  const chatId = url.searchParams.get("chatId") ?? undefined;
+  const sample = url.searchParams.get("sample") ?? "מה הסטטוס של הסדרה?";
+  const ragHits = await retrieveRelevantSources(sample, 5).catch(() => []);
+  const prompt = await buildSystemPrompt(chatId, null, formatRagBlock(ragHits));
+  return NextResponse.json({
+    ok: true,
+    chatIdUsed: chatId ?? null,
+    sampleMessage: sample,
+    ragHits: ragHits.map((h) => ({ id: h.id, title: h.title, score: h.score })),
+    promptLength: prompt.length,
+    prompt,
+  });
 }
 
 export async function POST(req: NextRequest) {

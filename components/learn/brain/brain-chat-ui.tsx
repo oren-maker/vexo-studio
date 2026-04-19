@@ -43,6 +43,7 @@ function actionLabel(action: any): string {
     case "revert_version": return `⏪ שחזור גרסה`;
     case "queue_music_track": return `🎵 רישום track מוזיקה`;
     case "queue_dubbing_track": return `🗣️ רישום dubbing`;
+    case "generate_shot_list": return `🎞 shot list מהתסריט`;
     default: return `⚡ ${action.type}`;
   }
 }

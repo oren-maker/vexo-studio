@@ -611,6 +611,56 @@ export async function POST(req: NextRequest) {
       });
       resultUrl = `/episodes/${episodeId}`;
       resultText = `🗣️ רשמתי בקשה ל-dubbing (${language}). Status=REQUESTED.\nID: ${track.id}`;
+    } else if (action.type === "generate_shot_list") {
+      // Turns scene.scriptText into a structured shot list and stores it on
+      // the scene's memoryContext.shotList. Uses Gemini (same model as the
+      // chat) with a strict JSON output instruction. Non-destructive.
+      const sceneId = String(action.sceneId || "").trim() || (ctxKind === "scene" ? ctxId : null);
+      if (!sceneId) return NextResponse.json({ error: "sceneId חסר" }, { status: 400 });
+      const scene = await prisma.scene.findUnique({
+        where: { id: sceneId },
+        select: { id: true, sceneNumber: true, scriptText: true, memoryContext: true, episodeId: true, episode: { select: { seasonId: true } } },
+      });
+      if (!scene) return NextResponse.json({ error: "scene not found" }, { status: 404 });
+      if (!scene.scriptText || scene.scriptText.length < 50) return NextResponse.json({ error: "scriptText too short for shot-list generation" }, { status: 400 });
+
+      const prompt = `Break the following cinematic script into a JSON shot list. Each shot: { order: number, shotType: "wide"|"medium"|"closeup"|"ecu"|"over-the-shoulder"|"POV"|"insert", lensMm: number, movement: "static"|"pan"|"tilt"|"dolly"|"crane"|"handheld"|"zoom", subject: string, action: string, durationSec: number, notes?: string }. Return ONLY the JSON array (no markdown, no commentary). 4-10 shots per scene — match the script's coverage.
+
+Script:
+${scene.scriptText.slice(0, 3500)}`;
+
+      const key = process.env.GEMINI_API_KEY;
+      if (!key) return NextResponse.json({ error: "GEMINI_API_KEY missing" }, { status: 500 });
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3, responseMimeType: "application/json", maxOutputTokens: 4000 },
+          }),
+          signal: AbortSignal.timeout(45_000),
+        },
+      );
+      if (!r.ok) return NextResponse.json({ error: `gemini ${r.status}` }, { status: 502 });
+      const j: any = await r.json();
+      const raw = j.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "[]";
+      let shots: unknown[] = [];
+      try { shots = JSON.parse(raw); } catch { return NextResponse.json({ error: "gemini returned non-JSON shot list" }, { status: 502 }); }
+      if (!Array.isArray(shots) || shots.length === 0) return NextResponse.json({ error: "empty shot list" }, { status: 502 });
+
+      const mem = (scene.memoryContext as Record<string, unknown> | null) ?? {};
+      await prisma.scene.update({
+        where: { id: sceneId },
+        data: { memoryContext: { ...mem, shotList: shots, shotListGeneratedAt: new Date().toISOString() } as object },
+      });
+      await (prisma as any).sceneLog.create({
+        data: { sceneId, action: "shot_list_generated", actor: "ai:brain", actorName: "במאי AI", details: { shots: shots.length } },
+      }).catch(() => {});
+
+      resultUrl = scene.episode ? `/seasons/${scene.episode.seasonId}/episodes/${scene.episodeId}/scenes/${sceneId}` : null;
+      resultText = `🎞 חולצו ${shots.length} shots לסצנה ${scene.sceneNumber}. נשמר ב-memoryContext.shotList.`;
     } else if (action.type === "create_season") {
       // Create a new season inside an existing series. seriesId explicit or inferred.
       let seriesId = String(action.seriesId || "").trim();

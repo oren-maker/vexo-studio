@@ -7,6 +7,7 @@ import { Card } from "@/components/page-shell";
 import { useLang } from "@/lib/i18n";
 import SceneActivityLog from "@/components/scene-activity-log";
 import SceneLogButton from "@/components/scene-log-button";
+import { SceneVersionsDiff } from "@/components/scene-versions-diff";
 
 type Frame = { id: string; orderIndex: number; beatSummary: string | null; imagePrompt: string | null; status: string; generatedImageUrl: string | null; approvedImageUrl: string | null; cost?: number; model?: string; lastChargedAt?: string | null };
 type Comment = { id: string; body: string; resolved: boolean; createdAt: string; user: { id: string; fullName: string; email: string } };
@@ -517,6 +518,12 @@ export default function ScenePage() {
 
         <Card title={he ? "תסריט" : "Script"}>
           <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder={he ? "מספר: פעם אחת..." : "NARRATOR: Once upon a time…"} />
+          <details className="mt-3">
+            <summary className="text-xs text-accent cursor-pointer hover:underline">{he ? "▸ השווה לגרסה קודמת" : "▸ Compare to older version"}</summary>
+            <div className="mt-3">
+              <SceneVersionsDiff sceneId={scene.id} he={he} />
+            </div>
+          </details>
         </Card>
 
         <Card title={he ? "דף הבמאי · Director Sheet" : "Director Sheet"} subtitle={he ? "8 סעיפים שמוזנים לפרומפט של ייצור הוידאו" : "8 sections fed into the video generation prompt"}>
@@ -614,7 +621,7 @@ export default function ScenePage() {
                         <span>{m.durationSeconds ? `${m.durationSeconds}s` : ""}</span>
                         <span>{new Date(v.createdAt).toLocaleString()}</span>
                       </div>
-                      <div data-no-translate className="grid grid-cols-4 gap-1 mt-2">
+                      <div data-no-translate className="grid grid-cols-5 gap-1 mt-2">
                         {!isPrimary ? (
                           <button onClick={async () => {
                             try {
@@ -627,6 +634,17 @@ export default function ScenePage() {
                           <button onClick={() => setRemixModal({ assetId: v.id, model: m.model ?? "sora-2" })}
                             className="text-[11px] py-1.5 rounded-lg border-2 border-status-warnText text-status-warnText font-semibold text-center">✨ Remix</button>
                         ) : <div />}
+                        <button
+                          onClick={() => {
+                            // Re-render with SAME params as this video (model + duration + aspect).
+                            // Skips the modal so it's one click.
+                            if (m.model) setVeoModel(m.model as typeof veoModel);
+                            if (m.durationSeconds) setVeoDuration(m.durationSeconds);
+                            setTimeout(() => runVeo(), 60);
+                          }}
+                          title={he ? "ייצר שוב עם אותם פרמטרים" : "Re-render with same params"}
+                          className="text-[11px] py-1.5 rounded-lg border border-accent text-accent font-semibold text-center hover:bg-accent/10"
+                        >🔁 שוב</button>
                         <button onClick={async () => {
                           try {
                             const res = await fetch(v.fileUrl);

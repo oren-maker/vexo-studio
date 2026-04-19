@@ -61,6 +61,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       throw Object.assign(new Error(`storyboard status is ${scene.status}, expected STORYBOARD_APPROVED`), { statusCode: 409 });
     }
 
+    // Project-level style guide enforcement — blocks before spending $$ on
+    // generation that will get returned as policy violations downstream.
+    if (scene.scriptText) {
+      const { checkStyleGuide, loadStyleGuideForScene } = await import("@/lib/style-guide");
+      const guide = await loadStyleGuideForScene(scene.id);
+      const check = checkStyleGuide(scene.scriptText, guide, {
+        durationSec: body.durationSeconds,
+        aspectRatio: body.aspectRatio,
+      });
+      if (!check.ok) {
+        throw Object.assign(new Error(`style guide violation: ${check.violations.join("; ")}`), { statusCode: 422 });
+      }
+    }
+
     // Require Director Sheet before video generation — without it the prompt
     // is too generic and the result won't match expectations.
     const memCheck = (scene.memoryContext as { directorSheet?: Record<string, string> } | null) ?? {};

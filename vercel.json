@@ -5,6 +5,7 @@
     { "path": "/api/v1/cron/daily-learn", "schedule": "0 6 * * *" },
     { "path": "/api/v1/learn/cron/retention", "schedule": "0 4 * * *" },
     { "path": "/api/v1/learn/cron/insights-snapshot", "schedule": "0 * * * *" },
-    { "path": "/api/v1/learn/cron/brain-proposals", "schedule": "0 6 * * *" }
+    { "path": "/api/v1/learn/cron/brain-proposals", "schedule": "0 6 * * *" },
+    { "path": "/api/v1/learn/cron/brain-from-rejections", "schedule": "30 6 * * *" }
   ]
 }

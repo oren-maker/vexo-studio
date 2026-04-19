@@ -140,10 +140,43 @@ export function AiAssistant() {
   const [unread, setUnread] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
+  const [ttsOn, setTtsOn] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("vexo-brain-tts") === "1";
+  });
+  const lastSpokenIdRef = useRef<string | null>(null);
   const openRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recogRef = useRef<{ stop: () => void } | null>(null);
+
+  function toggleTTS() {
+    const next = !ttsOn;
+    setTtsOn(next);
+    if (typeof window !== "undefined") localStorage.setItem("vexo-brain-tts", next ? "1" : "0");
+    if (!next && typeof window !== "undefined") window.speechSynthesis?.cancel();
+  }
+
+  // Speak each new brain reply when TTS is on. Strips action blocks and
+  // citation syntax so the audio is narrative, not JSON.
+  useEffect(() => {
+    if (!ttsOn || typeof window === "undefined" || !window.speechSynthesis) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "director") return;
+    if (lastSpokenIdRef.current === last.id) return;
+    lastSpokenIdRef.current = last.id;
+    const clean = last.content
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/\/[a-z\/_-]+/g, "")
+      .trim();
+    if (!clean) return;
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = he ? "he-IL" : "en-US";
+    u.rate = 1.05;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  }, [messages, ttsOn, he]);
 
   function toggleVoice() {
     if (listening) { recogRef.current?.stop(); return; }
@@ -414,6 +447,14 @@ export function AiAssistant() {
                 className="flex-1 px-3 py-2 rounded-lg border border-bg-main text-sm resize-none"
                 disabled={busy}
               />
+              <button
+                type="button"
+                onClick={toggleTTS}
+                title={he ? (ttsOn ? "כבה הקראה קולית" : "הפעל הקראה קולית של הבמאי") : (ttsOn ? "Mute brain voice" : "Read brain replies aloud")}
+                className={`px-3 py-2 rounded-lg text-lg border ${ttsOn ? "bg-accent/20 text-accent border-accent" : "bg-bg-main text-text-muted border-bg-main hover:text-accent hover:border-accent"}`}
+              >
+                {ttsOn ? "🔊" : "🔇"}
+              </button>
               <button
                 type="button"
                 onClick={toggleVoice}

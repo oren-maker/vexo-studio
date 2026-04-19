@@ -12,6 +12,9 @@ export default {
     "/api/v1/scenes/[id]/approve": [
       "./node_modules/@ffmpeg-installer/**/*",
     ],
+    "/api/v1/episodes/[id]/recap": [
+      "./node_modules/@ffmpeg-installer/**/*",
+    ],
   },
   // FFmpeg.wasm needs SharedArrayBuffer → COOP/COEP only on the episode page.
   async headers() {

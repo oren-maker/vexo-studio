@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
-import { linkifyText } from "./learn/linkify";
+import { MarkdownInline } from "./learn/markdown-inline";
 
 type Citation = { id: string; title: string | null; score: number; url: string };
 type Message = { id: string; role: "user" | "director"; content: string; action?: { type: string; [k: string]: unknown } | null; citations?: Citation[] };
@@ -390,7 +390,7 @@ export function AiAssistant() {
                     >
                       {copiedId === m.id ? "✓" : "📋"}
                     </button>
-                    {m.role === "director" ? linkifyText(m.content) : m.content}
+                    {m.role === "director" ? <MarkdownInline text={m.content} /> : m.content}
                     {m.role === "director" && m.citations && m.citations.length > 0 && (
                       <CitationsBlock citations={m.citations} he={he} />
                     )}

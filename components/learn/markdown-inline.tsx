@@ -7,7 +7,7 @@ import React from "react";
 // Anything more (tables, links, nested) falls through as plain text so
 // we don't silently mangle prompt content.
 
-const INLINE_RX = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)/g;
+const INLINE_RX = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`|https?:\/\/[^\s<>"'`]+|\/(?:learn|seasons|characters|guides|admin|video|scenes|episodes|api|projects|series)\/[^\s<>"'`]*)/g;
 
 function renderInline(text: string, key: React.Key): React.ReactNode {
   const parts: React.ReactNode[] = [];
@@ -21,8 +21,18 @@ function renderInline(text: string, key: React.Key): React.ReactNode {
       parts.push(<strong key={`${key}-b-${m.index}`} className="font-bold text-inherit">{tok.slice(2, -2)}</strong>);
     } else if (tok.startsWith("`")) {
       parts.push(<code key={`${key}-c-${m.index}`} className="bg-slate-800 text-amber-300 px-1 rounded text-[0.9em] font-mono">{tok.slice(1, -1)}</code>);
-    } else {
+    } else if (tok.startsWith("*")) {
       parts.push(<em key={`${key}-i-${m.index}`} className="italic">{tok.slice(1, -1)}</em>);
+    } else if (tok.startsWith("http") || tok.startsWith("/")) {
+      // Strip trailing punctuation that isn't part of the URL (., ), etc.)
+      const trailing = tok.match(/[.,;:)]+$/);
+      const urlPart = trailing ? tok.slice(0, -trailing[0].length) : tok;
+      parts.push(
+        <a key={`${key}-u-${m.index}`} href={urlPart} target={urlPart.startsWith("http") ? "_blank" : undefined} rel={urlPart.startsWith("http") ? "noreferrer" : undefined} className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 break-all">{urlPart}</a>,
+      );
+      if (trailing) parts.push(trailing[0]);
+    } else {
+      parts.push(tok);
     }
     last = m.index + tok.length;
   }

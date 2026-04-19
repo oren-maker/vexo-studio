@@ -544,6 +544,20 @@ export default function ScenePage() {
         )}
 
         <Card title={he ? "תסריט" : "Script"}>
+          <div className="flex justify-end mb-2">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm(he ? "ליצור עותק של הסצנה הזו כ-DRAFT חדש בפרק?" : "Duplicate this scene as a new DRAFT in the episode?")) return;
+                try {
+                  const r = await api<{ url: string; sceneNumber: number }>(`/api/v1/scenes/${id}/duplicate`, { method: "POST" });
+                  window.location.href = r.url;
+                } catch (e) { alert((e as Error).message); }
+              }}
+              className="text-[11px] px-3 py-1 rounded-lg border border-bg-main text-text-muted hover:text-accent hover:border-accent"
+              title={he ? "שכפל סצנה — יוצר DRAFT עם אותו scriptText" : "Duplicate scene — creates DRAFT with same scriptText"}
+            >📋 {he ? "שכפל סצנה" : "Duplicate"}</button>
+          </div>
           <textarea defaultValue={scene.scriptText ?? ""} onBlur={(e) => saveScript(e.target.value)} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main font-mono text-sm" placeholder={he ? "מספר: פעם אחת..." : "NARRATOR: Once upon a time…"} />
           <details className="mt-3">
             <summary className="text-xs text-accent cursor-pointer hover:underline">{he ? "▸ השווה לגרסה קודמת" : "▸ Compare to older version"}</summary>

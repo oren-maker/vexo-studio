@@ -256,22 +256,52 @@ export default function EpisodePage() {
           {scenes.length === 0 ? (
             <div className="text-center py-8 text-text-muted">{he ? "אין סצנות עדיין" : "No scenes yet."}</div>
           ) : (
-            <ul className="space-y-1">
-              {scenes.map((s) => (
-                <li key={s.id}>
-                  <Link href={`/scenes/${s.id}`} className="flex justify-between items-center bg-bg-main rounded-lg p-3 hover:bg-bg-main/60">
-                    <div>
-                      <span data-no-translate className="font-mono text-xs text-text-muted">SC{String(s.sceneNumber).padStart(2, "0")}</span>
-                      <span className="ml-3 font-medium">{s.title ?? (he ? "ללא כותרת" : "Untitled")}</span>
-                    </div>
-                    <div className="flex gap-3 text-xs">
-                      <span className="px-2 py-0.5 rounded-full bg-bg-card text-text-secondary">{s.status}</span>
-                      <span className="num">${s.actualCost.toFixed(2)}</span>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <>
+              {scenes.filter((s) => s.status === "VIDEO_REVIEW").length >= 2 && (
+                <div className="mb-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                  <span className="text-xs text-amber-200 flex-1">{he ? `${scenes.filter((s) => s.status === "VIDEO_REVIEW").length} סצנות ממתינות לאישור` : `${scenes.filter((s) => s.status === "VIDEO_REVIEW").length} scenes awaiting review`}</span>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(he ? "לאשר את כל הסצנות ב-VIDEO_REVIEW?" : "Approve all VIDEO_REVIEW scenes?")) return;
+                      try {
+                        const r = await api<{ approved: number }>(`/api/v1/episodes/${id}/bulk-approve`, { method: "POST" });
+                        alert(he ? `✓ אושרו ${r.approved} סצנות` : `✓ approved ${r.approved} scenes`);
+                        load();
+                      } catch (e) { alert((e as Error).message); }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold"
+                  >
+                    ✓ {he ? "אשר את כולן" : "Approve all"}
+                  </button>
+                </div>
+              )}
+              <ul className="space-y-1">
+                {scenes.map((s) => {
+                  const statusColor = s.status === "APPROVED" || s.status === "LOCKED" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                    : s.status === "VIDEO_REVIEW" || s.status === "STORYBOARD_REVIEW" ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    : s.status === "VIDEO_GENERATING" || s.status === "STORYBOARD_GENERATING" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+                    : "bg-slate-700/40 text-slate-300 border-slate-700";
+                  const borderLeft = s.status === "APPROVED" || s.status === "LOCKED" ? "border-s-4 border-s-emerald-500"
+                    : s.status === "VIDEO_REVIEW" || s.status === "STORYBOARD_REVIEW" ? "border-s-4 border-s-amber-500"
+                    : s.status === "VIDEO_GENERATING" || s.status === "STORYBOARD_GENERATING" ? "border-s-4 border-s-cyan-500 animate-pulse"
+                    : "border-s-4 border-s-slate-700";
+                  return (
+                    <li key={s.id}>
+                      <Link href={`/scenes/${s.id}`} className={`flex justify-between items-center bg-bg-main rounded-lg p-3 hover:bg-bg-main/60 ${borderLeft}`}>
+                        <div>
+                          <span data-no-translate className="font-mono text-xs text-text-muted">SC{String(s.sceneNumber).padStart(2, "0")}</span>
+                          <span className="ml-3 font-medium">{s.title ?? (he ? "ללא כותרת" : "Untitled")}</span>
+                        </div>
+                        <div className="flex gap-3 text-xs items-center">
+                          <span className={`px-2 py-0.5 rounded-full border ${statusColor}`}>{s.status}</span>
+                          <span className="num">${s.actualCost.toFixed(2)}</span>
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </div>
       )}

@@ -149,6 +149,19 @@ function buildCommands(raw: string, currentPath: string, router: Router): Comman
   if (/tokens|טוקנים/.test(q)) add({ id: "nav-tokens", label: "💰 צריכת טוקנים", hint: "/learn/tokens", run: () => router.push("/learn/tokens") });
   if (/cost|עלות|עלויות/.test(q)) add({ id: "nav-costs", label: "💰 לוח עלויות", hint: "/learn/costs", run: () => router.push("/learn/costs") });
   if (/failed|נכשל|retry|רטריי/.test(q)) add({ id: "nav-failed", label: "💥 עבודות שנכשלו", hint: "/learn/failed-jobs", run: () => router.push("/learn/failed-jobs") });
+  if (/undo|בטל|חזור|לבטל/.test(q)) add({
+    id: "undo-last",
+    label: "⏪ בטל את הפעולה האחרונה",
+    hint: "POST /api/v1/learn/undo-last",
+    run: async () => {
+      try {
+        const res = await fetch("/api/v1/learn/undo-last", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ dryRun: false }) });
+        const j = await res.json();
+        if (j.undone) alert(`✓ בוטל: ${j.actionType} · ${j.detail}`);
+        else alert(`⚠ לא בוטל: ${j.reason ?? "unknown"}`);
+      } catch (e) { alert(`שגיאה: ${(e as Error).message}`); }
+    },
+  });
   if (/upgrade|שדרוג/.test(q)) add({ id: "nav-upgrades", label: "⬆️ שדרוגי מוח", hint: "/learn/brain/upgrades", run: () => router.push("/learn/brain/upgrades") });
   if (/project|פרויקט/.test(q) || q === "") add({ id: "nav-projects", label: "📁 פרויקטים", hint: "/projects", run: () => router.push("/projects") });
   if (/source|מקור|spring/.test(q)) add({ id: "nav-sources", label: "📥 מקורות", hint: "/learn/sources", run: () => router.push("/learn/sources") });

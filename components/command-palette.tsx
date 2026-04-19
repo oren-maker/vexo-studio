@@ -157,6 +157,7 @@ function buildCommands(raw: string, currentPath: string, router: Router): Comman
   if (/search|חיפוש|חפש/.test(q)) add({ id: "nav-search", label: "🔍 חיפוש גלובלי", hint: "/learn/search/all", run: () => router.push(`/learn/search/all?q=${encodeURIComponent(raw)}`) });
   if (/activity|פעילות|heatmap/.test(q)) add({ id: "nav-activity", label: "📅 פעילות (heatmap)", hint: "/learn/activity", run: () => router.push("/learn/activity") });
   if (/inspect|prompt|פרומפט|אינספ/.test(q)) add({ id: "nav-last-prompt", label: "🔎 System Prompt Inspector", hint: "/learn/brain/last-prompt", run: () => router.push("/learn/brain/last-prompt") });
+  if (/api|endpoint|תיעוד/.test(q)) add({ id: "nav-api-index", label: "📚 API Index", hint: "/learn/api-index", run: () => router.push("/learn/api-index") });
   if (/undo|בטל|חזור|לבטל/.test(q)) add({
     id: "undo-last",
     label: "⏪ בטל את הפעולה האחרונה",

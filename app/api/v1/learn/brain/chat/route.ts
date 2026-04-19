@@ -286,7 +286,7 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragB
 
 ⚠️ **\`type\` חייב להיות EXACTLY אחד מהשמות באנגלית למטה.** אסור עברית, אסור "כן"/"לא"/"בצע", אסור שם שהמצאת. אם אתה לא בטוח איזו פעולה צריך — אל תחזיר action בכלל ושאל את אורן.
 
-24 סוגי פעולות שאתה יכול לבצע:
+26 סוגי פעולות שאתה יכול לבצע:
 1. \`compose_prompt\` — יצירת **פרומפט וידאו** מתיאור/נושא.
    פרמטרים: \`brief\` (תיאור הנושא, חובה) · \`sceneId\` (אופציונלי — אם הפרומפט הוא לסצנה ספציפית בהפקה)
    📌 **כלל קריטי לעבודה על פרקים/סצנות:**
@@ -345,6 +345,12 @@ async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragB
 24. \`generate_shot_list\` — פירוק scriptText ל-shot list מובנה (4-10 shots, כל shot עם shotType/lensMm/movement/subject/action/durationSec/notes). Gemini מייצר JSON, נשמר ב-Scene.memoryContext.shotList. פרמטרים: \`sceneId\` (חובה — או מ-page context של scene). ה-scriptText חייב להיות ≥50 תווים.
     מתי להשתמש: כשאורן מבקש "תן לי shot list", "תפרק את הסצנה", "איך אני מצלם את זה".
     דוגמה: \`{"type":"generate_shot_list","sceneId":"<id>","confidence":0.85}\`
+25. \`generate_episode_thumbnail\` — nano-banana מחולל thumbnail key-art לפרק מ-3 summaries ראשונות + cast. פרמטרים: \`episodeId\` (חובה — או מ-page context).
+    מתי להשתמש: "תייצר thumbnail לפרק", "תמונת כריכה לפרק".
+    דוגמה: \`{"type":"generate_episode_thumbnail","episodeId":"<id>","confidence":0.9}\`
+26. \`generate_series_summary\` — Gemini אוסף את כל synopses הפרקים וכותב סיכום 3-פסקאות (logline + נושאים + קשת). שומר ב-Series.summary. פרמטרים: \`seriesId\` (חובה).
+    מתי להשתמש: "תכתוב לי סיכום של הסדרה", "מה היא הסדרה במילים של netflix".
+    דוגמה: \`{"type":"generate_series_summary","seriesId":"<id>","confidence":0.9}\`
 
 🎬 **זרימת עבודה לייצור אוטונומי של פרק שלם** (כש-אורן אומר "תייצר פרק חדש על X"):
 א. החזר \`create_episode\` עם title+synopsis. חכה לאישור.

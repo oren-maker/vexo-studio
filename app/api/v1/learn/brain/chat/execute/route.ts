@@ -611,6 +611,38 @@ export async function POST(req: NextRequest) {
       });
       resultUrl = `/episodes/${episodeId}`;
       resultText = `🗣️ רשמתי בקשה ל-dubbing (${language}). Status=REQUESTED.\nID: ${track.id}`;
+    } else if (action.type === "generate_episode_thumbnail") {
+      // Calls the dedicated episode thumbnail route so the same prompt-building
+      // logic stays in one place. Brain just provides the trigger.
+      const episodeId = String(action.episodeId || "").trim() || (ctxKind === "episode" ? ctxId : null);
+      if (!episodeId) return NextResponse.json({ error: "episodeId חסר" }, { status: 400 });
+      const proto = req.headers.get("x-forwarded-proto") ?? "https";
+      const host = req.headers.get("host");
+      const base = `${proto}://${host}`;
+      const r = await fetch(`${base}/api/v1/episodes/${episodeId}/generate-thumbnail`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: req.headers.get("cookie") ?? "" },
+        signal: AbortSignal.timeout(90_000),
+      });
+      const j: any = await r.json();
+      if (!r.ok) return NextResponse.json({ error: j?.error || `upstream ${r.status}` }, { status: 502 });
+      resultUrl = j.url ?? `/episodes/${episodeId}`;
+      resultText = `🖼 thumbnail נוצר לפרק (~$${(j.usdCost ?? 0).toFixed(3)}). ${j.url ?? ""}`;
+    } else if (action.type === "generate_series_summary") {
+      const seriesId = String(action.seriesId || "").trim();
+      if (!seriesId) return NextResponse.json({ error: "seriesId חסר — שלח במפורש" }, { status: 400 });
+      const proto = req.headers.get("x-forwarded-proto") ?? "https";
+      const host = req.headers.get("host");
+      const base = `${proto}://${host}`;
+      const r = await fetch(`${base}/api/v1/series/${seriesId}/auto-summary`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: req.headers.get("cookie") ?? "" },
+        signal: AbortSignal.timeout(60_000),
+      });
+      const j: any = await r.json();
+      if (!r.ok) return NextResponse.json({ error: j?.error || `upstream ${r.status}` }, { status: 502 });
+      resultUrl = `/series/${seriesId}`;
+      resultText = `📝 סיכום סדרה נכתב (${j.summaryLength ?? 0} תווים, ${j.episodeCount ?? 0} פרקים).\n\n${(j.summary ?? "").slice(0, 400)}...`;
     } else if (action.type === "generate_shot_list") {
       // Turns scene.scriptText into a structured shot list and stores it on
       // the scene's memoryContext.shotList. Uses Gemini (same model as the

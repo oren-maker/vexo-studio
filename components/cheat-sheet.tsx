@@ -28,6 +28,9 @@ const SECTIONS: Section[] = [
       { key: "generate_video", desc: "Sora 2 / VEO / Vidu / Seedance וכו'" },
       { key: "estimate_cost", desc: "dry-run לפני כל generation יקרה" },
       { key: "generate_character_portrait", desc: "nano-banana/imagen 4 ל-CharacterMedia" },
+      { key: "generate_episode_thumbnail", desc: "nano-banana key-art לפרק" },
+      { key: "generate_series_summary", desc: "סיכום 3-פסקאות לסדרה" },
+      { key: "generate_shot_list", desc: "מפרק scriptText ל-shot list JSON" },
     ],
   },
   {
@@ -75,6 +78,13 @@ const SECTIONS: Section[] = [
       { key: "/learn/inconsistencies", desc: "drift של דמויות + שמות חסרים" },
       { key: "/learn/brain/upgrades", desc: "שיפורים אוטומטיים מה-Rejection cron" },
       { key: "/api/v1/learn/insights/calibration", desc: "ECE (אחרי איסוף נתונים)" },
+      { key: "/learn/costs", desc: "לוח עלויות" },
+      { key: "/learn/failed-jobs", desc: "רטריי לעבודות שנכשלו" },
+      { key: "/learn/activity", desc: "heatmap פעילות" },
+      { key: "/learn/brain/last-prompt", desc: "System Prompt Inspector" },
+      { key: "/learn/presets", desc: "תבניות פרומפט" },
+      { key: "/learn/search/all", desc: "חיפוש גלובלי" },
+      { key: "/learn/api-index", desc: "מפת API" },
     ],
   },
 ];

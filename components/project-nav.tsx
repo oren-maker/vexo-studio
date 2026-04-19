@@ -82,6 +82,9 @@ export function ProjectNav({ projectId, activeEpisodeId, activeSceneId }: {
         <div className="text-[10px] uppercase tracking-widest text-sidebar-muted">{he ? "סדרה" : "Series"}</div>
         <div className="font-bold text-white text-sm truncate">{data?.project.name ?? "…"}</div>
       </Link>
+      <Link href={`/projects/${projectId}/dashboard`} className="block px-5 py-1.5 text-xs text-sidebar-text/80 hover:text-white hover:bg-white/5 border-b border-white/5">
+        📊 {he ? "דשבורד פרויקט" : "Project dashboard"}
+      </Link>
 
       {/* Seasons */}
       <nav className="py-2">

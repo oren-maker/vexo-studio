@@ -362,14 +362,32 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
                     : "bg-purple-500/10 border border-purple-500/30 text-slate-100"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => copyMessage(m.id, stripped)}
-                  title="העתק"
-                  className={`absolute top-1 ${m.role === "user" ? "left-1" : "right-1"} opacity-0 group-hover:opacity-100 transition-opacity rounded-md w-6 h-6 flex items-center justify-center text-[11px] bg-slate-900/60 hover:bg-amber-500/30 text-slate-300 hover:text-amber-200`}
-                >
-                  {copiedId === m.id ? "✓" : "📋"}
-                </button>
+                <div className={`absolute top-1 ${m.role === "user" ? "left-1" : "right-1"} opacity-0 group-hover:opacity-100 transition-opacity flex gap-1`}>
+                  {m.role === "brain" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof window === "undefined" || !window.speechSynthesis) return;
+                        const clean = stripped.replace(/```[\s\S]*?```/g, "").replace(/https?:\/\/\S+/g, "").replace(/\/[a-z\/_-]+/g, "").trim();
+                        if (!clean) return;
+                        window.speechSynthesis.cancel();
+                        const u = new SpeechSynthesisUtterance(clean);
+                        u.lang = "he-IL"; u.rate = 1.05;
+                        window.speechSynthesis.speak(u);
+                      }}
+                      title="השמע הודעה"
+                      className="rounded-md w-6 h-6 flex items-center justify-center text-[11px] bg-slate-900/60 hover:bg-cyan-500/30 text-slate-300 hover:text-cyan-200"
+                    >🔊</button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => copyMessage(m.id, stripped)}
+                    title="העתק"
+                    className="rounded-md w-6 h-6 flex items-center justify-center text-[11px] bg-slate-900/60 hover:bg-amber-500/30 text-slate-300 hover:text-amber-200"
+                  >
+                    {copiedId === m.id ? "✓" : "📋"}
+                  </button>
+                </div>
                 <div className="text-[10px] uppercase mb-1 opacity-60">
                   {m.role === "user" ? "את/ה" : "🧠 המוח"}
                 </div>

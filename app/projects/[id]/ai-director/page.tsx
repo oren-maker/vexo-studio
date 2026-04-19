@@ -25,8 +25,8 @@ export default function AIDirectorPage() {
   const [logs, setLogs] = useState<Log[]>([]);
 
   async function load() {
-    setDirector(await api(`/api/v1/projects/${id}/ai-director`));
-    setLogs(await api(`/api/v1/projects/${id}/ai-logs`).catch(() => []));
+    setDirector(await api<Director>(`/api/v1/projects/${id}/ai-director`));
+    setLogs(await api<Log[]>(`/api/v1/projects/${id}/ai-logs`).catch(() => []));
   }
   useEffect(() => { load(); }, [id]);
 

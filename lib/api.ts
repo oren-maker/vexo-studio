@@ -35,7 +35,7 @@ export function setCurrentOrgId(orgId: string | null) {
   else document.cookie = `vexo_org=; path=/; max-age=0`;
 }
 
-export async function api<T = unknown>(path: string, opts: RequestInit & { body?: unknown } = {}): Promise<T> {
+export async function api<T = unknown>(path: string, opts: Omit<RequestInit, "body"> & { body?: unknown } = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(opts.headers as Record<string, string> ?? {}),

@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       summarizedAt: null,
     },
     include: {
-      messages: { orderBy: { createdAt: "asc" }, select: { id: true, content: true, role: true } },
+      messages: { orderBy: { createdAt: "asc" }, select: { id: true, content: true, role: true, createdAt: true } },
     },
     take: 50, // bounded per run
   });

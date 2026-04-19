@@ -1254,6 +1254,7 @@ model CostEntry {
   totalCost       Float
   sourceType      String
   createdByUserId String?
+  meta            Json? // extra details (tokens, source breakdown, error notes) — consumed by finance/text-ai-usage
   createdAt       DateTime @default(now())
 
   project Project? @relation(fields: [projectId], references: [id])

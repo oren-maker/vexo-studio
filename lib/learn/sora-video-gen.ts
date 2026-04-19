@@ -171,14 +171,13 @@ export async function runSoraGeneration(videoId: string, prompt: string): Promis
       outputTokens: 0,
       imagesOut: 0,
       sourceId: row.sourceId,
-      meta: { engine: "openai-sora", seconds, size, byteSize: bytes.length },
-      usdCost,
+      meta: { engine: "openai-sora", seconds, size, byteSize: bytes.length, usdCost },
     });
   } catch (e: any) {
     await updateProgress(videoId, {
       status: "failed",
       progressPct: 0,
-      progressMessage: null,
+      progressMessage: undefined,
       error: String(e?.message || e).slice(0, 500),
     });
     await logUsage({

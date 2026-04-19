@@ -60,7 +60,6 @@ export default function EnrichGuidesPage() {
       if (abortRef.current) break;
       const it = list[i];
       if (it.status === "done") continue;
-      if (skipEnriched && it.status === "done") continue;
       setCurrentIdx(i);
       setItems((prev) => prev.map((p, k) => (k === i ? { ...p, status: "running" } : p)));
       const t0 = Date.now();

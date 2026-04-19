@@ -6,7 +6,7 @@ const ENFORCE_2FA_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
 
 export type AuthContext = {
   user: {
-    id: string; email: string; totpEnabled: boolean;
+    id: string; email: string; fullName: string | null; totpEnabled: boolean;
     memberships: Array<{ organizationId: string; roleName: string; permissions: Set<string>; isOwner: boolean }>;
   };
   organizationId: string;
@@ -33,6 +33,7 @@ export async function loadUserContext(userId: string): Promise<AuthContext["user
   return {
     id: u.id,
     email: u.email,
+    fullName: u.fullName,
     totpEnabled: u.totpEnabled,
     memberships: u.organizations.map((m) => ({
       organizationId: m.organizationId,
@@ -54,7 +55,7 @@ async function tryApiKeyAuth(req: NextRequest): Promise<AuthContext | null> {
   await prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } });
   return {
     user: {
-      id: key.createdByUserId, email: "api-key", totpEnabled: true,
+      id: key.createdByUserId, email: "api-key", fullName: null, totpEnabled: true,
       memberships: [{ organizationId: key.organizationId, roleName: "API_KEY", permissions: new Set(key.scopes as string[]), isOwner: false }],
     },
     organizationId: key.organizationId,

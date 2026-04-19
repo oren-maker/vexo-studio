@@ -375,7 +375,7 @@ The video begins directly with the required opening title card (if this is scene
     const webhookUrl = `${baseUrl}/api/v1/webhooks/incoming/fal?sceneId=${scene.id}&duration=${duration}&model=${body.videoModel ?? "veo3-fast"}`;
 
     const modelKey = body.videoModel ?? "veo3-fast";
-    const isSora = modelKey === "sora-2" || modelKey === "sora-2-pro";
+    const isSora = modelKey === "sora-2";
     const isGoogleVeo = modelKey.startsWith("google-veo-");
     const isHiggs = modelKey === "higgsfield" || modelKey.startsWith("higgs-");
     const isFal = !isSora && !isGoogleVeo && !isHiggs;
@@ -485,7 +485,6 @@ The video begins directly with the required opening title card (if this is scene
       } else if (isHiggs) {
         const higgsModel = modelKey === "higgs-seedance" ? "bytedance/seedance/v1.5/pro/text-to-video"
           : modelKey === "higgs-kling" ? "kling-video/v3.0/pro/text-to-video"
-          : modelKey === "higgs-sora" ? "sora-2/text-to-video"
           : modelKey === "higgs-wan" ? "wan-ai/wan/v2.5/text-to-video"
           : modelKey === "higgsfield" ? "higgsfield-ai/soul/standard"
           : "higgsfield-ai/dop/standard";

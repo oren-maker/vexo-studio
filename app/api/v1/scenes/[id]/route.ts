@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // register it as an Asset (same table the fal webhook writes to) so the
     // UI renders it identically to fal-generated videos.
     const memRaw = (scene.memoryContext as Record<string, unknown> | null) ?? {};
-    const pending = memRaw.pendingVideoJob as undefined | { provider: "openai" | "google" | "higgsfield"; jobId: string; model: string; durationSeconds: number; submittedAt?: string };
+    const pending = memRaw.pendingVideoJob as undefined | { provider: "openai" | "google" | "higgsfield"; jobId: string; model: string; durationSeconds: number; submittedAt?: string; kind?: string; sourceAssetId?: string };
     let videoProgress: number | null = null; // 0-100 real progress from API
     if (pending?.jobId) {
       try {
@@ -123,6 +123,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       } catch (e) { console.warn("[scene-poll]", (e as Error).message); }
     }
 
+    if (!scene) return ok(null);
     const frameIds = scene.frames.map((f) => f.id);
     const mem = (scene.memoryContext as { characters?: string[] } | null) ?? {};
     const names = (mem.characters ?? []).map((n) => n.toLowerCase().trim());

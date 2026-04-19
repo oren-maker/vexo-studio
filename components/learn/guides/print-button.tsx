@@ -38,9 +38,9 @@ export default function PrintButton({ slug, title }: { slug: string; title: stri
             unit: "mm",
             format: "a4",
             orientation: "portrait",
-            compress: true,
           },
-          pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+          // html2pdf.js supports pagebreak at runtime but types are stale; cast.
+          ...({ pagebreak: { mode: ["avoid-all", "css", "legacy"] } } as object),
         })
         .save();
 

@@ -67,8 +67,8 @@ export default function EpisodePage() {
   async function load() {
     const e: Episode = await api(`/api/v1/episodes/${id}`);
     setEp(e);
-    setScenes(await api(`/api/v1/episodes/${id}/scenes`));
-    setCosts(await api(`/api/v1/episodes/${id}/costs`).catch(() => null));
+    setScenes(await api<Scene[]>(`/api/v1/episodes/${id}/scenes`));
+    setCosts(await api<{ total: number; breakdown: { episode: number; scenes: number; frames: number; characterMedia: number }; byCategory: Record<string, number> } | null>(`/api/v1/episodes/${id}/costs`).catch(() => null));
     if (e?.seasonId) {
       const list = await api<Array<{ id: string; episodeNumber: number; title: string | null }>>(
         `/api/v1/seasons/${e.seasonId}/episodes`

@@ -238,9 +238,9 @@ export const FAL_PRICING_USD = {
   // Vidu Q1 Reference-to-Video: ~$0.40 per 5s clip → ~$0.08 per second
   "vidu-q1":   { perSecond: 0.08 },
 
-  // Text — Gemini 2.5 Flash via fal-ai/any-llm. Per 1M tokens (passthrough).
+  // Text — Gemini via fal-ai/any-llm. Per 1M tokens (passthrough).
   "gemini-3-flash-preview": { perMillionInput: 0.075, perMillionOutput: 0.30 },
-  "gemini-3-flash-preview":   { perMillionInput: 1.25,  perMillionOutput: 10.00 },
+  "gemini-2.5-pro":         { perMillionInput: 1.25,  perMillionOutput: 10.00 },
 } as const;
 
 // ---------------------------------------------------------------------------

@@ -175,7 +175,7 @@ export default function ScenePage() {
           clearInterval(tick); clearInterval(poll);
           setTimeout(() => { window.location.reload(); }, 1200);
         } else {
-          setScene((prev) => prev ? { ...prev, videos: fresh.videos ?? prev.videos } : prev);
+          setScene((prev) => prev ? { ...prev, videos: (fresh.videos as SceneVideo[] | undefined) ?? prev.videos } : prev);
         }
       } catch { /* ignore transient poll errors */ }
     }, 5000);
@@ -360,7 +360,7 @@ export default function ScenePage() {
                   {scene.status !== "APPROVED" && <span className="opacity-0 group-hover:opacity-50 text-base ms-2">✎</span>}
                   {scene.status === "APPROVED" && <span className="text-base ms-2">🔒</span>}
                 </h1>
-                <SceneLogButton sceneId={scene.id} preloaded={scene.activityLogs} />
+                <SceneLogButton sceneId={scene.id} preloaded={(scene as Scene & { activityLogs?: unknown[] }).activityLogs as Parameters<typeof SceneLogButton>[0]["preloaded"]} />
               </div>
             )}
             {editSummary && scene.status !== "APPROVED" ? (

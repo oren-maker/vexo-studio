@@ -359,7 +359,7 @@ export default function SeasonPage() {
 
   async function episodeFeedback(epId: string) {
     setEpFeedback({ episodeId: epId, data: null as any });
-    const r = await api<typeof epFeedback["data"]>(`/api/v1/episodes/${epId}/director-feedback`, { method: "POST" }).catch((e) => { alert((e as Error).message); return null; });
+    const r = await api<NonNullable<typeof epFeedback>["data"]>(`/api/v1/episodes/${epId}/director-feedback`, { method: "POST" }).catch((e) => { alert((e as Error).message); return null; });
     if (r) setEpFeedback({ episodeId: epId, data: r });
     else setEpFeedback(null);
   }
@@ -367,7 +367,7 @@ export default function SeasonPage() {
   const [applying, setApplying] = useState<string | null>(null); // episode id being applied
   const [applyAllBusy, setApplyAllBusy] = useState(false);
 
-  async function applyToEpisode(epId: string, fb?: typeof epFeedback["data"]) {
+  async function applyToEpisode(epId: string, fb?: NonNullable<typeof epFeedback>["data"]) {
     setApplying(epId);
     try {
       const r = await api<{ scenesRewritten: number; scenesTotal: number; episodeTitle: string }>(`/api/v1/episodes/${epId}/apply-feedback`, {

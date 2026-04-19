@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 export default {
   reactStrictMode: true,
-  typescript: { ignoreBuildErrors: true },
+  typescript: { ignoreBuildErrors: false },
   eslint: { ignoreDuringBuilds: true },
   experimental: { serverComponentsExternalPackages: ["@prisma/client", "@ffmpeg-installer/ffmpeg"] },
   // Vercel's function bundler strips "unused" binaries from node_modules —

@@ -47,6 +47,31 @@ export default function ScenePage() {
   }
   useEffect(() => { load(); }, [id]);
 
+  // j / k keyboard navigation between scenes within the same episode.
+  // Fetches the sibling list once and caches it; ignored when the user
+  // is in a text field so typing "j"/"k" in the script textarea doesn't
+  // teleport the page away.
+  useEffect(() => {
+    if (!scene?.episodeId) return;
+    let siblings: { id: string; sceneNumber: number }[] = [];
+    let cancelled = false;
+    api<{ id: string; sceneNumber: number }[]>(`/api/v1/episodes/${scene.episodeId}/scenes`)
+      .then((rows) => { if (!cancelled) siblings = rows.sort((a, b) => a.sceneNumber - b.sceneNumber); })
+      .catch(() => { /* ignore */ });
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (t?.tagName === "INPUT" || t?.tagName === "TEXTAREA" || t?.isContentEditable) return;
+      if (e.key !== "j" && e.key !== "k") return;
+      if (siblings.length === 0) return;
+      const idx = siblings.findIndex((s) => s.id === id);
+      if (idx < 0) return;
+      const next = e.key === "j" ? siblings[idx + 1] : siblings[idx - 1];
+      if (next) { e.preventDefault(); window.location.href = `/scenes/${next.id}`; }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => { cancelled = true; window.removeEventListener("keydown", onKey); };
+  }, [scene?.episodeId, id]);
+
   const [lightbox, setLightbox] = useState<{ index: number } | null>(null);
   const [bridgeLightbox, setBridgeLightbox] = useState<{ urls: string[]; index: number } | null>(null);
 

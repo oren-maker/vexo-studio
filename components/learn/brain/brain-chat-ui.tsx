@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { adminHeaders } from "@/lib/learn/admin-key";
 
 import { SceneMentionThumbnails } from "@/components/scene-mention-thumbnails";
+import { MarkdownInline } from "@/components/learn/markdown-inline";
 
 type Citation = { id: string; title: string | null; score: number; url: string };
 type Message = { id: string; role: "user" | "brain"; content: string; createdAt?: string; citations?: Citation[] };
@@ -372,7 +373,7 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
                 <div className="text-[10px] uppercase mb-1 opacity-60">
                   {m.role === "user" ? "את/ה" : "🧠 המוח"}
                 </div>
-                {stripped}
+                {m.role === "brain" ? <MarkdownInline text={stripped} /> : stripped}
                 {m.role === "brain" && <SceneMentionThumbnails content={stripped} />}
                 {m.role === "brain" && m.citations && m.citations.length > 0 && (
                   <CitationsBlock citations={m.citations} />

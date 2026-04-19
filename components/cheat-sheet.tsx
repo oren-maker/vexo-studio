@@ -19,6 +19,7 @@ const SECTIONS: Section[] = [
       { key: "Esc", desc: "סוגר palette/צ'אט/מודאל" },
       { key: "↑", desc: "בתיבת הצ'אט הריקה — טוען את ההודעה האחרונה" },
       { key: "Enter", desc: "שליחה · Shift+Enter שורה חדשה" },
+      { key: "j / k", desc: "בעמוד סצנה — הסצנה הבאה/קודמת באותו פרק" },
     ],
   },
   {

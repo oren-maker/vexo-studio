@@ -56,7 +56,29 @@ export default function SeriesPage() {
           <h1 className="text-3xl font-bold">{series.title}</h1>
           <SeriesLogButton seriesId={series.id} />
         </div>
-        {series.summary && <p className="text-text-secondary mt-1">{series.summary}</p>}
+        {series.summary ? (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-sm text-text-muted hover:text-accent">
+              📝 סיכום עלילתי ({series.summary.length} תווים) · לחץ להרחבה
+            </summary>
+            <div className="mt-2 p-3 bg-bg-card rounded-lg border border-bg-main text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+              {series.summary}
+            </div>
+          </details>
+        ) : (
+          <button
+            onClick={async () => {
+              if (!confirm("Gemini יכתוב סיכום 3-פסקאות מהפרקים. עלות ~$0.02. להמשיך?")) return;
+              try {
+                await api(`/api/v1/series/${id}/auto-summary`, { method: "POST" });
+                window.location.reload();
+              } catch (e) { alert((e as Error).message); }
+            }}
+            className="mt-1 text-sm text-accent hover:underline"
+          >
+            ✨ ייצר סיכום עלילתי אוטומטי
+          </button>
+        )}
       </div>
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-bg-card rounded-card border border-bg-main p-4"><div className="text-xs text-text-muted uppercase">Cost</div><div className="num text-2xl font-bold" style={{ color: "#e03a4e" }}>${series.actualCost.toFixed(2)}</div></div>

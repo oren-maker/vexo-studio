@@ -48,7 +48,21 @@ const groups = [
     icon: "⚙️",
     items: [
       { href: "/learn/tokens", label: "Tokens", icon: "💰" },
+      { href: "/learn/costs", label: "לוח עלויות", icon: "📊" },
+      { href: "/learn/failed-jobs", label: "עבודות שנכשלו", icon: "💥" },
       { href: "/learn/logs", label: "לוגים", icon: "📂" },
+    ],
+  },
+  {
+    title: "תובנות נוספות",
+    icon: "📈",
+    items: [
+      { href: "/learn/activity", label: "Heatmap פעילות", icon: "📅" },
+      { href: "/learn/inconsistencies", label: "אי-עקביות", icon: "🔍" },
+      { href: "/learn/brain/last-prompt", label: "Prompt Inspector", icon: "🔎" },
+      { href: "/learn/presets", label: "תבניות פרומפט", icon: "📚" },
+      { href: "/learn/search/all", label: "חיפוש גלובלי", icon: "🔍" },
+      { href: "/learn/api-index", label: "API Index", icon: "🧩" },
     ],
   },
 ];

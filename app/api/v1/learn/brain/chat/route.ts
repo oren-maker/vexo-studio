@@ -62,20 +62,48 @@ type PageCtx = { path?: string; title?: string; kind?: string | null; id?: strin
 // in his vault. Useful when he wants thinking-partner mode, not an
 // auto-executing director.
 async function buildObsidianSystemPrompt(currentMessage?: string): Promise<string> {
-  const notes = await prisma.learnSource.findMany({
-    where: { type: "obsidian", status: "complete" },
-    select: { id: true, title: true, prompt: true, embedding: true, lineageNotes: true },
-    take: 500,
-  });
+  // Obsidian brain has READ-ONLY access to the full production knowledge
+  // (same tables Vexo reads) PLUS Oren's personal Obsidian notes. The
+  // differentiator vs Vexo is: no actions, no mutations, quote-centric
+  // "second reader" voice — not an executor.
+  const [notes, series, characters, references, latestCache] = await Promise.all([
+    prisma.learnSource.findMany({
+      where: { type: "obsidian", status: "complete" },
+      select: { id: true, title: true, prompt: true, embedding: true },
+      take: 500,
+    }),
+    prisma.series.findMany({
+      include: {
+        seasons: {
+          orderBy: { seasonNumber: "asc" },
+          include: {
+            episodes: {
+              orderBy: { episodeNumber: "asc" },
+              select: { id: true, episodeNumber: true, title: true, synopsis: true, status: true, scenes: { select: { id: true, sceneNumber: true, title: true, summary: true, status: true }, orderBy: { sceneNumber: "asc" } } },
+            },
+          },
+        },
+      },
+    }),
+    prisma.character.findMany({
+      select: { id: true, name: true, roleType: true, gender: true, ageRange: true, appearance: true, personality: true, project: { select: { name: true } } },
+      take: 50,
+    }),
+    prisma.brainReference.findMany({
+      where: { validTo: null },
+      select: { id: true, kind: true, name: true, shortDesc: true },
+      orderBy: [{ kind: "asc" }, { order: "asc" }],
+    }),
+    prisma.dailyBrainCache.findFirst({ orderBy: { date: "desc" } }),
+  ]);
 
-  // Retrieve the most relevant notes for the current message. If there's no
-  // message yet (e.g. chat just opened), just take the 8 most recent.
-  let top: typeof notes = [];
-  if (currentMessage && currentMessage.trim().length >= 6) {
+  // Semantic scoring over Obsidian personal notes only; other entities are listed by summary.
+  let topNotes: typeof notes = [];
+  if (currentMessage && currentMessage.trim().length >= 6 && notes.length > 0) {
     try {
       const { embedText, cosineSim } = await import("@/lib/learn/gemini-embeddings");
       const qv = await embedText(currentMessage);
-      top = [...notes]
+      topNotes = [...notes]
         .map((n) => ({ n, score: cosineSim(qv, n.embedding) }))
         .filter((x) => x.score > 0.3)
         .sort((a, b) => b.score - a.score)
@@ -83,28 +111,64 @@ async function buildObsidianSystemPrompt(currentMessage?: string): Promise<strin
         .map((x) => x.n);
     } catch { /* fall through to recency */ }
   }
-  if (top.length === 0) top = notes.slice(0, 8);
+  if (topNotes.length === 0) topNotes = notes.slice(0, 8);
 
-  const notesBlock = top.length === 0
-    ? "(אין עדיין פתקים ב-Obsidian — הוסף פתקים ל-vault, הרץ `npm run sync:obsidian`.)"
-    : top.map((n, i) => `${i + 1}. "${n.title ?? "ללא כותרת"}"\n   ${n.prompt.slice(0, 600).replace(/\s+/g, " ")}${n.prompt.length > 600 ? "..." : ""}`).join("\n\n");
+  const notesBlock = topNotes.length === 0
+    ? "(אין עדיין פתקים אישיים ב-Obsidian root)"
+    : topNotes.map((n, i) => `${i + 1}. "${n.title ?? "ללא כותרת"}"\n   ${n.prompt.slice(0, 500).replace(/\s+/g, " ")}${n.prompt.length > 500 ? "..." : ""}`).join("\n\n");
 
-  return `אתה "מוח Obsidian" — פרסונה שנייה של המערכת.
+  const seriesBlock = series.length === 0 ? "(אין סדרות עדיין)" : series.map((sr) => {
+    const eps = sr.seasons.flatMap((se) => se.episodes.map((e) => `S${se.seasonNumber}E${e.episodeNumber} "${e.title}" · ${e.status}${e.synopsis ? ` — ${e.synopsis.slice(0, 120)}` : ""}`)).join("\n  ");
+    return `• "${sr.title}"${sr.genre ? ` (${sr.genre})` : ""}${sr.summary ? `\n  ${sr.summary.slice(0, 200)}` : ""}${eps ? `\n  ${eps}` : ""}`;
+  }).join("\n\n");
 
+  const sceneList = series.flatMap((sr) => sr.seasons.flatMap((se) => se.episodes.flatMap((e) => e.scenes.map((sc) => ({ sr: sr.title, se: se.seasonNumber, ep: e.episodeNumber, sc })))));
+  const scenesBlock = sceneList.length === 0 ? "(אין סצנות)" : sceneList.slice(0, 40).map((row) => `• ${row.sr} S${row.se}E${row.ep}SC${row.sc.sceneNumber}${row.sc.title ? ` "${row.sc.title}"` : ""} · ${row.sc.status}${row.sc.summary ? `\n  ${row.sc.summary.slice(0, 150)}` : ""}`).join("\n");
+
+  const charsBlock = characters.length === 0 ? "(אין דמויות)" : characters.map((c) => `• ${c.name}${c.roleType ? ` (${c.roleType})` : ""}${c.gender ? ` · ${c.gender}` : ""}${c.ageRange ? ` · ${c.ageRange}` : ""}${c.appearance ? `\n  מראה: ${c.appearance.slice(0, 150)}` : ""}${c.personality ? `\n  אישיות: ${c.personality.slice(0, 150)}` : ""}`).join("\n\n");
+
+  const refsByKind: Record<string, typeof references> = {};
+  for (const r of references) { (refsByKind[r.kind] ??= []).push(r); }
+  const refsBlock = Object.entries(refsByKind).map(([kind, list]) => `${kind}:\n${list.map((r) => `  • ${r.name}: ${r.shortDesc}`).join("\n")}`).join("\n\n");
+
+  const identity = latestCache?.identity ? `\n**זהות מוח היום (${latestCache.date.toISOString().slice(0, 10)}):** ${latestCache.identity.slice(0, 400)}\n` : "";
+
+  return `אתה "מוח Obsidian" — פרסונת קריאה שנייה במערכת vexo-studio.
+${identity}
 **מה אתה:**
-- אתה קורא **אך ורק** את הפתקים שאורן כתב ב-Obsidian vault שלו. אין לך גישה לסדרות, לסצנות, לדמויות, ל-BrainReferences, ל-consciousness, ל-page context.
-- אתה שותף חשיבה, לא במאי מבצע. אין לך actions (compose_prompt, generate_video, וכו').
-- אם אורן שואל לעשות משהו (לייצר פרומפט/וידאו/לעדכן סצנה) — הפנה אותו למוח Vexo (הכפתור 🎬 בפינה).
+- יש לך **גישת קריאה מלאה** לכל הידע במערכת: הסדרות, הסצנות, הדמויות, BrainReferences, ותודעת המוח היומית.
+- **אין לך יכולת לבצע פעולות** — אתה לא יכול ליצור/לעדכן/למחוק. אין לך compose_prompt, generate_video, update_scene או שום action אחר.
+- אתה שותף חשיבה / עין שנייה על המידע — לא במאי מבצע.
+- אם אורן שואל לעשות משהו שדורש ביצוע — הפנה אותו למוח Vexo (הכפתור 🎬 למעלה).
 
-**מה יש לך:**
+━━━━━━━━━━━━━━━━━━━━
+📓 **הפתקים האישיים של אורן (מ-Obsidian vault):**
 ${notesBlock}
 
+━━━━━━━━━━━━━━━━━━━━
+🎬 **הסדרות:**
+${seriesBlock}
+
+━━━━━━━━━━━━━━━━━━━━
+🎞 **סצנות (עד 40 אחרונות):**
+${scenesBlock}
+
+━━━━━━━━━━━━━━━━━━━━
+🎭 **דמויות:**
+${charsBlock}
+
+━━━━━━━━━━━━━━━━━━━━
+📖 **BrainReferences (אוצר מילים מקצועי):**
+${refsBlock || "(אין refs)"}
+
+━━━━━━━━━━━━━━━━━━━━
+
 **כיצד לענות:**
-- ענה רק מתוך הפתקים למעלה. אם אין בהם תשובה — אמור במפורש "אין בפתקים שלך מידע על זה".
-- תמיד ציין איזה פתק ממנו הבאת מידע (שם הפתק במרכאות).
-- עברית, גוף ראשון.
-- קצר ופרקטי (2-4 משפטים). אין action blocks, אין URLs מומצאים.
-- אתה יכול להציע לאורן לכתוב פתק חדש אם חסר מידע שחשוב לו לזכור.`;
+- ענה מתוך המידע למעלה. כשאתה מצטט מקור — ציין באיזה פתק/סצנה/דמות השתמשת.
+- כשאין מידע — אמור "אין מידע על זה" במקום להמציא.
+- עברית, גוף ראשון, 2-5 משפטים.
+- **אין action blocks ואין הצעות ביצוע**. השאר את זה ל-Vexo.
+- אתה יכול להציע לאורן לכתוב פתק אישי אם יש תובנה שחשוב לשמר.`;
 }
 
 async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragBlock = ""): Promise<string> {

@@ -2,7 +2,7 @@
 import { learnFetch } from "@/lib/learn/fetch";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { adminHeaders } from "@/lib/learn/admin-key";
 
@@ -213,10 +213,28 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
   const [executingStages, setExecutingStages] = useState<string[]>([]);
   const [executed, setExecuted] = useState<Record<string, { text: string; url: string | null }>>({});
   const [pendingUpgrades, setPendingUpgrades] = useState(0);
+  const searchParams = useSearchParams();
   const [brainMode, setBrainMode] = useState<"vexo" | "obsidian">(() => {
-    if (typeof window === "undefined") return "vexo";
-    return (localStorage.getItem("vexo-brain-mode") as "vexo" | "obsidian") || "vexo";
+    // URL param wins (shareable links): ?mode=obsidian / ?mode=vexo
+    if (typeof window !== "undefined") {
+      const urlMode = new URLSearchParams(window.location.search).get("mode");
+      if (urlMode === "obsidian" || urlMode === "vexo") return urlMode;
+      return (localStorage.getItem("vexo-brain-mode") as "vexo" | "obsidian") || "vexo";
+    }
+    return "vexo";
   });
+  // If URL carries a mode, fresh-start in a new chat so we don't inherit the old mode's context
+  useEffect(() => {
+    const urlMode = searchParams?.get("mode");
+    if ((urlMode === "obsidian" || urlMode === "vexo") && urlMode !== brainMode) {
+      setBrainMode(urlMode);
+      if (typeof window !== "undefined") {
+        setChatId(undefined);
+        setMessages([]);
+      }
+    }
+
+  }, [searchParams]);
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("vexo-brain-mode", brainMode);
   }, [brainMode]);

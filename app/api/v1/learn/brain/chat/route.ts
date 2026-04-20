@@ -56,6 +56,57 @@ async function callGeminiWithFallback(system: string, history: any[]): Promise<{
 
 type PageCtx = { path?: string; title?: string; kind?: string | null; id?: string | null; label?: string } | null | undefined;
 
+// Second brain — Obsidian-only. Lean prompt that leaves out production data,
+// BrainReferences, Consciousness, page-context, and the 26-action toolbox.
+// It's a "personal notes assistant" whose entire world is what Oren wrote
+// in his vault. Useful when he wants thinking-partner mode, not an
+// auto-executing director.
+async function buildObsidianSystemPrompt(currentMessage?: string): Promise<string> {
+  const notes = await prisma.learnSource.findMany({
+    where: { type: "obsidian", status: "complete" },
+    select: { id: true, title: true, prompt: true, embedding: true, lineageNotes: true },
+    take: 500,
+  });
+
+  // Retrieve the most relevant notes for the current message. If there's no
+  // message yet (e.g. chat just opened), just take the 8 most recent.
+  let top: typeof notes = [];
+  if (currentMessage && currentMessage.trim().length >= 6) {
+    try {
+      const { embedText, cosineSim } = await import("@/lib/learn/gemini-embeddings");
+      const qv = await embedText(currentMessage);
+      top = [...notes]
+        .map((n) => ({ n, score: cosineSim(qv, n.embedding) }))
+        .filter((x) => x.score > 0.3)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10)
+        .map((x) => x.n);
+    } catch { /* fall through to recency */ }
+  }
+  if (top.length === 0) top = notes.slice(0, 8);
+
+  const notesBlock = top.length === 0
+    ? "(אין עדיין פתקים ב-Obsidian — הוסף פתקים ל-vault, הרץ `npm run sync:obsidian`.)"
+    : top.map((n, i) => `${i + 1}. "${n.title ?? "ללא כותרת"}"\n   ${n.prompt.slice(0, 600).replace(/\s+/g, " ")}${n.prompt.length > 600 ? "..." : ""}`).join("\n\n");
+
+  return `אתה "מוח Obsidian" — פרסונה שנייה של המערכת.
+
+**מה אתה:**
+- אתה קורא **אך ורק** את הפתקים שאורן כתב ב-Obsidian vault שלו. אין לך גישה לסדרות, לסצנות, לדמויות, ל-BrainReferences, ל-consciousness, ל-page context.
+- אתה שותף חשיבה, לא במאי מבצע. אין לך actions (compose_prompt, generate_video, וכו').
+- אם אורן שואל לעשות משהו (לייצר פרומפט/וידאו/לעדכן סצנה) — הפנה אותו למוח Vexo (הכפתור 🎬 בפינה).
+
+**מה יש לך:**
+${notesBlock}
+
+**כיצד לענות:**
+- ענה רק מתוך הפתקים למעלה. אם אין בהם תשובה — אמור במפורש "אין בפתקים שלך מידע על זה".
+- תמיד ציין איזה פתק ממנו הבאת מידע (שם הפתק במרכאות).
+- עברית, גוף ראשון.
+- קצר ופרקטי (2-4 משפטים). אין action blocks, אין URLs מומצאים.
+- אתה יכול להציע לאורן לכתוב פתק חדש אם חסר מידע שחשוב לו לזכור.`;
+}
+
 async function buildSystemPrompt(currentChatId?: string, pageCtx?: PageCtx, ragBlock = ""): Promise<string> {
   const latest = await prisma.dailyBrainCache.findFirst({ orderBy: { date: "desc" } });
   const [totalPrompts, totalGuides, totalNodes, pastChats, latestInsights, latestSeriesAnalysis, references] = await Promise.all([
@@ -555,7 +606,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { chatId, message, pageContext } = await req.json();
+    const { chatId, message, pageContext, brainMode: requestedMode } = await req.json();
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
@@ -564,11 +615,17 @@ export async function POST(req: NextRequest) {
       ? await prisma.brainChat.findUnique({ where: { id: chatId }, include: { messages: { orderBy: { createdAt: "asc" }, take: 30 } } })
       : null;
     if (!chat) {
+      const mode = requestedMode === "obsidian" ? "obsidian" : "vexo";
       chat = await prisma.brainChat.create({
-        data: { title: message.slice(0, 60) },
+        data: { title: message.slice(0, 60), brainMode: mode },
         include: { messages: { orderBy: { createdAt: "asc" }, take: 30 } },
       });
+    } else if (requestedMode && requestedMode !== chat.brainMode && (requestedMode === "vexo" || requestedMode === "obsidian")) {
+      // Caller can flip the mode mid-chat (e.g. "switch to Obsidian for this convo")
+      await prisma.brainChat.update({ where: { id: chat.id }, data: { brainMode: requestedMode } });
+      chat = { ...chat, brainMode: requestedMode };
     }
+    const brainMode: "vexo" | "obsidian" = chat.brainMode === "obsidian" ? "obsidian" : "vexo";
 
     const userMsg = await prisma.brainMessage.create({
       data: { chatId: chat.id, role: "user", content: message },
@@ -594,8 +651,15 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    const ragHits = await retrieveRelevantSources(message, 5).catch(() => []);
-    let system = await buildSystemPrompt(chat.id, pageContext, formatRagBlock(ragHits));
+    // Branch on brain mode. Obsidian mode uses a slim, notes-only prompt —
+    // no DB references, no consciousness, no page context, no actions. It's
+    // intentionally a different cognitive surface.
+    const ragHits = brainMode === "vexo"
+      ? await retrieveRelevantSources(message, 5).catch(() => [])
+      : [];
+    let system = brainMode === "obsidian"
+      ? await buildObsidianSystemPrompt(message)
+      : await buildSystemPrompt(chat.id, pageContext, formatRagBlock(ragHits));
     // Deterministic intent hint — flash-lite frequently confuses "פרומפט" with "מדריך"
     const lower = message.toLowerCase();
     const mentionsPrompt = /פרומפט|פרומט|prompt/i.test(message);
@@ -698,7 +762,7 @@ export async function POST(req: NextRequest) {
       score: h.score,
       url: `/learn/sources/${h.id}`,
     }));
-    return NextResponse.json({ ok: true, chatId: chat.id, reply, messageId: brainMsg.id, citations });
+    return NextResponse.json({ ok: true, chatId: chat.id, brainMode, reply, messageId: brainMsg.id, citations });
   } catch (e: any) {
     console.error("[brain-chat]", e);
     return NextResponse.json({ error: String(e?.message || e).slice(0, 400) }, { status: 500 });

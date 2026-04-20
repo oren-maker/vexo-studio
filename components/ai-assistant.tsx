@@ -298,7 +298,7 @@ export function AiAssistant() {
       try {
         r = await api<{ reply?: string; chatId?: string; content?: string; citations?: Citation[] }>("/api/v1/learn/brain/chat", {
           method: "POST",
-          body: { message: text, chatId: chatId ?? undefined, pageContext: pageCtx },
+          body: { message: text, chatId: chatId ?? undefined, pageContext: pageCtx, brainMode: typeof window !== "undefined" ? (localStorage.getItem("vexo-brain-mode") ?? "vexo") : "vexo" },
           signal: ctrl.signal,
         });
       } catch (e) {

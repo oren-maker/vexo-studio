@@ -213,6 +213,13 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
   const [executingStages, setExecutingStages] = useState<string[]>([]);
   const [executed, setExecuted] = useState<Record<string, { text: string; url: string | null }>>({});
   const [pendingUpgrades, setPendingUpgrades] = useState(0);
+  const [brainMode, setBrainMode] = useState<"vexo" | "obsidian">(() => {
+    if (typeof window === "undefined") return "vexo";
+    return (localStorage.getItem("vexo-brain-mode") as "vexo" | "obsidian") || "vexo";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("vexo-brain-mode", brainMode);
+  }, [brainMode]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -289,7 +296,7 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
       const res = await learnFetch("/api/v1/learn/brain/chat", {
         method: "POST",
         headers: adminHeaders({ "content-type": "application/json" }),
-        body: JSON.stringify({ chatId, message: text }),
+        body: JSON.stringify({ chatId, message: text, brainMode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -307,8 +314,22 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
   return (
     <div className="flex flex-col h-[70vh]">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="text-xs text-slate-400">
-          {chatId ? `שיחה: ${chatId.slice(-8)}` : "שיחה חדשה"}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="text-xs text-slate-400">
+            {chatId ? `שיחה: ${chatId.slice(-8)}` : "שיחה חדשה"}
+          </div>
+          <div className="inline-flex rounded-lg border border-slate-700 bg-slate-900/50 overflow-hidden text-xs font-semibold">
+            <button
+              onClick={() => setBrainMode("vexo")}
+              title="מוח מלא: RAG, references, consciousness, production data, 26 actions"
+              className={`px-3 py-1.5 ${brainMode === "vexo" ? "bg-cyan-500/30 text-cyan-200" : "text-slate-400 hover:text-slate-200"}`}
+            >🎬 Vexo</button>
+            <button
+              onClick={() => setBrainMode("obsidian")}
+              title="מוח רזה: רק פתקים מ-Obsidian, בלי actions"
+              className={`px-3 py-1.5 ${brainMode === "obsidian" ? "bg-purple-500/30 text-purple-200" : "text-slate-400 hover:text-slate-200"}`}
+            >📓 Obsidian</button>
+          </div>
         </div>
         <div className="flex gap-2">
           <Link

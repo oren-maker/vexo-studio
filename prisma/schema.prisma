@@ -1795,6 +1795,7 @@ model DailyBrainCache {
 model BrainChat {
   id           String         @id @default(cuid())
   title        String? // auto-generated from first message, first 60 chars
+  brainMode    String         @default("vexo") // "vexo" (full stack: RAG, references, consciousness, production) | "obsidian" (lean: only Obsidian-authored notes, no production data)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   messages     BrainMessage[]

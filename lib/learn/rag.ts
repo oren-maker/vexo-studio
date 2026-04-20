@@ -6,6 +6,7 @@ export type RagHit = {
   title: string | null;
   preview: string;
   score: number;
+  type: string; // "instructor_url" | "obsidian" | "upload" | ...
 };
 
 // Semantic retrieval of similar LearnSource prompts.
@@ -21,7 +22,7 @@ export async function retrieveRelevantSources(query: string, k = 5): Promise<Rag
   }
   const sources = await prisma.learnSource.findMany({
     where: { embeddedAt: { not: null }, status: "complete" },
-    select: { id: true, title: true, prompt: true, embedding: true },
+    select: { id: true, title: true, prompt: true, embedding: true, type: true },
     take: 500,
   });
   return sources
@@ -30,6 +31,7 @@ export async function retrieveRelevantSources(query: string, k = 5): Promise<Rag
       title: s.title,
       preview: s.prompt.slice(0, 220),
       score: cosineSim(queryVec, s.embedding),
+      type: s.type,
     }))
     .filter((h) => h.score > 0.4)
     .sort((a, b) => b.score - a.score)
@@ -38,9 +40,26 @@ export async function retrieveRelevantSources(query: string, k = 5): Promise<Rag
 
 export function formatRagBlock(hits: RagHit[]): string {
   if (hits.length === 0) return "";
-  const lines = hits.map((h, i) => {
+  // Split obsidian personal notes from prompt-library hits — the brain should
+  // treat them differently (notes = user's own thinking, prompts = inspiration).
+  const obsidian = hits.filter((h) => h.type === "obsidian");
+  const library = hits.filter((h) => h.type !== "obsidian");
+
+  const fmtHit = (h: RagHit, i: number) => {
     const title = h.title?.slice(0, 80) || "(ללא כותרת)";
     return `${i + 1}. [${(h.score * 100).toFixed(0)}%] "${title}" (id=${h.id})\n   ${h.preview.replace(/\s+/g, " ").slice(0, 180)}...`;
-  });
-  return `🔎 פרומפטים דומים מהספרייה (RAG — השתמש בהשראה, אל תעתיק):\n${lines.join("\n")}`;
+  };
+
+  const parts: string[] = [];
+  if (obsidian.length > 0) {
+    parts.push(
+      `📓 פתקים רלוונטיים מה-Obsidian של אורן (התייחס אליהם כחומר גלם — המחשבות שלו, לא פרומפטים):\n${obsidian.map(fmtHit).join("\n")}`,
+    );
+  }
+  if (library.length > 0) {
+    parts.push(
+      `🔎 פרומפטים דומים מהספרייה (RAG — השתמש בהשראה, אל תעתיק):\n${library.map(fmtHit).join("\n")}`,
+    );
+  }
+  return parts.join("\n\n");
 }

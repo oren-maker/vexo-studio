@@ -670,7 +670,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { chatId, message, pageContext, brainMode: requestedMode } = await req.json();
+    const { chatId, message, pageContext, brainMode: requestedMode, compareGroupId } = await req.json();
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
@@ -681,7 +681,11 @@ export async function POST(req: NextRequest) {
     if (!chat) {
       const mode = requestedMode === "obsidian" ? "obsidian" : "vexo";
       chat = await prisma.brainChat.create({
-        data: { title: message.slice(0, 60), brainMode: mode },
+        data: {
+          title: message.slice(0, 60),
+          brainMode: mode,
+          compareGroupId: typeof compareGroupId === "string" && compareGroupId.length > 0 ? compareGroupId : null,
+        },
         include: { messages: { orderBy: { createdAt: "asc" }, take: 30 } },
       });
     } else if (requestedMode && requestedMode !== chat.brainMode && (requestedMode === "vexo" || requestedMode === "obsidian")) {

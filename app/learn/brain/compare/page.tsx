@@ -22,6 +22,9 @@ export default function CompareBrainsPage() {
   const [busy, setBusy] = useState(false);
   const [vexoChatId, setVexoChatId] = useState<string | null>(null);
   const [obsidianChatId, setObsidianChatId] = useState<string | null>(null);
+  // One compareGroupId per session — both chats get tagged with it so the
+  // logs page can pair them up under a single "⚖️ compare" card.
+  const [compareGroupId, setCompareGroupId] = useState<string>(() => `cmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turns]);
@@ -40,7 +43,7 @@ export default function CompareBrainsPage() {
         const res = await learnFetch("/api/v1/learn/brain/chat", {
           method: "POST",
           headers: adminHeaders({ "content-type": "application/json" }),
-          body: JSON.stringify({ message: q, chatId: chatId ?? undefined, brainMode: mode }),
+          body: JSON.stringify({ message: q, chatId: chatId ?? undefined, brainMode: mode, compareGroupId }),
         });
         const data = await res.json();
         const ms = Date.now() - started;
@@ -64,6 +67,7 @@ export default function CompareBrainsPage() {
 
   function resetChats() {
     setTurns([]); setVexoChatId(null); setObsidianChatId(null);
+    setCompareGroupId(`cmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   }
 
   return (

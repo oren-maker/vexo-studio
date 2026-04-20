@@ -1793,17 +1793,19 @@ model DailyBrainCache {
 }
 
 model BrainChat {
-  id           String         @id @default(cuid())
-  title        String? // auto-generated from first message, first 60 chars
-  brainMode    String         @default("vexo") // "vexo" (full stack: RAG, references, consciousness, production) | "obsidian" (lean: only Obsidian-authored notes, no production data)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  messages     BrainMessage[]
-  summarizedAt DateTime? // set when the daily brain has read this chat
-  summary      String?        @db.Text // constructive notes the brain extracted
+  id             String         @id @default(cuid())
+  title          String? // auto-generated from first message, first 60 chars
+  brainMode      String         @default("vexo") // "vexo" (full stack: RAG, references, consciousness, production) | "obsidian" (lean: only Obsidian-authored notes, no production data)
+  compareGroupId String? // when set, this chat was spawned from /learn/brain/compare. Same id links the Vexo + Obsidian chats that answered the same questions side-by-side.
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  messages       BrainMessage[]
+  summarizedAt   DateTime? // set when the daily brain has read this chat
+  summary        String?        @db.Text // constructive notes the brain extracted
 
   @@index([createdAt])
   @@index([summarizedAt])
+  @@index([compareGroupId])
 }
 
 model BrainUpgradeRequest {

@@ -215,6 +215,8 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
   const [pendingUpgrades, setPendingUpgrades] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const [mentionState, setMentionState] = useState<{ open: boolean; q: string; items: { id: string; name: string; roleType: string | null; avatarUrl: string | null; projectName: string }[]; activeIdx: number; start: number } | null>(null);
 
   async function copyMessage(id: string, text: string) {
     try {
@@ -513,21 +515,82 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
         </div>
       )}
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex gap-2 relative">
         <textarea
+          ref={taRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setInput(val);
+            // Detect @-mention trigger: @ at word boundary followed by 0+ non-space chars at caret
+            const pos = e.target.selectionStart ?? val.length;
+            const before = val.slice(0, pos);
+            const match = before.match(/(^|\s)@([\p{L}\p{N}_\-]*)$/u);
+            if (match) {
+              const q = match[2];
+              const start = pos - q.length - 1; // position of "@"
+              learnFetch(`/api/v1/characters/search?q=${encodeURIComponent(q)}`, { headers: adminHeaders() })
+                .then((r) => r.json())
+                .then((j) => {
+                  if (j.ok && j.results?.length) setMentionState({ open: true, q, items: j.results, activeIdx: 0, start });
+                  else setMentionState(null);
+                })
+                .catch(() => setMentionState(null));
+            } else {
+              setMentionState(null);
+            }
+          }}
           onKeyDown={(e) => {
+            if (mentionState?.open) {
+              if (e.key === "ArrowDown") { e.preventDefault(); setMentionState((s) => s ? { ...s, activeIdx: Math.min(s.items.length - 1, s.activeIdx + 1) } : s); return; }
+              if (e.key === "ArrowUp") { e.preventDefault(); setMentionState((s) => s ? { ...s, activeIdx: Math.max(0, s.activeIdx - 1) } : s); return; }
+              if (e.key === "Escape") { setMentionState(null); return; }
+              if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                const pick = mentionState.items[mentionState.activeIdx];
+                if (pick) {
+                  const before = input.slice(0, mentionState.start);
+                  const after = input.slice(mentionState.start + 1 + mentionState.q.length);
+                  setInput(`${before}@${pick.name} ${after}`);
+                }
+                setMentionState(null);
+                return;
+              }
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               send();
             }
           }}
-          placeholder="כתוב למוח... (Enter לשליחה, Shift+Enter לשורה חדשה)"
+          placeholder="כתוב למוח... (Enter שליחה · @ להזכיר דמות)"
           rows={2}
           className="flex-1 bg-slate-900 border border-slate-700 focus:border-cyan-500/60 rounded-xl px-4 py-3 text-sm text-slate-100 resize-none outline-none"
           disabled={loading}
         />
+        {mentionState?.open && mentionState.items.length > 0 && (
+          <div className="absolute bottom-full start-0 mb-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden min-w-[280px] max-w-md z-10">
+            {mentionState.items.map((c, i) => (
+              <button
+                type="button"
+                key={c.id}
+                onClick={() => {
+                  const before = input.slice(0, mentionState.start);
+                  const after = input.slice(mentionState.start + 1 + mentionState.q.length);
+                  setInput(`${before}@${c.name} ${after}`);
+                  setMentionState(null);
+                  taRef.current?.focus();
+                }}
+                className={`w-full text-start flex items-center gap-2 px-3 py-2 text-sm ${i === mentionState.activeIdx ? "bg-cyan-500/15" : "hover:bg-slate-800"}`}
+              >
+                {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full bg-slate-700 text-[10px] flex items-center justify-center">👤</div>}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-slate-100">{c.name}</div>
+                  <div className="text-[10px] text-slate-400">{c.roleType ?? ""} · {c.projectName}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
         <button
           onClick={() => send()}
           disabled={loading || !input.trim()}

@@ -12,6 +12,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "sync:obsidian": "tsx scripts/sync-obsidian.ts",
+    "export:obsidian": "tsx scripts/export-brain-to-obsidian.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

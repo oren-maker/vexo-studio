@@ -40,14 +40,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           include: { media: { orderBy: { createdAt: "asc" } } },
         })
       : [];
-    const referenceImageUrls = charRefs.map((c) => {
+    // Track whether each reference is an 8-panel sheet so Sora can auto-crop
+    // it to a single portrait (see openai-sora.ts::submitSoraVideo imageIsSheet).
+    const seedPicks = charRefs.map((c) => {
       const front = c.media.find((m) => (m.metadata as { angle?: string } | null)?.angle === "front") ?? c.media[0];
-      return front?.fileUrl;
-    }).filter((u): u is string => !!u);
+      const angle = (front?.metadata as { angle?: string } | null)?.angle;
+      return front?.fileUrl ? { url: front.fileUrl, isSheet: angle === "sheet" } : null;
+    }).filter((x): x is { url: string; isSheet: boolean } => !!x);
+    const referenceImageUrls = seedPicks.map((s) => s.url);
 
     // Pick the first cast portrait as the seed. Preserves character identity
     // without spending extra on a generated composite.
-    const seedImageUrl: string | undefined = referenceImageUrls[0];
+    const seedImageUrl: string | undefined = seedPicks[0]?.url;
+    const seedIsSheet: boolean = !!seedPicks[0]?.isSheet;
 
     await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "GENERATING" } });
 
@@ -89,6 +94,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           seconds: firstSec,
           size,
           imageUrl: seedImageUrl,
+          imageIsSheet: seedIsSheet,
         });
         submittedId = submitted.id;
         submittedDisplay = opening.model;

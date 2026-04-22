@@ -90,6 +90,12 @@ export async function submitSoraVideo(opts: {
    * through Gemini first to replace moderation-triggering phrases. Pass
    * true only when the caller has already sanitized (e.g. pre-cached). */
   skipSanitize?: boolean;
+  /** If set, treat imageUrl as an 8-panel character sheet (4 cols × 2 rows)
+   * and auto-crop the TOP-LEFT panel (front view) before sending. Sora can
+   * only use ONE identity reference; feeding it a collage of 8 poses of the
+   * same person produces a confused identity blend. See Oren's report
+   * 2026-04-22: "הוא ייצר את הסרטון עם הדמיויות אבל אלה לא הדמויות". */
+  imageIsSheet?: boolean;
 }): Promise<{ id: string; status: string; sanitizedPrompt?: string }> {
   const size = opts.size ?? "1280x720";
   // Sora's moderation is aggressive. Sanitize every prompt through Gemini
@@ -103,8 +109,25 @@ export async function submitSoraVideo(opts: {
     const [w, h] = size.split("x").map(Number);
     const imgRes = await fetch(opts.imageUrl);
     if (!imgRes.ok) throw new Error(`reference image fetch ${imgRes.status}`);
-    const inputBuf = Buffer.from(await imgRes.arrayBuffer());
+    let inputBuf = Buffer.from(await imgRes.arrayBuffer());
     const sharp = (await import("sharp")).default;
+
+    // If the caller flagged this as a sheet, pre-crop to the TOP-LEFT panel
+    // (the "front view" in the 8-panel character sheet layout: top row =
+    // turnaround views, bottom row = details). Sora lock-in needs ONE clear
+    // face; the full sheet makes it blend poses.
+    if (opts.imageIsSheet) {
+      const meta = await sharp(inputBuf).metadata();
+      if (meta.width && meta.height) {
+        const panelW = Math.floor(meta.width / 4);
+        const panelH = Math.floor(meta.height / 2);
+        const cropped = await sharp(inputBuf)
+          .extract({ left: 0, top: 0, width: panelW, height: panelH })
+          .toBuffer();
+        inputBuf = Buffer.from(cropped);
+      }
+    }
+
     const resized = await sharp(inputBuf)
       .resize(w, h, { fit: "cover", position: "centre" })
       .jpeg({ quality: 92 })

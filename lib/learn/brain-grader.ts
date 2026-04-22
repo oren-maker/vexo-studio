@@ -54,11 +54,11 @@ ${brainReply}
 
 3. \`n/a\` — **זו לא שאלת ידע.** זוהי בקשת סגנון/דעה/פעולה/small-talk (לדוגמה: "תכתוב לי הודעה", "מה דעתך על X", "תעשה Y", "היי", "תודה"). שאלות כאלה לא צריכות לעבור בדיקת grounding.
 
-**פלט — JSON תקין בלבד:**
+**פלט — JSON תקין בלבד. ה-reasoning חייב להיות משפט אחד קצר (עד 120 תווים):**
 {
   "verdict": "pass" | "fail" | "n/a",
-  "reasoning": "משפט אחד-שניים בעברית שמסביר למה בחרת בוורדיקט הזה",
-  "grounded_sources": ["id-של-מקור-1", "id-של-מקור-2"]  // רק ה-ids של המקורות שבאמת השתמשו בהם. לא ב-n/a.
+  "reasoning": "משפט אחד קצר בעברית. עד 120 תווים. ללא פירוט מורחב.",
+  "grounded_sources": ["id-של-מקור-1"]  // עד 3 ids. לא ב-n/a.
 }`;
 }
 
@@ -73,7 +73,7 @@ async function callGraderGemini(prompt: string): Promise<{ raw: string; usage: a
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 1000, responseMimeType: "application/json" },
+            generationConfig: { temperature: 0.1, maxOutputTokens: 3000, responseMimeType: "application/json" },
           }),
           signal: AbortSignal.timeout(30_000),
         });
@@ -114,9 +114,26 @@ export async function gradeReply(params: {
   const { raw, usage, model } = await callGraderGemini(prompt);
   const latencyMs = Date.now() - t0;
 
+  // Hebrew JSON output occasionally exceeds maxOutputTokens mid-string, leaving
+  // truncated JSON. Fall back to extracting just the verdict via regex — that
+  // field is always at the start so it's reliably present even when truncated.
   let parsed: any;
-  try { parsed = JSON.parse(raw); }
-  catch { throw new Error(`grader ${model} returned non-JSON: ${raw.slice(0, 200)}`); }
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    const verdictMatch = raw.match(/"verdict"\s*:\s*"(pass|fail|n\/a)"/);
+    const reasoningMatch = raw.match(/"reasoning"\s*:\s*"([^"]*)"?/);
+    if (verdictMatch) {
+      parsed = {
+        verdict: verdictMatch[1],
+        reasoning: (reasoningMatch?.[1] ?? "(reasoning truncated)").slice(0, 200),
+        grounded_sources: [],
+      };
+      console.warn(`[grader] JSON truncated, fell back to regex extraction · verdict=${parsed.verdict}`);
+    } else {
+      throw new Error(`grader ${model} returned unparseable: ${raw.slice(0, 200)}`);
+    }
+  }
 
   const verdict: GraderVerdict = parsed.verdict === "pass" || parsed.verdict === "fail" || parsed.verdict === "n/a" ? parsed.verdict : "fail";
   const reasoning = typeof parsed.reasoning === "string" ? parsed.reasoning.slice(0, 600) : "";

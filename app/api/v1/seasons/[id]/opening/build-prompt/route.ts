@@ -12,7 +12,7 @@ import { groqJson } from "@/lib/groq";
 import { getContext } from "@/lib/project-context";
 import { handleError, ok } from "@/lib/route-utils";
 
-export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 45;
+export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 75;
 
 const Body = z.object({
   style: z.string().min(1),

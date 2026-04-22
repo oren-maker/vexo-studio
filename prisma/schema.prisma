@@ -1832,7 +1832,36 @@ model BrainMessage {
   content   String    @db.Text
   createdAt DateTime  @default(now())
 
+  gradings  BrainGrading[]
+
   @@index([chatId, createdAt])
+}
+
+// BrainGrading — Self-Healing RAG audit trail. Every brain reply goes through
+// a grader node that decides pass / fail / n/a. On fail the query is rewritten
+// and the brain retries. Each attempt (original + retries) writes one row.
+// priorAttemptId chains the retry history for a single user turn.
+model BrainGrading {
+  id                String       @id @default(cuid())
+  brainMessageId    String
+  brainMessage      BrainMessage @relation(fields: [brainMessageId], references: [id], onDelete: Cascade)
+  chatId            String
+  attemptNumber     Int // 1 = original, 2..N = retries
+  verdict           String // "pass" | "fail" | "n/a"
+  reasoning         String       @db.Text
+  originalQuestion  String       @db.Text
+  rewrittenQuestion String?      @db.Text
+  ragSourceCount    Int          @default(0)
+  ragSourceIds      String[]     @default([])
+  answerSnippet     String?      @db.Text // first 500 chars of the graded reply
+  graderLatencyMs   Int?
+  graderCostUsd     Float        @default(0)
+  priorAttemptId    String? // FK self-ref across retry chain
+  createdAt         DateTime     @default(now())
+
+  @@index([chatId, createdAt])
+  @@index([brainMessageId])
+  @@index([verdict])
 }
 
 // ActionOutcome — calibration dataset. Every brain action execute attempt logs

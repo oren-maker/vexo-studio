@@ -113,6 +113,8 @@ export type Operation =
   | "reference-search"
   | "image-prompt-build"
   | "brain-chat"
+  | "brain-chat-grade"
+  | "brain-chat-rewrite"
   | "insights-snapshot";
 
 export function calcCost(model: string, inputTokens: number, outputTokens: number, imagesOut: number, videoSeconds = 0): number {

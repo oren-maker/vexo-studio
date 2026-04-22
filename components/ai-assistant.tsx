@@ -5,7 +5,15 @@ import { useLang } from "@/lib/i18n";
 import { MarkdownInline } from "./learn/markdown-inline";
 
 type Citation = { id: string; title: string | null; score: number; url: string };
-type Message = { id: string; role: "user" | "director"; content: string; action?: { type: string; [k: string]: unknown } | null; citations?: Citation[] };
+type SelfHealing = { attempts: number; finalVerdict: "pass" | "fail" | "n/a"; gaveUp: boolean; gradingIds: string[] };
+type Message = { id: string; role: "user" | "director"; content: string; action?: { type: string; [k: string]: unknown } | null; citations?: Citation[]; selfHealing?: SelfHealing };
+
+function BubbleHealingBadge({ h }: { h: SelfHealing }) {
+  if (h.finalVerdict === "n/a") return null;
+  if (h.gaveUp) return <span className="inline-block mt-1 text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded">⚠️ אין מספיק מידע</span>;
+  if (h.attempts > 1) return <span className="inline-block mt-1 text-[10px] bg-sky-500/15 text-sky-300 border border-sky-500/40 px-1.5 py-0.5 rounded">🔄 תיקון {h.attempts}/3</span>;
+  return <span className="inline-block mt-1 text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded">✓ נתמך במאגר</span>;
+}
 
 const VALID_ACTION_TYPES = new Set([
   "compose_prompt",
@@ -294,9 +302,9 @@ export function AiAssistant() {
       // a friendly 504 with JSON, an abort throws "signal is aborted without reason".
       let timedOut = false;
       const t = setTimeout(() => { timedOut = true; ctrl.abort(); }, 62_000);
-      let r: { reply?: string; chatId?: string; content?: string; citations?: Citation[] };
+      let r: { reply?: string; chatId?: string; content?: string; citations?: Citation[]; selfHealing?: SelfHealing };
       try {
-        r = await api<{ reply?: string; chatId?: string; content?: string; citations?: Citation[] }>("/api/v1/learn/brain/chat", {
+        r = await api<{ reply?: string; chatId?: string; content?: string; citations?: Citation[]; selfHealing?: SelfHealing }>("/api/v1/learn/brain/chat", {
           method: "POST",
           body: { message: text, chatId: chatId ?? undefined, pageContext: pageCtx, brainMode: typeof window !== "undefined" ? (localStorage.getItem("vexo-brain-mode") ?? "vexo") : "vexo" },
           signal: ctrl.signal,
@@ -310,7 +318,7 @@ export function AiAssistant() {
       if (r.chatId && r.chatId !== chatId) setChatId(r.chatId);
       const reply = (r.reply ?? r.content ?? "").trim();
       const msgId = `b-${Date.now()}`;
-      setMessages((m) => [...m, { id: msgId, role: "director", ...parseBrainReply(reply), citations: r.citations }]);
+      setMessages((m) => [...m, { id: msgId, role: "director", ...parseBrainReply(reply), citations: r.citations, selfHealing: r.selfHealing }]);
       // If Oren closed the bubble while we were waiting for the answer, flag
       // it so the launcher turns red and draws his attention back.
       if (!openRef.current) setUnread((n) => n + 1);
@@ -391,6 +399,7 @@ export function AiAssistant() {
                       {copiedId === m.id ? "✓" : "📋"}
                     </button>
                     {m.role === "director" ? <MarkdownInline text={m.content} /> : m.content}
+                    {m.role === "director" && m.selfHealing && <BubbleHealingBadge h={m.selfHealing} />}
                     {m.role === "director" && m.citations && m.citations.length > 0 && (
                       <CitationsBlock citations={m.citations} he={he} />
                     )}

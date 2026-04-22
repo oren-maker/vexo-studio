@@ -2,8 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/learn/db";
 import { requireAdmin } from "@/lib/learn/auth";
 import { logUsage } from "@/lib/learn/usage-tracker";
-import { retrieveRelevantSources, formatRagBlock } from "@/lib/learn/rag";
+import { retrieveRelevantSources, formatRagBlock, type RagHit } from "@/lib/learn/rag";
 import { rateLimit, ipKey } from "@/lib/rate-limit";
+import { gradeReply, type GraderVerdict } from "@/lib/learn/brain-grader";
+import { rewriteQuery } from "@/lib/learn/brain-rewriter";
+import { logGrading } from "@/lib/learn/brain-grading-logger";
+
+const SELF_HEALING_MAX_ATTEMPTS = 3;
+const SELF_HEALING_ENABLED = process.env.BRAIN_SELF_HEALING_ENABLED !== "false";
+
+function buildGiveUpReply(originalQuery: string, ragHits: RagHit[]): string {
+  const topHits = ragHits.slice(0, 3).map((h) => `• [${h.title ?? "ללא כותרת"}](/learn/sources/${h.id})`).join("\n");
+  const hitBlock = topHits ? `\n\nהמקורות הקרובים ביותר שמצאתי במאגר:\n${topHits}` : "";
+  return `אין לי מספיק מידע במאגר שלי כדי לענות בביטחון על "${originalQuery.slice(0, 100)}".${hitBlock}\n\nניסיתי ${SELF_HEALING_MAX_ATTEMPTS} ניסוחים שונים של השאלה. אם הנושא חשוב — נסה לנסח אחרת, או תעלה מקור למאגר (Guide או LearnSource) כדי שאוכל ללמוד את הנושא.`;
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -743,7 +755,10 @@ export async function POST(req: NextRequest) {
     }));
     history.push({ role: "user", parts: [{ text: message }] });
 
-    const { reply, usage, model } = await callGeminiWithFallback(system, history);
+    const initialCall = await callGeminiWithFallback(system, history);
+    let reply = initialCall.reply;
+    const model = initialCall.model;
+    const usage = initialCall.usage;
     const inputTokens = usage?.promptTokenCount || 0;
     const outputTokens = usage?.candidatesTokenCount || 0;
     // Gemini 3 Flash pricing: ~$0.15/M input + $0.60/M output
@@ -796,6 +811,98 @@ export async function POST(req: NextRequest) {
     const brainMsg = await prisma.brainMessage.create({
       data: { chatId: chat.id, role: "brain", content: reply },
     });
+
+    // ════════════════════════════════════════════════════════════════
+    // Self-Healing RAG — Phase 1 (vexo mode only)
+    //
+    // After the initial reply, run a grader. If "pass" or "n/a" we're done.
+    // If "fail", rewrite the query, re-retrieve, re-generate, re-grade.
+    // After MAX_ATTEMPTS failures, fall back to a graceful give-up reply.
+    //
+    // Skipped when:
+    //   - killswitch BRAIN_SELF_HEALING_ENABLED=false
+    //   - brainMode === "obsidian" (read-only, no actions to ground)
+    //   - message too short (< 10 chars)
+    //   - no RAG hits on the initial retrieval (nothing to ground against)
+    // ════════════════════════════════════════════════════════════════
+    let selfHealing: { attempts: number; finalVerdict: GraderVerdict; gaveUp: boolean; gradingIds: string[] } | undefined;
+    const skipSelfHeal = !SELF_HEALING_ENABLED || brainMode !== "vexo" || message.trim().length < 10 || ragHits.length === 0;
+    if (!skipSelfHeal) {
+      let attempt = 1;
+      let currentQuery = message;
+      let currentReply = reply;
+      let currentHits = ragHits;
+      let priorAttemptId: string | undefined;
+      let finalVerdict: GraderVerdict = "fail";
+      let gaveUp = false;
+      const gradingIds: string[] = [];
+
+      while (attempt <= SELF_HEALING_MAX_ATTEMPTS) {
+        let grade;
+        try {
+          grade = await gradeReply({ userMessage: currentQuery, ragHits: currentHits, brainReply: currentReply });
+        } catch (e) {
+          console.warn("[self-heal] grader failed, passing through:", (e as Error).message);
+          finalVerdict = "pass"; // fail-open — don't block reply on grader errors
+          break;
+        }
+
+        const logged = await logGrading({
+          brainMessageId: brainMsg.id,
+          chatId: chat.id,
+          attemptNumber: attempt,
+          verdict: grade.verdict,
+          reasoning: grade.reasoning,
+          originalQuestion: message,
+          rewrittenQuestion: attempt > 1 ? currentQuery : undefined,
+          ragSourceCount: currentHits.length,
+          ragSourceIds: currentHits.map((h) => h.id),
+          answerSnippet: currentReply.slice(0, 500),
+          graderLatencyMs: grade.latencyMs,
+          graderCostUsd: grade.costUsd,
+          priorAttemptId,
+        });
+        if (logged.id) {
+          gradingIds.push(logged.id);
+          priorAttemptId = logged.id;
+        }
+
+        finalVerdict = grade.verdict;
+        if (grade.verdict === "pass" || grade.verdict === "n/a") break;
+        if (attempt === SELF_HEALING_MAX_ATTEMPTS) {
+          currentReply = buildGiveUpReply(message, ragHits);
+          gaveUp = true;
+          break;
+        }
+
+        // verdict === "fail" and we still have retries — rewrite + re-retrieve + re-generate.
+        try {
+          const rewrite = await rewriteQuery({ originalQuery: currentQuery, graderReasoning: grade.reasoning, ragHits: currentHits });
+          currentQuery = rewrite.rewrittenQuestion;
+          currentHits = await retrieveRelevantSources(currentQuery, 5).catch(() => []);
+          const retrySystem = await buildSystemPrompt(chat.id, pageContext, formatRagBlock(currentHits));
+          const retryHistory = [...history.slice(0, -1), { role: "user", parts: [{ text: currentQuery }] }];
+          const next = await callGeminiWithFallback(retrySystem, retryHistory);
+          currentReply = next.reply;
+        } catch (e) {
+          console.warn("[self-heal] retry leg failed:", (e as Error).message);
+          currentReply = buildGiveUpReply(message, ragHits);
+          gaveUp = true;
+          break;
+        }
+
+        attempt++;
+      }
+
+      // If the loop changed the answer, persist the final version on the BrainMessage
+      if (currentReply !== reply) {
+        reply = currentReply;
+        await prisma.brainMessage.update({ where: { id: brainMsg.id }, data: { content: reply } }).catch(() => {});
+      }
+      selfHealing = { attempts: attempt, finalVerdict, gaveUp, gradingIds };
+    }
+    // ════════════════════════════════════════════════════════════════
+
     // Capture brain's own upgrade suggestions — VERY tight: only explicit architectural
     // proposals that target the system itself, not generic scene/prompt discussion.
     // Misfires from the old regex filled the queue with 30+ normal brain replies.
@@ -830,7 +937,7 @@ export async function POST(req: NextRequest) {
       score: h.score,
       url: `/learn/sources/${h.id}`,
     }));
-    return NextResponse.json({ ok: true, chatId: chat.id, brainMode, reply, messageId: brainMsg.id, citations });
+    return NextResponse.json({ ok: true, chatId: chat.id, brainMode, reply, messageId: brainMsg.id, citations, selfHealing });
   } catch (e: any) {
     console.error("[brain-chat]", e);
     return NextResponse.json({ error: String(e?.message || e).slice(0, 400) }, { status: 500 });

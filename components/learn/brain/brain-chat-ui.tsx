@@ -10,7 +10,31 @@ import { SceneMentionThumbnails } from "@/components/scene-mention-thumbnails";
 import { MarkdownInline } from "@/components/learn/markdown-inline";
 
 type Citation = { id: string; title: string | null; score: number; url: string };
-type Message = { id: string; role: "user" | "brain"; content: string; createdAt?: string; citations?: Citation[] };
+type SelfHealing = { attempts: number; finalVerdict: "pass" | "fail" | "n/a"; gaveUp: boolean; gradingIds: string[] };
+type Message = { id: string; role: "user" | "brain"; content: string; createdAt?: string; citations?: Citation[]; selfHealing?: SelfHealing };
+
+function HealingBadge({ h }: { h: SelfHealing }) {
+  if (h.finalVerdict === "n/a") return null;
+  if (h.gaveUp) {
+    return (
+      <span className="inline-flex items-center gap-1 mt-2 text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded">
+        ⚠️ אין מספיק מידע במאגר · ניסיתי {h.attempts} פעמים
+      </span>
+    );
+  }
+  if (h.attempts > 1) {
+    return (
+      <span className="inline-flex items-center gap-1 mt-2 text-[10px] bg-sky-500/15 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded">
+        🔄 תיקון עצמי · ניסיון {h.attempts}/3
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 mt-2 text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded">
+      ✓ נתמך במאגר
+    </span>
+  );
+}
 
 type ParsedAction = { action: any; raw: string };
 function parseAction(text: string): { stripped: string; action: ParsedAction | null } {
@@ -319,7 +343,7 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       if (!chatId) setChatId(data.chatId);
-      setMessages((m) => [...m, { id: data.messageId, role: "brain", content: data.reply, citations: data.citations }]);
+      setMessages((m) => [...m, { id: data.messageId, role: "brain", content: data.reply, citations: data.citations, selfHealing: data.selfHealing }]);
     } catch (e: any) {
       setError(String(e?.message || e));
       setMessages((m) => m.filter((x) => x.id !== tempId));
@@ -434,6 +458,7 @@ export default function BrainChatUI({ initialChatId }: { initialChatId?: string 
                 </div>
                 {m.role === "brain" ? <MarkdownInline text={stripped} /> : stripped}
                 {m.role === "brain" && <SceneMentionThumbnails content={stripped} />}
+                {m.role === "brain" && m.selfHealing && <HealingBadge h={m.selfHealing} />}
                 {m.role === "brain" && m.citations && m.citations.length > 0 && (
                   <CitationsBlock citations={m.citations} />
                 )}

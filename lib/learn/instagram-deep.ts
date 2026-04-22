@@ -35,11 +35,13 @@ function pickBestVariants(rawUrls: string[]): string[] {
   // Group by the underlying asset id (numeric prefix of the filename before _)
   const byId = new Map<string, { url: string; size: number }>();
   for (const url of rawUrls) {
-    const idMatch = url.match(/\/([0-9]{15,})_/);
+    // Instagram filenames: <short>_<mediaId 15+ digits>_<variant>_n.<ext>
+    // the mediaId is what uniquely identifies the carousel slide.
+    const idMatch = url.match(/_([0-9]{15,})_/);
     if (!idMatch) continue;
     const id = idMatch[1];
-    // score: "s1080x1080" → 1080, "s750x750" → 750, etc. fallback 0.
-    const s = url.match(/s(\d{3,4})x\d{3,4}/)?.[1] || url.match(/p(\d{3,4})x\d{3,4}/)?.[1];
+    // score: "s1080x1080" → 1080, "p1080x1080" → 1080, etc. fallback 0.
+    const s = url.match(/[sp](\d{3,4})x\d{3,4}/)?.[1];
     const size = s ? Number(s) : 0;
     const prev = byId.get(id);
     if (!prev || size > prev.size) byId.set(id, { url: decodeHtmlEntities(url), size });

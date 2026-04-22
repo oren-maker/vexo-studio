@@ -4,12 +4,85 @@
 //
 // Why: the old flow imported only the caption. Carousel posts (most text-heavy
 // Instagram posts) lose all the info on the slides. This module closes that gap.
+//
+// Two-tier strategy:
+//   1. If IG_SESSION_COOKIE env is set — call the authenticated internal API
+//      and get every carousel child. Reliable, full resolution, handles videos.
+//   2. Otherwise — fall back to parsing the public embed page (only exposes
+//      first 3 slides since IG's 2023 anonymous-auth lock-down).
 
 import { extractInstagram } from "./instagram";
 
 const SCRAPER_UA = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const GEMINI_KEY = process.env.GEMINI_API_KEY?.replace(/\\n$/, "").trim();
 const VISION_MODEL = "gemini-3-flash-preview";
+const IG_APP_ID = "936619743392459";
+const SHORTCODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+function shortcodeToMediaId(shortcode: string): string {
+  let id = 0n;
+  for (const c of shortcode) {
+    const idx = SHORTCODE_ALPHABET.indexOf(c);
+    if (idx < 0) throw new Error(`invalid shortcode char: ${c}`);
+    id = id * 64n + BigInt(idx);
+  }
+  return id.toString();
+}
+
+function parseShortcode(url: string): string | null {
+  const m = url.match(/instagram\.com\/(?:reel|p|tv)\/([^/?]+)/i);
+  return m?.[1] ?? null;
+}
+
+// Authenticated carousel fetch — requires a valid Instagram sessionid cookie
+// set via the IG_SESSION_COOKIE env var. Returns every carousel child (image
+// or video) at the highest available resolution.
+async function fetchCarouselAuthed(shortcode: string): Promise<IgMedia[] | null> {
+  const sessionid = process.env.IG_SESSION_COOKIE?.trim();
+  if (!sessionid) return null;
+
+  const mediaId = shortcodeToMediaId(shortcode);
+  const cookieHeader = sessionid.startsWith("sessionid=") ? sessionid : `sessionid=${sessionid}`;
+  try {
+    const r = await fetch(`https://i.instagram.com/api/v1/media/${mediaId}/info/`, {
+      headers: {
+        "User-Agent": BROWSER_UA,
+        "x-ig-app-id": IG_APP_ID,
+        "Cookie": cookieHeader,
+        "Accept": "*/*",
+        "Referer": `https://www.instagram.com/p/${shortcode}/`,
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!r.ok) {
+      console.warn(`[ig-authed] media/${mediaId} returned ${r.status}`);
+      return null;
+    }
+    const j: any = await r.json();
+    const item = j?.items?.[0];
+    if (!item) return null;
+
+    const out: IgMedia[] = [];
+    const carousel: any[] = Array.isArray(item.carousel_media) ? item.carousel_media : [item];
+    carousel.forEach((c, order) => {
+      // c.media_type: 1 = image, 2 = video, 8 = sidecar (shouldn't happen inside a child)
+      if (c.media_type === 2) {
+        const videoUrl = c.video_versions?.[0]?.url;
+        if (videoUrl) out.push({ type: "video", url: videoUrl, order });
+      } else {
+        // image — pick the largest candidate (highest width)
+        const candidates: { url: string; width: number }[] = c.image_versions2?.candidates ?? [];
+        const best = [...candidates].sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0];
+        if (best?.url) out.push({ type: "image", url: best.url, order });
+      }
+    });
+    return out.length > 0 ? out : null;
+  } catch (e: any) {
+    console.warn(`[ig-authed] failed: ${String(e?.message || e).slice(0, 200)}`);
+    return null;
+  }
+}
 
 export type IgMedia = {
   type: "image" | "video";
@@ -133,11 +206,22 @@ async function analyzeImage(base64: string, mimeType: string): Promise<string> {
 export async function extractInstagramDeep(url: string): Promise<IgDeepExtract> {
   const baseIg = await extractInstagram(url);
   const clean = baseIg.sourceUrl;
-  const embedUrl = clean.replace(/\/$/, "") + "/embed/captioned/";
+  const shortcode = parseShortcode(clean);
 
-  const media = await extractCarouselMedia(embedUrl);
+  // Tier 1 — authenticated API (full carousel). Requires IG_SESSION_COOKIE env.
+  let media: IgMedia[] = [];
+  if (shortcode) {
+    const authed = await fetchCarouselAuthed(shortcode);
+    if (authed && authed.length > 0) media = authed;
+  }
 
-  // Fallback: if carousel detection found nothing, use the single og:image
+  // Tier 2 — embed scrape (first 3 slides only, IG's anonymous cap).
+  if (media.length === 0) {
+    const embedUrl = clean.replace(/\/$/, "") + "/embed/captioned/";
+    media = await extractCarouselMedia(embedUrl);
+  }
+
+  // Tier 3 — single-item fallback from og:image / og:video.
   if (media.length === 0 && baseIg.thumbnail) {
     media.push({ type: "image", url: baseIg.thumbnail, order: 0 });
   }

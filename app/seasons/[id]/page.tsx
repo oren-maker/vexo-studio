@@ -26,6 +26,38 @@ const STATUS_COLOR: Record<string, string> = {
   ARCHIVED: "bg-bg-main text-text-muted",
 };
 
+// Reset button for a FAILED opening. Previously was an inline onClick with
+// no loading/error state — when the PATCH 500'd the user saw no feedback
+// and the button looked dead. Now: disables while running, surfaces the
+// error inline, and hard-reloads on success so every state (openingJob,
+// polling, UI) resets cleanly.
+function ResetOpeningButton({ seasonId, he }: { seasonId: string; he: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  async function onClick() {
+    setBusy(true); setErr(null);
+    try {
+      await api(`/api/v1/seasons/${seasonId}/opening`, { method: "PATCH", body: { status: "DRAFT" } });
+      window.location.reload();
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <button
+        onClick={onClick}
+        disabled={busy}
+        className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-wait"
+      >
+        {busy ? (he ? "🔄 מאפס…" : "🔄 Resetting…") : (he ? "🔄 אפס ונסה שוב" : "🔄 Reset and try again")}
+      </button>
+      {err && <div className="text-[11px] text-status-errText max-w-xs">⚠ {err}</div>}
+    </div>
+  );
+}
+
 export default function SeasonPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -709,11 +741,7 @@ export default function SeasonPage() {
                     <div className="text-xs text-status-errText mb-4">{lang === "he" ? "Sora חסם את הוידאו אחרי הרינדור — בדרך כלל בגלל פיזיקה אנומלית בתוצר (כספית נגד הכבידה / מראה באיחור). בקש מהבמאי פתיחה אסתטית טהורה ללא רמזים עלילתיים, או בחר מודל אחר (VEO 3 / SeeDance)." : "Sora blocked the rendered output — typically due to anomalous physics in the result. Author a pure-aesthetic opening or switch model (VEO 3 / SeeDance)."}</div>
                   )}
                   <div className="flex gap-2 justify-center flex-wrap">
-                    <button onClick={async () => {
-                      await api(`/api/v1/seasons/${season.id}/opening`, { method: "PATCH", body: { status: "DRAFT" } });
-                      const r = await api<{ opening: Opening | null; costBreakdown: OpeningCostBreakdown; videoHistory: OpeningVideo[] }>(`/api/v1/seasons/${season.id}/opening`);
-                      setOpening(r.opening); setOpeningCosts(r.costBreakdown); setOpeningVideos(r.videoHistory ?? []);
-                    }} className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold">{lang === "he" ? "🔄 אפס ונסה שוב" : "🔄 Reset and try again"}</button>
+                    <ResetOpeningButton seasonId={season.id} he={lang === "he"} />
                     <button onClick={() => setOpeningWizardOpen(true)} className="px-4 py-2 rounded-lg border border-accent text-accent text-sm font-semibold">{lang === "he" ? "✨ ערוך באשף" : "✨ Edit in wizard"}</button>
                   </div>
                 </div>

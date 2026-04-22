@@ -51,7 +51,7 @@ export default function SeasonPage() {
     params.set("tab", t);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
-  type Opening = { id: string; status: string; videoUrl: string | null; videoUri: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; updatedAt: string; chunkIndex: number; chunkPrompts: string[] | null; chunkVideoIds: string[] | null; versions: { id: string; prompt: string; createdAt: string }[] };
+  type Opening = { id: string; status: string; videoUrl: string | null; videoUri: string | null; currentPrompt: string; duration: number; model: string; aspectRatio: string; isSeriesDefault: boolean; cost: number | null; includeCharacters: boolean; styleLabel: string | null; updatedAt: string; chunkIndex: number; chunkPrompts: string[] | null; chunkVideoIds: string[] | null; falRequestId: string | null; versions: { id: string; prompt: string; createdAt: string }[] };
   type OpeningCostBreakdown = { text: number; video: number; total: number; calls: number };
   type OpeningVideo = { id: string; fileUrl: string; at: string; model: string | null; durationSeconds: number | null; costUsd: number | null };
   const [opening, setOpening] = useState<Opening | null>(null);
@@ -101,11 +101,17 @@ export default function SeasonPage() {
       setOpening(r.opening);
       setOpeningCosts(r.costBreakdown);
       setOpeningVideos(r.videoHistory ?? []);
-      if (r.opening?.status === "GENERATING" && !openingJob) {
+      // Trigger client-side polling when Sora/VEO is in-flight. Status can be
+      // GENERATING, but can also legitimately be DRAFT if the user edited the
+      // prompt mid-flight (which resets status) while a job is still running
+      // on the provider — falRequestId being set tells us there's a real job.
+      const op = r.opening;
+      const inFlight = !!op && !!op.falRequestId && op.status !== "READY" && op.status !== "FAILED";
+      if (inFlight && !openingJob) {
         // A job is already in flight when we open the tab. Anchor elapsed time
         // to the server's updatedAt (when status flipped to GENERATING) — not
         // "now" — so the timer reflects real elapsed time of the running job.
-        const started = r.opening.updatedAt ? new Date(r.opening.updatedAt).getTime() : Date.now();
+        const started = op.updatedAt ? new Date(op.updatedAt).getTime() : Date.now();
         setOpeningJob({ startedAt: started, elapsed: Math.round((Date.now() - started) / 1000), done: false });
       }
     }).catch(() => { setOpening(null); setOpeningCosts(null); setOpeningVideos([]); });
@@ -114,7 +120,9 @@ export default function SeasonPage() {
   // Live progress + auto-poll + auto-refresh for opening video generation.
   useEffect(() => {
     if (!openingJob || openingJob.done || !season) return;
-    const MAX_MS = 240_000;
+    // Sora-2 can legitimately take 5-7 min for 20s videos, especially with
+    // moderation re-checks. Give the client 10 min before auto-unsticking.
+    const MAX_MS = 600_000;
     const tick = setInterval(() => {
       setOpeningJob((j) => j ? { ...j, elapsed: Math.round((Date.now() - j.startedAt) / 1000) } : null);
     }, 1000);

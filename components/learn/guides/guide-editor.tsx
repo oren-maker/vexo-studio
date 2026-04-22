@@ -302,46 +302,92 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
 
 // Bulk image upload → Gemini vision → auto-creates stages. Use when Instagram
 // embed only returned first 3 carousel slides and the user has the rest as
-// screenshots. Drop N images, each becomes one stage with OCR'd content.
+// screenshots. Supports drag-drop + multi-select + chunked parallel processing.
 function BulkImageUpload({ guideSlug, onDone }: { guideSlug: string; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState("");
+  const [queued, setQueued] = useState<File[]>([]);
+  const [done, setDone] = useState(0);
+  const [failed, setFailed] = useState(0);
+  const [dragActive, setDragActive] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  async function handlePick(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    if (!confirm(`לנתח ${files.length} תמונות ולהוסיף אותן כשלבים חדשים? (לוקח ~2 שניות לתמונה)`)) return;
+  async function uploadBatch(batch: File[]): Promise<{ succeeded: number; failed: number }> {
+    const fd = new FormData();
+    batch.forEach((f) => fd.append("files", f));
+    const key = getAdminKey();
+    const res = await fetch(`/api/v1/learn/guides/${guideSlug}/analyze-images`, {
+      method: "POST",
+      headers: key ? { "x-vexo-admin-key": key } : {},
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+    return { succeeded: data.succeeded ?? 0, failed: data.failed ?? 0 };
+  }
+
+  async function start(files: File[]) {
+    if (files.length === 0) return;
+    if (!confirm(`לנתח ${files.length} תמונות ולהוסיף אותן כשלבים חדשים? (בערך ${Math.ceil(files.length * 2)} שניות סה"כ)`)) return;
     setBusy(true);
-    setProgress(`מעלה ${files.length} תמונות...`);
-    try {
-      const fd = new FormData();
-      for (let i = 0; i < files.length; i++) fd.append("files", files[i]);
-      const key = getAdminKey();
-      const res = await fetch(`/api/v1/learn/guides/${guideSlug}/analyze-images`, {
-        method: "POST",
-        headers: key ? { "x-vexo-admin-key": key } : {},
-        body: fd,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      setProgress(`✓ ${data.succeeded}/${data.uploaded} נוספו. טוען מחדש...`);
-      setTimeout(onDone, 800);
-    } catch (e) {
-      setProgress(`⚠ ${(e as Error).message}`);
-      setBusy(false);
+    setQueued(files); setDone(0); setFailed(0); setErr(null);
+
+    // Client-side chunking: batches of 5 run in parallel on the server; we fire
+    // several batches one after another so progress advances steadily without
+    // hitting Vercel's 60s duration limit on a single request.
+    const BATCH = 5;
+    for (let i = 0; i < files.length; i += BATCH) {
+      const batch = files.slice(i, i + BATCH);
+      try {
+        const r = await uploadBatch(batch);
+        setDone((d) => d + r.succeeded);
+        setFailed((f) => f + r.failed);
+      } catch (e) {
+        setFailed((f) => f + batch.length);
+        setErr((e as Error).message);
+      }
     }
+    setTimeout(onDone, 600);
+  }
+
+  function onFiles(list: FileList | null) {
+    if (!list) return;
+    const arr = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    if (arr.length === 0) { setErr("בחר לפחות תמונה אחת"); return; }
+    void start(arr);
   }
 
   return (
-    <label className={`text-xs font-semibold px-3 py-1.5 rounded cursor-pointer ${busy ? "bg-slate-700 text-slate-400" : "bg-purple-500 hover:bg-purple-400 text-white"}`}>
-      {busy ? progress : "🖼 הוסף שקופיות מתמונות"}
-      <input
-        type="file"
-        multiple
-        accept="image/*"
-        className="hidden"
-        disabled={busy}
-        onChange={(e) => handlePick(e.target.files)}
-      />
-    </label>
+    <div className="relative">
+      <label
+        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={(e) => { e.preventDefault(); setDragActive(false); onFiles(e.dataTransfer.files); }}
+        className={`block px-3 py-1.5 rounded cursor-pointer text-xs font-semibold transition
+          ${busy ? "bg-slate-700 text-slate-300"
+            : dragActive ? "bg-purple-400 text-white ring-2 ring-purple-300"
+            : "bg-purple-500 hover:bg-purple-400 text-white"}`}
+      >
+        {busy
+          ? `🖼 ${done + failed}/${queued.length}${failed > 0 ? ` (⚠ ${failed})` : ""}`
+          : "🖼 הוסף תמונות (גרור או בחר)"}
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          className="hidden"
+          disabled={busy}
+          onChange={(e) => onFiles(e.target.files)}
+        />
+      </label>
+      {busy && queued.length > 0 && (
+        <div className="absolute top-full mt-1 right-0 w-64 bg-slate-900 border border-slate-700 rounded-lg p-2 text-[10px] text-slate-300 shadow-lg z-20">
+          <div className="h-1 bg-slate-800 rounded-full overflow-hidden mb-1">
+            <div className="h-full bg-purple-500 transition-all" style={{ width: `${((done + failed) / queued.length) * 100}%` }} />
+          </div>
+          <div>עובד על {queued.length} תמונות... {done} הושלמו{failed > 0 ? ` · ${failed} נכשלו` : ""}</div>
+          {err && <div className="text-rose-400 mt-1 truncate" title={err}>{err}</div>}
+        </div>
+      )}
+    </div>
   );
 }

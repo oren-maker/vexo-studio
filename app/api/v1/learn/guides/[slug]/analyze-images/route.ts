@@ -66,42 +66,56 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const lang = guide.defaultLang || "he";
   const startOrder = replaceAll ? 0 : (guide.stages[0]?.order ?? -1) + 1;
 
-  const results: { index: number; ok: boolean; stageId?: string; error?: string; title?: string; blobUrl?: string }[] = [];
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    try {
-      const buf = Buffer.from(await file.arrayBuffer());
-      if (buf.length === 0) throw new Error("empty file");
-      const mime = file.type && file.type.startsWith("image/") ? file.type : "image/jpeg";
-      const base64 = buf.toString("base64");
+  type Res = { index: number; ok: boolean; stageId?: string; error?: string; title?: string; blobUrl?: string };
 
-      // Upload original to Blob so guide can display it
-      const blobKey = `guides/${slug}/uploads/${Date.now()}-${i}-${file.name.replace(/[^a-z0-9.]/gi, "_").slice(0, 40)}`;
-      const uploaded = await put(blobKey, buf, { access: "public", contentType: mime });
+  // Process each file independently — upload to Blob + Gemini vision in parallel.
+  // Concurrency = 5 so we don't blast the Gemini API or exceed upload bandwidth.
+  const CONCURRENCY = 5;
+  const results: Res[] = new Array(files.length);
+  let cursor = 0;
+  const guideId = guide.id; // capture non-null id before crossing async boundary
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= files.length) return;
+      const file = files[i];
+      try {
+        const buf = Buffer.from(await file.arrayBuffer());
+        if (buf.length === 0) throw new Error("empty file");
+        const mime = file.type && file.type.startsWith("image/") ? file.type : "image/jpeg";
+        const base64 = buf.toString("base64");
 
-      const text = await analyzeImage(base64, mime);
-      const firstLine = text.split("\n")[0]?.trim() ?? "";
-      const cleanFirst = firstLine.replace(/^(#+\s*|\*+\s*|כותרת:?\s*)/i, "").replace(/\*/g, "").trim();
-      const title = cleanFirst && cleanFirst.length <= 100 ? cleanFirst : `שקופית ${startOrder + i + 1}`;
-      const body = cleanFirst.length <= 100
-        ? text.split("\n").slice(1).join("\n").replace(/^\s*\n/, "").trim()
-        : text;
+        // Upload + vision in parallel
+        const blobKey = `guides/${slug}/uploads/${Date.now()}-${i}-${file.name.replace(/[^a-z0-9.]/gi, "_").slice(0, 40)}`;
+        const [uploaded, text] = await Promise.all([
+          put(blobKey, buf, { access: "public", contentType: mime }),
+          analyzeImage(base64, mime),
+        ]);
 
-      const stage = await prisma.guideStage.create({
-        data: {
-          guideId: guide.id,
-          order: startOrder + i,
-          type: "middle",
-          transitionToNext: "fade",
-          translations: { create: { lang, title, content: body || text, isAuto: true } },
-          images: { create: [{ blobUrl: uploaded.url, source: "manual-vision-upload", order: 0 }] },
-        },
-      });
-      results.push({ index: i, ok: true, stageId: stage.id, title, blobUrl: uploaded.url });
-    } catch (e: any) {
-      results.push({ index: i, ok: false, error: String(e?.message || e).slice(0, 200) });
+        const firstLine = text.split("\n")[0]?.trim() ?? "";
+        const cleanFirst = firstLine.replace(/^(#+\s*|\*+\s*|כותרת:?\s*)/i, "").replace(/\*/g, "").trim();
+        const title = cleanFirst && cleanFirst.length <= 100 ? cleanFirst : `שקופית ${startOrder + i + 1}`;
+        const body = cleanFirst.length <= 100
+          ? text.split("\n").slice(1).join("\n").replace(/^\s*\n/, "").trim()
+          : text;
+
+        const stage = await prisma.guideStage.create({
+          data: {
+            guideId,
+            order: startOrder + i,
+            type: "middle",
+            transitionToNext: "fade",
+            translations: { create: { lang, title, content: body || text, isAuto: true } },
+            images: { create: [{ blobUrl: uploaded.url, source: "manual-vision-upload", order: 0 }] },
+          },
+        });
+        results[i] = { index: i, ok: true, stageId: stage.id, title, blobUrl: uploaded.url };
+      } catch (e: any) {
+        results[i] = { index: i, ok: false, error: String(e?.message || e).slice(0, 200) };
+      }
     }
   }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, files.length) }, () => worker()));
 
   // Fix status markers: first stage = start, last = end
   const allStages = await prisma.guideStage.findMany({ where: { guideId: guide.id }, orderBy: { order: "asc" } });

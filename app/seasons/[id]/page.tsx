@@ -985,6 +985,7 @@ export default function SeasonPage() {
       {openingWizardOpen && season && (
         <OpeningWizard
           seasonId={season.id}
+          projectId={season.series.projectId}
           characters={characters as unknown as { id: string; name: string; roleType?: string | null; media: { fileUrl: string }[] }[]}
           he={lang === "he"}
           onCancel={() => setOpeningWizardOpen(false)}

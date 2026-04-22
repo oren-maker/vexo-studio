@@ -19,9 +19,10 @@ type Character = { id: string; name: string; roleType?: string | null; media: { 
 type Style = { key: string; name: string; vibe: string; samplePrompt: string; isDefault?: boolean };
 
 export function OpeningWizard({
-  seasonId, characters, he, onCancel, onFinished,
+  seasonId, projectId, characters, he, onCancel, onFinished,
 }: {
   seasonId: string;
+  projectId: string;
   characters: Character[];
   he: boolean;
   onCancel: () => void;
@@ -38,6 +39,28 @@ export function OpeningWizard({
 
   const [includeChars, setIncludeChars] = useState(true);
   const [charIds, setCharIds] = useState<string[]>(() => characters.slice(0, 4).map((c) => c.id));
+
+  // Cast composite — the project-wide multi-character reference image that
+  // Sora/VEO use as a single identity lock for multi-cast openings.
+  type Composite = { id: string; fileUrl: string; createdAt: string; metadata: { characterCount?: number; characterNames?: string[] } };
+  const [composite, setComposite] = useState<Composite | null>(null);
+  const [compositeBusy, setCompositeBusy] = useState(false);
+  useEffect(() => {
+    api<{ composite: Composite | null }>(`/api/v1/projects/${projectId}/cast-composite`).then((r) => setComposite(r.composite)).catch(() => {});
+  }, [projectId]);
+
+  async function buildOrRebuildComposite() {
+    setCompositeBusy(true);
+    try {
+      const r = await api<{ asset: Composite }>(
+        `/api/v1/projects/${projectId}/cast-composite`,
+        { method: "POST", body: { characterIds: charIds }, timeoutMs: 90_000 },
+      );
+      setComposite(r.asset);
+    } catch {
+      // non-blocking — user can still proceed without a fresh composite
+    } finally { setCompositeBusy(false); }
+  }
 
   const [model, setModel] = useState<ModelKey>("sora-2");
   const [duration, setDuration] = useState(20);
@@ -296,19 +319,48 @@ export function OpeningWizard({
                 <button onClick={() => setIncludeChars(false)} className={`px-4 py-2 rounded-lg border-2 text-sm ${!includeChars ? "border-accent bg-accent/5 font-semibold" : "border-bg-main"}`}>{he ? "לא — פתיחה מופשטת" : "No — abstract intro"}</button>
               </div>
               {includeChars && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {characters.map((c) => {
-                    const on = charIds.includes(c.id);
-                    return (
-                      <button key={c.id} onClick={() => setCharIds((xs) => on ? xs.filter((x) => x !== c.id) : [...xs, c.id])} className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 ${on ? "border-accent bg-accent/5" : "border-bg-main"}`}>
-                        {c.media[0] ? <img src={c.media[0].fileUrl} alt="" className="w-16 h-16 rounded-full object-cover" /> : <div className="w-16 h-16 rounded-full bg-bg-main flex items-center justify-center text-2xl">🎭</div>}
-                        <div className="text-xs font-semibold truncate w-full text-center">{c.name}</div>
-                        {c.roleType && <div className="text-[10px] text-text-muted">{c.roleType}</div>}
-                      </button>
-                    );
-                  })}
-                  {characters.length === 0 && <div className="col-span-4 text-center py-4 text-text-muted text-sm">{he ? "אין דמויות בסדרה — תוסיף בלשונית דמויות" : "No characters yet"}</div>}
-                </div>
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {characters.map((c) => {
+                      const on = charIds.includes(c.id);
+                      return (
+                        <button key={c.id} onClick={() => setCharIds((xs) => on ? xs.filter((x) => x !== c.id) : [...xs, c.id])} className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 ${on ? "border-accent bg-accent/5" : "border-bg-main"}`}>
+                          {c.media[0] ? <img src={c.media[0].fileUrl} alt="" className="w-16 h-16 rounded-full object-cover" /> : <div className="w-16 h-16 rounded-full bg-bg-main flex items-center justify-center text-2xl">🎭</div>}
+                          <div className="text-xs font-semibold truncate w-full text-center">{c.name}</div>
+                          {c.roleType && <div className="text-[10px] text-text-muted">{c.roleType}</div>}
+                        </button>
+                      );
+                    })}
+                    {characters.length === 0 && <div className="col-span-4 text-center py-4 text-text-muted text-sm">{he ? "אין דמויות בסדרה — תוסיף בלשונית דמויות" : "No characters yet"}</div>}
+                  </div>
+
+                  {/* Cast composite — the single reference image Sora/VEO will use for identity lock */}
+                  {charIds.length >= 2 && (
+                    <div className="mt-4 bg-bg-main rounded-lg p-3 border border-bg-main">
+                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                        <div>
+                          <div className="text-xs font-bold">🎭 {he ? "לקט דמויות (reference לבמאי)" : "Cast composite (director reference)"}</div>
+                          <div className="text-[11px] text-text-muted">{he ? "תמונה אחת עם כל הדמויות — תישלח ל-Sora כ-identity lock" : "One image of all cast — sent to Sora as identity lock"}</div>
+                        </div>
+                        <button
+                          onClick={buildOrRebuildComposite}
+                          disabled={compositeBusy || charIds.length < 2}
+                          className="px-3 py-1 rounded border border-accent text-accent text-[11px] font-semibold disabled:opacity-50"
+                        >
+                          {compositeBusy ? (he ? "בונה…" : "Building…") : composite ? (he ? "🔄 בנה מחדש" : "🔄 Rebuild") : (he ? "✨ בנה עכשיו" : "✨ Build")}
+                        </button>
+                      </div>
+                      {composite ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={composite.fileUrl} alt="cast composite" className="w-full rounded border border-bg-card" />
+                      ) : (
+                        <div className="text-[11px] text-text-muted text-center py-4">
+                          {he ? "ללא קומפוזיט — Sora יעגן רק דמות אחת ויניח את השאר. לחץ 'בנה עכשיו'." : "No composite yet — Sora will only anchor one character. Click 'Build'."}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

@@ -23,11 +23,32 @@ export default function CharactersPage() {
   const [populateBusy, setPopulateBusy] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
 
+  // Cast composite — one side-by-side reference image for Sora/VEO multi-cast
+  type CastComposite = { id: string; fileUrl: string; createdAt: string; metadata: { characterCount?: number; characterNames?: string[]; layoutDescription?: string; builtAt?: string } };
+  const [composite, setComposite] = useState<CastComposite | null>(null);
+  const [compositeBusy, setCompositeBusy] = useState(false);
+  const [compositeErr, setCompositeErr] = useState<string | null>(null);
+
   async function load() {
     const r = await api<Character[]>(`/api/v1/projects/${id}/characters`).catch(() => [] as Character[]);
     setChars(r);
+    const comp = await api<{ composite: CastComposite | null }>(`/api/v1/projects/${id}/cast-composite`).catch(() => ({ composite: null }));
+    setComposite(comp.composite);
   }
   useEffect(() => { load(); }, [id]);
+
+  async function buildCastComposite() {
+    setCompositeBusy(true); setCompositeErr(null);
+    try {
+      await api<{ asset: CastComposite }>(
+        `/api/v1/projects/${id}/cast-composite`,
+        { method: "POST", body: {}, timeoutMs: 90_000 },
+      );
+      // rehydrate from fresh GET so metadata is consistent
+      await load();
+    } catch (e) { setCompositeErr((e as Error).message); }
+    finally { setCompositeBusy(false); }
+  }
 
   async function saveNew(e: React.FormEvent) {
     e.preventDefault();
@@ -327,6 +348,57 @@ export default function CharactersPage() {
           </ul>
         )}
       </div>
+
+      {/* Cast composite — one reference image with ALL characters for Sora/VEO i2v identity lock.
+          Oren asked: "תוסיף תמונה של לקט של כל הדמויות שיהיה בחלק התחתון, שהבמאי יכיר את זה". */}
+      {chars.length >= 2 && (
+        <div className="bg-bg-card rounded-card border border-bg-main p-5">
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <div className="min-w-0">
+              <div className="text-lg font-bold">🎭 {lang === "he" ? "לקט דמויות (reference לבמאי)" : "Cast composite (director reference)"}</div>
+              <div className="text-xs text-text-muted">
+                {lang === "he"
+                  ? "תמונה אחת עם כל הדמויות זו-לצד-זו ושמות בתחתית. נשלחת אוטומטית כ-input_reference לסצנות עם מספר דמויות (Sora/VEO)."
+                  : "One image with every character side-by-side + names below. Auto-sent as input_reference for multi-character scenes (Sora/VEO)."}
+              </div>
+            </div>
+            <button
+              onClick={buildCastComposite}
+              disabled={compositeBusy || chars.length < 2}
+              className="px-3 py-1.5 rounded-lg border border-accent text-accent text-sm font-semibold disabled:opacity-50"
+            >
+              {compositeBusy
+                ? (lang === "he" ? "בונה…" : "Building…")
+                : composite
+                ? (lang === "he" ? "🔄 בנה מחדש" : "🔄 Rebuild")
+                : (lang === "he" ? "✨ בנה עכשיו" : "✨ Build now")}
+            </button>
+          </div>
+          {compositeErr && <div className="bg-status-errBg text-status-errText rounded-lg p-2 text-xs mb-3">⚠ {compositeErr}</div>}
+          {composite ? (
+            <div className="space-y-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={composite.fileUrl} alt="cast composite" className="w-full rounded-lg border border-bg-main" />
+              <div className="text-[11px] text-text-muted flex flex-wrap gap-x-4 gap-y-1">
+                <span>{lang === "he" ? "דמויות בתמונה:" : "Characters:"} <span className="font-semibold">{composite.metadata?.characterCount ?? "?"}</span></span>
+                <span>{lang === "he" ? "נבנה:" : "Built:"} <span className="num">{new Date(composite.createdAt).toLocaleString(lang === "he" ? "he-IL" : undefined)}</span></span>
+                <a href={composite.fileUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline ms-auto">
+                  {lang === "he" ? "פתח בגודל מלא ↗" : "Open full size ↗"}
+                </a>
+              </div>
+              {composite.metadata?.characterNames && composite.metadata.characterNames.length > 0 && (
+                <div className="text-[11px] text-text-muted">
+                  {lang === "he" ? "בסדר זה-לצד-זה:" : "Left-to-right:"} {composite.metadata.characterNames.join(" · ")}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-sm text-text-muted bg-bg-main rounded-lg p-4 text-center">
+              {lang === "he" ? "עדיין לא נבנתה. לחץ 'בנה עכשיו' כדי לייצר." : "Not built yet. Click 'Build now' to generate."}
+            </div>
+          )}
+        </div>
+      )}
 
       {lightbox && (() => {
         const gallery = lightbox.character.media;

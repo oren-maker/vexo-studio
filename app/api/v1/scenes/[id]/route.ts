@@ -5,6 +5,7 @@ import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { handleError, ok } from "@/lib/route-utils";
 import { pollVeoOperation } from "@/lib/providers/google-veo";
 import { pollSoraVideo } from "@/lib/providers/openai-sora";
+import { persistSoraToBlob, persistVeoToBlob } from "@/lib/providers/persist-video";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 
@@ -47,25 +48,37 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     let videoProgress: number | null = null; // 0-100 real progress from API
     if (pending?.jobId) {
       try {
-        let proxyUrl: string | null = null;
+        // When a video job finishes we always try to DOWNLOAD it to Vercel Blob
+        // and persist that permanent URL. The proxy URL (sora-proxy / veo-proxy)
+        // is a last-resort fallback so history stays reachable even if the
+        // provider key rotates later.
+        let fileUrl: string | null = null;
         let failedReason: string | null = null;
         if (pending.provider === "google") {
           const r = await pollVeoOperation(pending.jobId);
-          if (r.done && r.videoUri) proxyUrl = `/api/v1/videos/veo-proxy?uri=${encodeURIComponent(r.videoUri)}`;
+          if (r.done && r.videoUri) {
+            const persisted = await persistVeoToBlob({ veoUri: r.videoUri, scopeId: scene.id, scopeKind: "scene" });
+            fileUrl = persisted.blobUrl ?? `/api/v1/videos/veo-proxy?uri=${encodeURIComponent(r.videoUri)}`;
+            if (!persisted.blobUrl) console.warn("[scene-poll] veo blob persist failed:", persisted.error);
+          }
           else if (r.done && r.error) failedReason = r.error;
         } else if (pending.provider === "openai") {
           const r = await pollSoraVideo(pending.jobId);
-          if (r.status === "completed") proxyUrl = `/api/v1/videos/sora-proxy?id=${encodeURIComponent(pending.jobId)}`;
+          if (r.status === "completed") {
+            const persisted = await persistSoraToBlob({ soraVideoId: pending.jobId, scopeId: scene.id, scopeKind: "scene" });
+            fileUrl = persisted.blobUrl ?? `/api/v1/videos/sora-proxy?id=${encodeURIComponent(pending.jobId)}`;
+            if (!persisted.blobUrl) console.warn("[scene-poll] sora blob persist failed:", persisted.error);
+          }
           else if (r.status === "failed") failedReason = "sora job failed";
           else if (typeof r.progress === "number") videoProgress = r.progress;
         } else if (pending.provider === "higgsfield") {
           const { pollHiggsVideo } = await import("@/lib/providers/higgsfield");
           const r = await pollHiggsVideo(pending.jobId);
-          if (r.status === "completed" && r.videoUrl) proxyUrl = r.videoUrl;
+          if (r.status === "completed" && r.videoUrl) fileUrl = r.videoUrl; // higgsfield already returns a stable URL
           else if (r.status === "failed") failedReason = r.error ?? "higgsfield job failed";
           else if (typeof r.progress === "number") videoProgress = r.progress;
         }
-        if (proxyUrl) {
+        if (fileUrl) {
           const projectIdForAsset = (await prisma.episode.findUniqueOrThrow({
             where: { id: scene.episodeId! },
             select: { season: { select: { series: { select: { projectId: true } } } } },
@@ -85,7 +98,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           await prisma.asset.create({
             data: {
               projectId: projectIdForAsset, entityType: "SCENE", entityId: scene.id, assetType: "VIDEO",
-              fileUrl: proxyUrl, mimeType: "video/mp4", status: "READY",
+              fileUrl, mimeType: "video/mp4", status: "READY",
               metadata: {
                 provider: pending.provider,
                 model: pending.model,

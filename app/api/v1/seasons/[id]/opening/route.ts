@@ -10,6 +10,7 @@ import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { handleError, ok } from "@/lib/route-utils";
 import { pollVeoOperation, priceVeoVideo, type GoogleVeoModel } from "@/lib/providers/google-veo";
 import { pollSoraVideo, priceSora, type SoraModel } from "@/lib/providers/openai-sora";
+import { persistSoraToBlob, persistVeoToBlob } from "@/lib/providers/persist-video";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 
@@ -37,10 +38,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       try {
         const res = await pollVeoOperation(opening.falRequestId);
         if (res.done && res.videoUri) {
-          const proxyUrl = `/api/v1/videos/veo-proxy?uri=${encodeURIComponent(res.videoUri)}`;
+          const persisted = await persistVeoToBlob({ veoUri: res.videoUri, scopeId: opening.id, scopeKind: "opening" });
+          const fileUrl = persisted.blobUrl ?? `/api/v1/videos/veo-proxy?uri=${encodeURIComponent(res.videoUri)}`;
+          if (!persisted.blobUrl) console.warn("[veo-poll] blob persist failed:", persisted.error);
           await prisma.seasonOpening.update({
             where: { id: opening.id },
-            data: { status: "READY", videoUrl: proxyUrl, videoUri: res.videoUri },
+            data: { status: "READY", videoUrl: fileUrl, videoUri: res.videoUri },
           });
           // Register asset + reconcile cost
           const { season: s } = await prisma.seasonOpening.findUniqueOrThrow({
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           await prisma.asset.create({
             data: {
               projectId, entityType: "SEASON_OPENING", entityId: opening.id, assetType: "VIDEO",
-              fileUrl: proxyUrl, mimeType: "video/mp4", status: "READY",
+              fileUrl, mimeType: "video/mp4", status: "READY",
               metadata: { provider: "google-veo", model: opening.model, durationSeconds: opening.duration, costUsd: priceVeoVideo(opening.model.replace(/^google-/, "") as GoogleVeoModel, opening.duration), uri: res.videoUri } as object,
             },
           }).catch(() => {});
@@ -91,7 +94,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           const totalChunks = chunkPrompts.length || 1;
           const hasMoreChunks = completedChunkIndex + 1 < totalChunks;
           const completedVideoId = opening.falRequestId;
-          const proxyUrl = `/api/v1/videos/sora-proxy?id=${encodeURIComponent(completedVideoId)}`;
+          const persisted = await persistSoraToBlob({ soraVideoId: completedVideoId, scopeId: opening.id, scopeKind: "opening" });
+          const fileUrl = persisted.blobUrl ?? `/api/v1/videos/sora-proxy?id=${encodeURIComponent(completedVideoId)}`;
+          if (!persisted.blobUrl) console.warn("[sora-poll opening] blob persist failed:", persisted.error);
           const { season: s } = await prisma.seasonOpening.findUniqueOrThrow({
             where: { id: opening.id },
             include: { season: { include: { series: { select: { projectId: true } } } } },
@@ -101,7 +106,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           await prisma.asset.create({
             data: {
               projectId, entityType: "SEASON_OPENING", entityId: opening.id, assetType: "VIDEO",
-              fileUrl: proxyUrl, mimeType: "video/mp4", status: "READY",
+              fileUrl, mimeType: "video/mp4", status: "READY",
               metadata: {
                 provider: "openai-sora", model: opening.model,
                 durationSeconds: 20,
@@ -155,7 +160,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             // Final chunk finished — opening is now READY.
             await prisma.seasonOpening.update({
               where: { id: opening.id },
-              data: { status: "READY", videoUrl: proxyUrl, videoUri: completedVideoId },
+              data: { status: "READY", videoUrl: fileUrl, videoUri: completedVideoId },
             });
           }
           opening = await prisma.seasonOpening.findUnique({

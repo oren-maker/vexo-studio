@@ -4,12 +4,9 @@
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
-// Order matters — try the fastest stable model first. gemini-2.5-flash
-// responds in ~3-8s for typical prompts; 3-flash-preview is quality but
-// routinely 20-40s (Oren flagged the opening-wizard as too slow, 2026-04-22).
-// Verified 2026-04-22: 2.5-flash returns 200 with `thinkingConfig.thinkingBudget=0`
-// so the "high demand 503" comment from earlier is stale.
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3-flash-preview"];
+// gemini-3-flash-preview is the working alias. 2.5-flash returns 503 'high demand'
+// globally and 1.5/2.0 are 404 in v1beta. Latest alias auto-routes to whatever's stable.
+const GEMINI_MODELS = ["gemini-3-flash-preview", "gemini-flash-latest", "gemini-2.5-flash"];
 const GEMINI_URL = (m: string) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };

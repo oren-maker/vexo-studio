@@ -200,11 +200,14 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
 
       {/* Stages */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-lg font-bold text-white">שלבים ({guide.stages.length})</h2>
-          <button onClick={addStage} className="text-xs bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-3 py-1.5 rounded">
-            ➕ הוסף שלב
-          </button>
+          <div className="flex gap-2">
+            <BulkImageUpload guideSlug={guide.slug} onDone={() => window.location.reload()} />
+            <button onClick={addStage} className="text-xs bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-3 py-1.5 rounded">
+              ➕ הוסף שלב
+            </button>
+          </div>
         </div>
 
         {guide.stages.map((stage: any, i: number) => {
@@ -294,5 +297,51 @@ export default function GuideEditor({ initialGuide, initialLang }: { initialGuid
         )}
       </section>
     </div>
+  );
+}
+
+// Bulk image upload → Gemini vision → auto-creates stages. Use when Instagram
+// embed only returned first 3 carousel slides and the user has the rest as
+// screenshots. Drop N images, each becomes one stage with OCR'd content.
+function BulkImageUpload({ guideSlug, onDone }: { guideSlug: string; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState("");
+
+  async function handlePick(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    if (!confirm(`לנתח ${files.length} תמונות ולהוסיף אותן כשלבים חדשים? (לוקח ~2 שניות לתמונה)`)) return;
+    setBusy(true);
+    setProgress(`מעלה ${files.length} תמונות...`);
+    try {
+      const fd = new FormData();
+      for (let i = 0; i < files.length; i++) fd.append("files", files[i]);
+      const key = getAdminKey();
+      const res = await fetch(`/api/v1/learn/guides/${guideSlug}/analyze-images`, {
+        method: "POST",
+        headers: key ? { "x-vexo-admin-key": key } : {},
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      setProgress(`✓ ${data.succeeded}/${data.uploaded} נוספו. טוען מחדש...`);
+      setTimeout(onDone, 800);
+    } catch (e) {
+      setProgress(`⚠ ${(e as Error).message}`);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <label className={`text-xs font-semibold px-3 py-1.5 rounded cursor-pointer ${busy ? "bg-slate-700 text-slate-400" : "bg-purple-500 hover:bg-purple-400 text-white"}`}>
+      {busy ? progress : "🖼 הוסף שקופיות מתמונות"}
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        className="hidden"
+        disabled={busy}
+        onChange={(e) => handlePick(e.target.files)}
+      />
+    </label>
   );
 }

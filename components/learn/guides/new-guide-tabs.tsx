@@ -132,7 +132,7 @@ export default function NewGuideTabs() {
     { key: "ai", label: "מ-AI", icon: "🤖" },
     { key: "url", label: "מ-URL", icon: "🔗" },
     { key: "instagram", label: "מ-Instagram", icon: "📷" },
-    { key: "files", label: "מקבצים", icon: "📁" },
+    { key: "files", label: "מתמונות", icon: "📸" },
   ];
 
   return (
@@ -305,9 +305,9 @@ function FilesToGuide({ lang, titleHint, onTitleChange, pending, setPending, set
           ${dragActive ? "border-cyan-400 bg-cyan-500/10"
             : "border-slate-600 hover:border-slate-400 bg-slate-950/40"}`}
       >
-        <div className="text-3xl mb-2">📁</div>
-        <div className="text-sm text-slate-200 font-semibold mb-1">גרור קבצים לכאן או לחץ לבחירה</div>
-        <div className="text-[11px] text-slate-500">תמונות (JPG/PNG/WEBP) · PDF · Word (.docx) — הסדר שלהם = הסדר במדריך</div>
+        <div className="text-3xl mb-2">📸</div>
+        <div className="text-sm text-slate-200 font-semibold mb-1">גרור תמונות לכאן או לחץ לבחירה</div>
+        <div className="text-[11px] text-slate-500">JPG/PNG/WEBP/HEIC (+ גם PDF ו-Word) · הסדר שתבחר = הסדר במדריך</div>
         <input
           type="file"
           multiple
@@ -344,7 +344,7 @@ function FilesToGuide({ lang, titleHint, onTitleChange, pending, setPending, set
         disabled={pending || files.length === 0}
         className="bg-purple-500 hover:bg-purple-400 text-white font-semibold px-5 py-2 rounded-lg text-sm disabled:opacity-50 w-full"
       >
-        {pending ? "🔄 בונה מדריך..." : `✨ צור מדריך מ-${files.length} קבצים`}
+        {pending ? "🔄 בונה מדריך..." : `✨ צור מדריך מ-${files.length} תמונות`}
       </button>
       <p className="text-[11px] text-slate-500">
         Gemini רואה את כל הקבצים בסדר שהעלית ובונה מדריך בעברית בסגנון קלוד·אינסטגרם־אודיט. בערך 20-40 שניות לכל 10 קבצים.

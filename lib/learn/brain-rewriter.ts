@@ -60,7 +60,7 @@ async function callRewriterGemini(prompt: string): Promise<{ raw: string; usage:
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 500, responseMimeType: "application/json" },
+            generationConfig: { temperature: 0.3, maxOutputTokens: 2000, responseMimeType: "application/json" },
           }),
           signal: AbortSignal.timeout(20_000),
         });
@@ -101,9 +101,20 @@ export async function rewriteQuery(params: {
   const { raw, usage, model } = await callRewriterGemini(prompt);
   const latencyMs = Date.now() - t0;
 
+  // Same Hebrew JSON truncation pattern as the grader — fall back to regex
+  // extraction of the single field we care about.
   let parsed: any;
-  try { parsed = JSON.parse(raw); }
-  catch { throw new Error(`rewriter ${model} returned non-JSON: ${raw.slice(0, 200)}`); }
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    const m = raw.match(/"rewritten_question"\s*:\s*"([^"]+)"?/);
+    if (m) {
+      parsed = { rewritten_question: m[1] };
+      console.warn(`[rewriter] JSON truncated, fell back to regex extraction`);
+    } else {
+      throw new Error(`rewriter ${model} returned unparseable: ${raw.slice(0, 200)}`);
+    }
+  }
 
   const rewrittenQuestion = (typeof parsed.rewritten_question === "string" ? parsed.rewritten_question : "").trim().slice(0, 500);
   if (!rewrittenQuestion) throw new Error(`rewriter ${model} returned empty rewritten_question`);

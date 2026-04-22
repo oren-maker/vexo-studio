@@ -133,6 +133,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     failed: results.filter((r) => !r.ok).length,
     results,
     editUrl: `/learn/guides/${slug}/edit`,
-    viewUrl: `/guides/${slug}`,
+    viewUrl: `/learn/guides/${slug}`,
   });
 }

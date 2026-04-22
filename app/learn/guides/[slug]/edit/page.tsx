@@ -30,12 +30,15 @@ export default async function GuideEditPage({
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="mb-5 flex items-center justify-between">
-        <Link href={`/learn/guides/${params.slug}?lang=${lang}`} className="text-xs text-slate-400 hover:text-cyan-400">
-          ← חזרה לתצוגה
-        </Link>
+      <div className="mb-5 flex items-center justify-between gap-3 flex-wrap">
         <Link href="/learn/guides" className="text-xs text-slate-400 hover:text-cyan-400">
-          ספריית מדריכים →
+          ← ספריית מדריכים
+        </Link>
+        <Link
+          href={`/learn/guides/${params.slug}?lang=${lang}`}
+          className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+        >
+          👁 צפה במדריך המלא
         </Link>
       </div>
       <GuideEditor initialGuide={data.guide} initialLang={lang} />

@@ -17,8 +17,10 @@ export const maxDuration = 300;
 const GEMINI_KEY = process.env.GEMINI_API_KEY?.replace(/\\n$/, "").trim();
 const MODEL = "gemini-3-flash-preview";
 
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^\w֐-׿؀-ۿ\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 80);
+// English-only slug. Strips Hebrew/Arabic/CJK. If nothing ASCII survives,
+// returns "" so the caller can fall back to a timestamp-based slug.
+function slugifyEnglish(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 }
 
 function buildGuidePrompt(fileCount: number, titleHint: string): string {
@@ -63,7 +65,8 @@ function buildGuidePrompt(fileCount: number, titleHint: string): string {
 
 **פלט — JSON תקין בלבד (responseMimeType=application/json):**
 {
-  "title": "...",
+  "title": "...",            // עברית
+  "slug": "...",             // ⚠️ באנגלית בלבד — 3-6 מילים kebab-case (rag-self-healing, react-testing-setup וכו'). אסורים תווים לא-ASCII.
   "description": "...",
   "category": "...",
   "stages": [
@@ -163,7 +166,7 @@ export async function POST(req: NextRequest) {
   if (!raw) return NextResponse.json({ error: "gemini returned empty response", finishReason, gj }, { status: 502 });
   const truncated = finishReason === "MAX_TOKENS" || finishReason === "LENGTH";
 
-  let parsed: { title?: string; description?: string; category?: string; stages?: { type?: string; title: string; content: string }[] };
+  let parsed: { title?: string; slug?: string; description?: string; category?: string; stages?: { type?: string; title: string; content: string }[] };
   try { parsed = JSON.parse(raw); }
   catch {
     return NextResponse.json({
@@ -179,7 +182,10 @@ export async function POST(req: NextRequest) {
   const stageList = (parsed.stages ?? []).filter((s) => s?.title && s?.content);
   if (stageList.length === 0) return NextResponse.json({ error: "gemini returned no stages", preview: raw.slice(0, 400) }, { status: 502 });
 
-  const slug = `${slugify(finalTitle) || "guide"}-${Date.now().toString(36).slice(-4)}`;
+  // Prefer Gemini's explicit slug field, fall back to extracting ASCII tokens
+  // from title, and finally "guide" if the title is fully non-Latin.
+  const candidateSlug = slugifyEnglish(parsed.slug ?? "") || slugifyEnglish(finalTitle) || "guide";
+  const slug = `${candidateSlug}-${Date.now().toString(36).slice(-4)}`;
 
   // Map images to stages in order so the guide has visual anchors per slide.
   // If Gemini produced more stages than images, extra stages render without images.
@@ -227,6 +233,6 @@ export async function POST(req: NextRequest) {
       ? `gemini returned ${stagePlans.length} stages but ${prepared.length} files were uploaded — some slides may be merged`
       : undefined,
     editUrl: `/learn/guides/${guide.slug}/edit`,
-    viewUrl: `/guides/${guide.slug}?lang=${lang}`,
+    viewUrl: `/learn/guides/${guide.slug}?lang=${lang}`,
   });
 }

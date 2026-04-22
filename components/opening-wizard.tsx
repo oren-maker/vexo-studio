@@ -146,7 +146,7 @@ export function OpeningWizard({
   const [improveBusy, setImproveBusy] = useState(false);
   const [improveErr, setImproveErr] = useState<string | null>(null);
   const [improveElapsed, setImproveElapsed] = useState(0);
-  const [proposal, setProposal] = useState<{ improvedPrompt: string; changes: string[]; summary: string } | null>(null);
+  const [proposal, setProposal] = useState<{ improvedPrompt: string; changes: string[]; summary: string; allowedCast?: string[]; potentialUnknownNames?: string[] } | null>(null);
   useEffect(() => {
     if (!improveBusy) return;
     const t = setInterval(() => setImproveElapsed((s) => s + 1), 1000);
@@ -157,15 +157,30 @@ export function OpeningWizard({
     if (!prompt.trim()) return;
     setImproveBusy(true); setImproveErr(null); setImproveElapsed(0); setProposal(null);
     try {
-      const r = await api<{ improvedPrompt: string; changes: string[]; summary: string }>(
+      const r = await api<{ improvedPrompt: string; changes: string[]; summary: string; allowedCast?: string[]; potentialUnknownNames?: string[] }>(
         `/api/v1/seasons/${seasonId}/opening/brain-improve`,
         {
           method: "POST",
-          body: { prompt, styleLabel: pickedStyle?.name, model, duration },
+          body: {
+            prompt,
+            styleLabel: pickedStyle?.name,
+            model,
+            duration,
+            // Pass the currently-selected cast so the brain stays grounded
+            // — without this it sees every project character and sometimes
+            // swaps names (Oren flagged 2026-04-22).
+            characterIds: includeChars ? charIds : [],
+          },
           timeoutMs: 90_000,
         },
       );
-      setProposal({ improvedPrompt: r.improvedPrompt, changes: r.changes ?? [], summary: r.summary ?? "" });
+      setProposal({
+        improvedPrompt: r.improvedPrompt,
+        changes: r.changes ?? [],
+        summary: r.summary ?? "",
+        allowedCast: r.allowedCast,
+        potentialUnknownNames: r.potentialUnknownNames,
+      });
     } catch (e) { setImproveErr((e as Error).message || (he ? "שגיאה" : "Error")); }
     finally { setImproveBusy(false); }
   }
@@ -428,9 +443,25 @@ export function OpeningWizard({
                         <div className="font-semibold mb-1">{he ? "פרומט חדש:" : "New prompt:"}</div>
                         <div className="bg-bg-main rounded p-2 font-mono leading-relaxed max-h-48 overflow-y-auto">{proposal.improvedPrompt}</div>
                       </div>
+                      {proposal.potentialUnknownNames && proposal.potentialUnknownNames.length > 0 && (
+                        <div className="bg-status-warningBg border border-status-warnText/40 rounded p-2 text-[11px]">
+                          <div className="font-bold text-status-warnText mb-1">
+                            ⚠ {he ? "זוהו שמות דמויות שאינם בקאסט של הפתיח:" : "Names not in this opening's cast were detected:"}
+                          </div>
+                          <div className="font-mono">{proposal.potentialUnknownNames.join(", ")}</div>
+                          <div className="mt-1 text-text-muted">
+                            {he
+                              ? `הקאסט המותר: ${(proposal.allowedCast ?? []).join(", ") || "(אף אחד)"}. עדיף לדחות את ההצעה ולנסות שוב, או לערוך ידנית.`
+                              : `Allowed cast: ${(proposal.allowedCast ?? []).join(", ") || "(none)"}. Reject and retry, or edit manually.`}
+                          </div>
+                        </div>
+                      )}
                       <div className="flex gap-2 flex-wrap">
                         <button onClick={acceptProposal} className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-semibold">
                           ✓ {he ? "קבל את ההצעה" : "Accept proposal"}
+                        </button>
+                        <button onClick={askBrainToImprove} className="px-3 py-1.5 rounded-lg border border-accent text-accent text-xs font-semibold">
+                          🔁 {he ? "נסה שוב" : "Retry"}
                         </button>
                         <button onClick={() => setProposal(null)} className="px-3 py-1.5 rounded-lg border border-bg-main text-xs font-semibold">
                           ✕ {he ? "דחה והשאר ככה" : "Reject and keep"}

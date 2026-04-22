@@ -120,9 +120,10 @@ export default function SeasonPage() {
   // Live progress + auto-poll + auto-refresh for opening video generation.
   useEffect(() => {
     if (!openingJob || openingJob.done || !season) return;
-    // Sora-2 can legitimately take 5-7 min for 20s videos, especially with
-    // moderation re-checks. Give the client 10 min before auto-unsticking.
-    const MAX_MS = 600_000;
+    // Oren requested 5-min page auto-refresh (was 3 min before, and
+    // briefly 10 — 5 is the sweet spot: covers Sora's normal 2-4 min + a
+    // buffer, without making the user wait too long on a stuck job).
+    const MAX_MS = 300_000;
     const tick = setInterval(() => {
       setOpeningJob((j) => j ? { ...j, elapsed: Math.round((Date.now() - j.startedAt) / 1000) } : null);
     }, 1000);

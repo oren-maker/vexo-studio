@@ -291,7 +291,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (body.includeCharacters !== undefined) updateData.includeCharacters = body.includeCharacters;
     if (body.characterIds !== undefined) updateData.characterIds = body.characterIds;
     if (body.styleLabel !== undefined) updateData.styleLabel = body.styleLabel;
-    if (body.status !== undefined) updateData.status = body.status;
+    if (body.status !== undefined) {
+      updateData.status = body.status;
+      // When the user explicitly resets to DRAFT (from FAILED or a stuck
+      // GENERATING), we also wipe the in-flight fields. Otherwise the next
+      // server-side poll would re-fetch the same failed Sora job and flip
+      // the status right back to FAILED — making the Reset button useless.
+      if (body.status === "DRAFT" && (existing.status === "FAILED" || existing.status === "GENERATING")) {
+        updateData.falRequestId = null;
+        updateData.chunkIndex = 0;
+        updateData.chunkVideoIds = [] as any;
+        if (existing.videoUri?.startsWith("ERROR:")) updateData.videoUri = null;
+      }
+    }
 
     // If user flips this opening to series-default, demote any other opening in the same series.
     if (body.isSeriesDefault === true) {

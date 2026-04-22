@@ -18,7 +18,7 @@ function buildGiveUpReply(originalQuery: string, ragHits: RagHit[]): string {
 }
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const MODELS = ["gemini-3-flash-preview", "gemini-flash-latest", "gemini-2.5-flash"];
@@ -825,8 +825,7 @@ export async function POST(req: NextRequest) {
     //   - message too short (< 10 chars)
     //   - no RAG hits on the initial retrieval (nothing to ground against)
     // ════════════════════════════════════════════════════════════════
-    let selfHealing: { attempts: number; finalVerdict: GraderVerdict; gaveUp: boolean; gradingIds: string[]; errors?: string[] } | undefined;
-    const selfHealErrors: string[] = [];
+    let selfHealing: { attempts: number; finalVerdict: GraderVerdict; gaveUp: boolean; gradingIds: string[] } | undefined;
     const skipSelfHeal = !SELF_HEALING_ENABLED || brainMode !== "vexo" || message.trim().length < 10 || ragHits.length === 0;
     if (!skipSelfHeal) {
       let attempt = 1;
@@ -843,9 +842,7 @@ export async function POST(req: NextRequest) {
         try {
           grade = await gradeReply({ userMessage: currentQuery, ragHits: currentHits, brainReply: currentReply });
         } catch (e) {
-          const em = (e as Error).message;
-          console.error(`[self-heal] grader failed (attempt ${attempt}), passing through:`, em);
-          selfHealErrors.push(`grader#${attempt}: ${em}`);
+          console.error(`[self-heal] grader failed (attempt ${attempt}), passing through:`, (e as Error).message);
           finalVerdict = "pass"; // fail-open — don't block reply on grader errors
           break;
         }
@@ -888,9 +885,7 @@ export async function POST(req: NextRequest) {
           const next = await callGeminiWithFallback(retrySystem, retryHistory);
           currentReply = next.reply;
         } catch (e) {
-          const em = (e as Error).message;
-          console.error(`[self-heal] retry leg failed (attempt ${attempt}):`, em);
-          selfHealErrors.push(`retry#${attempt}: ${em}`);
+          console.error(`[self-heal] retry leg failed (attempt ${attempt}):`, (e as Error).message);
           currentReply = buildGiveUpReply(message, ragHits);
           gaveUp = true;
           break;
@@ -904,7 +899,7 @@ export async function POST(req: NextRequest) {
         reply = currentReply;
         await prisma.brainMessage.update({ where: { id: brainMsg.id }, data: { content: reply } }).catch(() => {});
       }
-      selfHealing = { attempts: attempt, finalVerdict, gaveUp, gradingIds, ...(selfHealErrors.length > 0 ? { errors: selfHealErrors } : {}) };
+      selfHealing = { attempts: attempt, finalVerdict, gaveUp, gradingIds };
     }
     // ════════════════════════════════════════════════════════════════
 

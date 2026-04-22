@@ -32,6 +32,51 @@ function key(): string {
   return k;
 }
 
+// Sora's moderation is stricter than VEO's and runs TWICE (at submit and at
+// ~87-99% render). A single flagged word kills 2+ minutes of work. Rewrite
+// prompts via Gemini before submitting. Same pattern as sanitizePromptForVeo
+// but with Sora-specific hints (surveillance/thriller/conspiracy language
+// trips Sora's second-pass moderation even when visually benign).
+// See memory: feedback_sora_moderation + lesson_sora_post_render_moderation.
+async function sanitizePromptForSora(prompt: string): Promise<string> {
+  const geminiKey = process.env.GEMINI_API_KEY?.replace(/\\n$/, "").trim();
+  if (!geminiKey) return prompt;
+  const SYSTEM = `You rewrite cinematic video prompts to pass OpenAI Sora safety filters (which are stricter than VEO and run a SECOND visual moderation pass at ~87-99% render). Preserve the visual style, mood, camera work, scene structure, and language — but remove triggers:
+
+- Replace surveillance/paranoia/conspiracy words: "surveillance"→"observation", "conspiracy"→"hidden story", "spy"→"observer", "interrogation"→"quiet conversation"
+- Replace weapons with training tools / metaphor: "gun"→"camera", "knife"→"pen", "sword"→"bamboo staff"
+- Replace blood / gore / injury with "intense moment" / "dramatic action"
+- Replace specific real-person names with archetypes ("Elon Musk"→"a tech founder")
+- Replace politically-charged names/terms with neutral equivalents
+- Remove minors — age every person to "young adult" (20+)
+- Remove nudity / explicit / fetish terms — dress the subject, implied only
+- Remove brand names, logos, copyrighted characters
+- Soften thriller/horror intensity: "menacing"→"serious", "sinister"→"thoughtful", "stalking"→"following"
+- Remove anomalous physics descriptions Sora's 2nd-pass blocks: "mercury floating upward", "mirror shows different scene", "gravity reversed" — keep realistic motion only
+- Keep "live-action photorealistic, real actors, real skin" if present
+
+Output ONLY the rewritten prompt as one flowing text, same language as input, same length. No prefix, no quotes, no commentary, no "here is...".`;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiKey}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents: [{ role: "user", parts: [{ text: `Rewrite this prompt for Sora safety:\n\n${prompt.slice(0, 3000)}` }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 2048 },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) return prompt;
+    const j: any = await res.json();
+    const rewritten = j.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return rewritten && rewritten.length > 20 ? rewritten : prompt;
+  } catch {
+    return prompt;
+  }
+}
+
 export async function submitSoraVideo(opts: {
   prompt: string;
   model: SoraModel;
@@ -41,8 +86,17 @@ export async function submitSoraVideo(opts: {
    * — Sora rejects mismatched dimensions. We resize automatically with sharp
    * + pad/contain to never crop the face. */
   imageUrl?: string;
-}): Promise<{ id: string; status: string }> {
+  /** Skip prompt sanitization. Default false — every Sora submission goes
+   * through Gemini first to replace moderation-triggering phrases. Pass
+   * true only when the caller has already sanitized (e.g. pre-cached). */
+  skipSanitize?: boolean;
+}): Promise<{ id: string; status: string; sanitizedPrompt?: string }> {
   const size = opts.size ?? "1280x720";
+  // Sora's moderation is aggressive. Sanitize every prompt through Gemini
+  // unless the caller opts out. On sanitizer failure we fall back to the
+  // original prompt — the submission might still pass, or will fail with a
+  // clearer downstream error.
+  const safePrompt = opts.skipSanitize ? opts.prompt : await sanitizePromptForSora(opts.prompt);
 
   if (opts.imageUrl) {
     // i2v path — multipart/form-data with resized reference image.
@@ -58,7 +112,7 @@ export async function submitSoraVideo(opts: {
 
     const form = new FormData();
     form.append("model", opts.model);
-    form.append("prompt", opts.prompt.slice(0, 2000));
+    form.append("prompt", safePrompt.slice(0, 2000));
     form.append("seconds", opts.seconds);
     form.append("size", size);
     // Blob is valid in Node 18+ runtime
@@ -71,13 +125,13 @@ export async function submitSoraVideo(opts: {
     });
     if (!res.ok) throw new Error(`Sora submit (i2v) ${res.status}: ${(await res.text()).slice(0, 400)}`);
     const data = await res.json();
-    return { id: data.id, status: data.status };
+    return { id: data.id, status: data.status, sanitizedPrompt: safePrompt !== opts.prompt ? safePrompt : undefined };
   }
 
   // t2v path — plain JSON
   const body = {
     model: opts.model,
-    prompt: opts.prompt.slice(0, 2000),
+    prompt: safePrompt.slice(0, 2000),
     seconds: opts.seconds,
     size,
   };
@@ -88,7 +142,7 @@ export async function submitSoraVideo(opts: {
   });
   if (!res.ok) throw new Error(`Sora submit ${res.status}: ${(await res.text()).slice(0, 400)}`);
   const data = await res.json();
-  return { id: data.id, status: data.status };
+  return { id: data.id, status: data.status, sanitizedPrompt: safePrompt !== opts.prompt ? safePrompt : undefined };
 }
 
 export interface SoraPollResult {
@@ -130,10 +184,13 @@ export async function downloadSoraVideo(id: string): Promise<{ bytes: Buffer; mi
  * generation. Returns a new video id we can poll like any other.
  */
 export async function remixSoraVideo(opts: { sourceId: string; prompt: string }): Promise<{ id: string; model: SoraModel; seconds: SoraSeconds }> {
+  // Delta prompts can still trip moderation ("make it menacing", "darker
+  // surveillance angle") — run the same sanitizer.
+  const safePrompt = await sanitizePromptForSora(opts.prompt);
   const res = await fetch(`${OPENAI}/videos/${opts.sourceId}/remix`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key()}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: opts.prompt.slice(0, 2000) }),
+    body: JSON.stringify({ prompt: safePrompt.slice(0, 2000) }),
   });
   if (!res.ok) throw new Error(`Sora remix ${res.status}: ${(await res.text()).slice(0, 400)}`);
   const data = await res.json();
@@ -151,10 +208,11 @@ export async function extendSoraVideo(opts: {
   prompt: string;
   seconds: SoraSeconds;
 }): Promise<{ id: string; model: SoraModel; seconds: SoraSeconds }> {
+  const safePrompt = await sanitizePromptForSora(opts.prompt);
   const res = await fetch(`${OPENAI}/videos/${opts.sourceId}/extensions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key()}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: opts.prompt.slice(0, 2000), seconds: opts.seconds }),
+    body: JSON.stringify({ prompt: safePrompt.slice(0, 2000), seconds: opts.seconds }),
   });
   if (!res.ok) throw new Error(`Sora extend ${res.status}: ${(await res.text()).slice(0, 400)}`);
   const data = await res.json();

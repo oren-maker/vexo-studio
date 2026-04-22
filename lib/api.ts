@@ -35,7 +35,7 @@ export function setCurrentOrgId(orgId: string | null) {
   else document.cookie = `vexo_org=; path=/; max-age=0`;
 }
 
-export async function api<T = unknown>(path: string, opts: Omit<RequestInit, "body"> & { body?: unknown } = {}): Promise<T> {
+export async function api<T = unknown>(path: string, opts: Omit<RequestInit, "body"> & { body?: unknown; timeoutMs?: number } = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(opts.headers as Record<string, string> ?? {}),
@@ -45,11 +45,36 @@ export async function api<T = unknown>(path: string, opts: Omit<RequestInit, "bo
   const orgId = getCurrentOrgId();
   if (orgId) headers["X-Organization-Id"] = orgId;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...opts,
-    headers,
-    body: opts.body && typeof opts.body !== "string" ? JSON.stringify(opts.body) : (opts.body as BodyInit | undefined),
-  });
+  // Default client-side timeout so a stuck server never hangs the UI forever.
+  // Callers can override per-request via opts.timeoutMs, or pass their own
+  // AbortSignal via opts.signal. 70s keeps us a bit above Vercel's 60s lambda
+  // wall — so usually the server returns a timeout error before we abort.
+  const defaultTimeoutMs = opts.timeoutMs ?? 70_000;
+  let timeoutSignal: AbortSignal | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  if (!opts.signal) {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(new Error(`client timeout after ${defaultTimeoutMs}ms`)), defaultTimeoutMs);
+    timeoutSignal = controller.signal;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...opts,
+      headers,
+      signal: opts.signal ?? timeoutSignal,
+      body: opts.body && typeof opts.body !== "string" ? JSON.stringify(opts.body) : (opts.body as BodyInit | undefined),
+    });
+  } catch (e: any) {
+    if (timer) clearTimeout(timer);
+    if (e?.name === "AbortError") {
+      throw Object.assign(new Error(`Request timed out after ${Math.round(defaultTimeoutMs / 1000)}s. Try again.`), { statusCode: 504, error: "ClientTimeout" });
+    }
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 
   if (res.status === 401 && typeof window !== "undefined" && !path.includes("/auth/")) {
     setAccessToken(null);

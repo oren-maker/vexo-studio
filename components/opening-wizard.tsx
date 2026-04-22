@@ -32,6 +32,7 @@ export function OpeningWizard({
   const [styles, setStyles] = useState<Style[] | null>(null);
   const [stylesErr, setStylesErr] = useState<string | null>(null);
   const [stylesBusy, setStylesBusy] = useState(true);
+  const [stylesElapsed, setStylesElapsed] = useState(0);
   const [pickedStyle, setPickedStyle] = useState<Style | null>(null);
   const [customStyle, setCustomStyle] = useState("");
 
@@ -55,19 +56,27 @@ export function OpeningWizard({
   const [sceneCtx, setSceneCtx] = useState<{ scenes: SceneCtx[]; connection: string | null } | null>(null);
 
   // Fetch style suggestions on mount
+  const [stylesAttempt, setStylesAttempt] = useState(0);
   useEffect(() => {
     (async () => {
-      setStylesBusy(true); setStylesErr(null);
+      setStylesBusy(true); setStylesErr(null); setStylesElapsed(0);
       try {
-        const r = await api<{ styles: Style[] }>(`/api/v1/seasons/${seasonId}/opening/suggest-styles`, { method: "POST", body: {} });
+        const r = await api<{ styles: Style[] }>(`/api/v1/seasons/${seasonId}/opening/suggest-styles`, { method: "POST", body: {}, timeoutMs: 90_000 });
         setStyles(r.styles);
         // Auto-pick the default style (character-showcase) so the user can advance without clicking
         const def = r.styles.find((s) => s.isDefault) ?? r.styles[0];
         if (def) setPickedStyle(def);
-      } catch (e) { setStylesErr((e as Error).message); }
+      } catch (e) { setStylesErr((e as Error).message || "שגיאה בטעינת הסגנונות"); }
       finally { setStylesBusy(false); }
     })();
-  }, [seasonId]);
+  }, [seasonId, stylesAttempt]);
+
+  // Per-second elapsed counter while loading styles so the user sees something is happening
+  useEffect(() => {
+    if (!stylesBusy) return;
+    const t = setInterval(() => setStylesElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [stylesBusy]);
 
   // Snap duration to new model's max when model changes
   useEffect(() => {
@@ -162,8 +171,26 @@ export function OpeningWizard({
           {step === 1 && (
             <div>
               <div className="text-sm font-semibold mb-3">{he ? "בחר סגנון לפתיחה" : "Pick a style"}</div>
-              {stylesBusy && <div className="text-sm text-text-muted">{he ? "🤖 ה-AI סוקר את הסדרה ומציע 4 סגנונות…" : "🤖 AI is reading the series and proposing 4 styles…"}</div>}
-              {stylesErr && <div className="bg-status-errBg text-status-errText rounded-lg p-3 text-sm">{stylesErr}</div>}
+              {stylesBusy && (
+                <div className="text-sm text-text-muted flex items-center gap-2">
+                  <span>{he ? "🤖 ה-AI סוקר את הסדרה ומציע 4 סגנונות…" : "🤖 AI is reading the series and proposing 4 styles…"}</span>
+                  <span className="font-mono text-xs opacity-60">({stylesElapsed}s)</span>
+                  {stylesElapsed > 30 && (
+                    <span className="text-[11px] text-status-warnText">{he ? "לוקח יותר מהצפוי — Gemini/Groq במאמץ" : "Slower than usual — Gemini/Groq under load"}</span>
+                  )}
+                </div>
+              )}
+              {stylesErr && (
+                <div className="bg-status-errBg text-status-errText rounded-lg p-3 text-sm flex items-center justify-between gap-3 flex-wrap">
+                  <span>⚠ {stylesErr}</span>
+                  <button
+                    onClick={() => setStylesAttempt((n) => n + 1)}
+                    className="px-3 py-1 rounded bg-status-errText text-white text-xs font-semibold hover:opacity-90"
+                  >
+                    {he ? "נסה שוב" : "Retry"}
+                  </button>
+                </div>
+              )}
               {styles && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {styles.map((s) => (

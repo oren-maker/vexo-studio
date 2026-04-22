@@ -11,7 +11,7 @@ import { groqJson } from "@/lib/groq";
 import { getContext } from "@/lib/project-context";
 import { handleError, ok } from "@/lib/route-utils";
 
-export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 45;
+export const runtime = "nodejs"; export const dynamic = "force-dynamic"; export const maxDuration = 75;
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   let stage = "init";

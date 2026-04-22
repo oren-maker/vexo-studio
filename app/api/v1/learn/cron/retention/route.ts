@@ -1,10 +1,13 @@
-// Memory retention policy — applies the TTL rules from section 10 of the
-// system-docs page:
-//   hot    = per-turn (BrainMessage in active chats, <30 days): untouched
-//   passive = indefinite-but-redactable (BrainChat over 90 days): summarized
-//   archive = immutable (everything else): left alone
+// Memory retention — REPORT-ONLY mode.
 //
-// Runs nightly (add to vercel.json crons).
+// This cron originally pruned old BrainMessage content, deleted hourly
+// InsightsSnapshot rows > 14 days, and deleted ActionOutcome rows > 180 days.
+// Oren ruled (2026-04-22): never delete user data, never redact message
+// bodies — every row stays forever. This cron now only REPORTS the tier
+// distribution so the UI can still show "hot/passive/archive" counts, and
+// flags old chats with summarizedAt so the UI can lazy-summarize on read.
+// The destructive branches are kept as commented code below as a reminder
+// of what NOT to do.
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/learn/db";
@@ -24,82 +27,42 @@ export async function GET(req: NextRequest) {
   const hotCutoff = new Date(now.getTime() - HOT_DAYS * 24 * 60 * 60 * 1000);
   const passiveCutoff = new Date(now.getTime() - PASSIVE_DAYS * 24 * 60 * 60 * 1000);
 
-  // 1) Identify chats that haven't been touched since passiveCutoff
-  //    → mark as summarizedAt (field already exists) + prune long message bodies
+  // 1) Flag stale chats with summarizedAt (soft marker — no content changes).
+  //    UI can lazy-summarize for display; original messages remain intact.
   const oldChats = await prisma.brainChat.findMany({
-    where: {
-      updatedAt: { lt: passiveCutoff },
-      summarizedAt: null,
-    },
-    include: {
-      messages: { orderBy: { createdAt: "asc" }, select: { id: true, content: true, role: true, createdAt: true } },
-    },
-    take: 50, // bounded per run
+    where: { updatedAt: { lt: passiveCutoff }, summarizedAt: null },
+    select: { id: true },
+    take: 100,
   });
-
-  let summarized = 0;
-  let messagesRedacted = 0;
-  for (const chat of oldChats) {
-    // Summarise: keep first+last 3 messages in full, replace middle with [... N messages archived ...]
-    if (chat.messages.length > 8) {
-      const keepFirst = chat.messages.slice(0, 3);
-      const keepLast = chat.messages.slice(-3);
-      const middle = chat.messages.slice(3, -3);
-      // Redact middle by shortening content
-      await prisma.$transaction(
-        middle.map((m) =>
-          prisma.brainMessage.update({
-            where: { id: m.id },
-            data: {
-              content: `[archived ${m.createdAt?.toISOString?.().slice(0, 10) ?? ""}] ${String(m.content).slice(0, 120)}…`,
-            },
-          })
-        )
-      );
-      messagesRedacted += middle.length;
-    }
-    await prisma.brainChat.update({
-      where: { id: chat.id },
-      data: { summarizedAt: now },
-    });
-    summarized++;
+  for (const c of oldChats) {
+    await prisma.brainChat.update({ where: { id: c.id }, data: { summarizedAt: now } });
   }
 
-  // 2) Count hot-tier activity for the report
+  // 2) Count-only reporting for the tier distribution card.
   const hotMessages = await prisma.brainMessage.count({ where: { createdAt: { gte: hotCutoff } } });
   const passiveMessages = await prisma.brainMessage.count({
     where: { createdAt: { lt: hotCutoff, gte: passiveCutoff } },
   });
   const archivedMessages = await prisma.brainMessage.count({ where: { createdAt: { lt: passiveCutoff } } });
-
-  // 3) InsightsSnapshot retention — hourly snapshots older than 14 days are
-  //    redundant once the corresponding daily-report has been written. Drop
-  //    them to keep the table lean.
-  const insightsCutoff = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-  const insightsDeleted = await prisma.insightsSnapshot.deleteMany({
-    where: { kind: "hourly", takenAt: { lt: insightsCutoff } },
-  });
-
-  // 4) ActionOutcome retention — keep 180 days of calibration data. Anything
-  //    older than that is stale for ECE purposes (model weights drift).
-  const outcomeCutoff = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-  const outcomesDeleted = await (prisma as any).actionOutcome?.deleteMany({
-    where: { createdAt: { lt: outcomeCutoff } },
-  }) ?? { count: 0 };
+  const insightsTotal = await prisma.insightsSnapshot.count();
+  const actionOutcomes = await (prisma as any).actionOutcome?.count().catch(() => 0) ?? 0;
 
   return NextResponse.json({
     ok: true,
-    policy: { hotDays: HOT_DAYS, passiveDays: PASSIVE_DAYS, insightsHourlyDays: 14, actionOutcomeDays: 180 },
+    mode: "report-only",
+    policy: { hotDays: HOT_DAYS, passiveDays: PASSIVE_DAYS, deletionsDisabled: true },
     counts: {
       hotMessages,
       passiveMessages,
       archivedMessages,
+      insightsTotal,
+      actionOutcomes,
     },
     applied: {
-      chatsSummarized: summarized,
-      messagesRedacted,
-      insightsHourlyDeleted: insightsDeleted.count,
-      actionOutcomesDeleted: outcomesDeleted.count,
+      chatsFlaggedSummarized: oldChats.length,
+      messagesRedacted: 0, // disabled
+      insightsDeleted: 0, // disabled
+      actionOutcomesDeleted: 0, // disabled
     },
     timestamp: now.toISOString(),
   });

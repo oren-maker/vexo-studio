@@ -9,6 +9,7 @@ import { authenticate, requirePermission, isAuthResponse } from "@/lib/auth";
 import { submitVideo, type VideoModel, priceVideo } from "@/lib/providers/fal";
 import { submitVeoVideo, type GoogleVeoModel, priceVeoVideo } from "@/lib/providers/google-veo";
 import { submitSoraVideo, type SoraModel, type SoraSeconds, priceSora } from "@/lib/providers/openai-sora";
+import { buildOpeningCompositeReference } from "@/lib/providers/build-opening-composite";
 import { chargeUsd } from "@/lib/billing";
 import { handleError, ok } from "@/lib/route-utils";
 
@@ -49,10 +50,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }).filter((x): x is { url: string; isSheet: boolean } => !!x);
     const referenceImageUrls = seedPicks.map((s) => s.url);
 
-    // Pick the first cast portrait as the seed. Preserves character identity
-    // without spending extra on a generated composite.
-    const seedImageUrl: string | undefined = seedPicks[0]?.url;
-    const seedIsSheet: boolean = !!seedPicks[0]?.isSheet;
+    // Decide the Sora identity strategy. With 1 character: use the single
+    // portrait (auto-crop if it's a sheet). With 2+: build a composite
+    // side-by-side reference so ALL cast faces are locked instead of only
+    // the first one. The composite pre-pends a "left/center/right"
+    // layout description to the prompt so Sora can map names to faces.
+    let seedImageUrl: string | undefined = seedPicks[0]?.url;
+    let seedIsSheet: boolean = !!seedPicks[0]?.isSheet;
+    let compositeLayoutDescription: string | null = null;
+    const isSoraModel = opening.model === "sora-2" || opening.model === "sora-2-pro";
+    if (isSoraModel && charRefs.length >= 2) {
+      try {
+        const composite = await buildOpeningCompositeReference(opening.id, charRefs);
+        seedImageUrl = composite.compositeUrl;
+        seedIsSheet = false; // composite is already a flat side-by-side, no sheet crop
+        compositeLayoutDescription = composite.layoutDescription;
+      } catch (e) {
+        console.warn("[opening-generate] composite build failed, falling back to single portrait:", (e as Error).message);
+      }
+    }
 
     await prisma.seasonOpening.update({ where: { id: opening.id }, data: { status: "GENERATING" } });
 
@@ -87,9 +103,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           : opening.duration >= 8 ? "8"
           : "4");
       const size = opening.aspectRatio === "9:16" ? "720x1280" : "1280x720";
+      // When using a multi-character composite, prefix the layout description
+      // so Sora knows which face maps to which name in the sheet.
+      const soraPrompt = compositeLayoutDescription
+        ? `${compositeLayoutDescription}\n\n${chunkPrompts[0]}`
+        : chunkPrompts[0];
       try {
         const submitted = await submitSoraVideo({
-          prompt: chunkPrompts[0],
+          prompt: soraPrompt,
           model: opening.model as SoraModel,
           seconds: firstSec,
           size,

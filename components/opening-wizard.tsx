@@ -142,6 +142,44 @@ export function OpeningWizard({
     finally { setBuildBusy(false); }
   }
 
+  // --- "Let the director improve" flow (step 4) --------------------------
+  const [improveBusy, setImproveBusy] = useState(false);
+  const [improveErr, setImproveErr] = useState<string | null>(null);
+  const [improveElapsed, setImproveElapsed] = useState(0);
+  const [proposal, setProposal] = useState<{ improvedPrompt: string; changes: string[]; summary: string } | null>(null);
+  useEffect(() => {
+    if (!improveBusy) return;
+    const t = setInterval(() => setImproveElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [improveBusy]);
+
+  async function askBrainToImprove() {
+    if (!prompt.trim()) return;
+    setImproveBusy(true); setImproveErr(null); setImproveElapsed(0); setProposal(null);
+    try {
+      const r = await api<{ improvedPrompt: string; changes: string[]; summary: string }>(
+        `/api/v1/seasons/${seasonId}/opening/brain-improve`,
+        {
+          method: "POST",
+          body: { prompt, styleLabel: pickedStyle?.name, model, duration },
+          timeoutMs: 90_000,
+        },
+      );
+      setProposal({ improvedPrompt: r.improvedPrompt, changes: r.changes ?? [], summary: r.summary ?? "" });
+    } catch (e) { setImproveErr((e as Error).message || (he ? "שגיאה" : "Error")); }
+    finally { setImproveBusy(false); }
+  }
+
+  async function acceptProposal() {
+    if (!proposal) return;
+    setPrompt(proposal.improvedPrompt);
+    setProposal(null);
+    // persist the new prompt so a refresh doesn't lose it
+    if (openingId) {
+      try { await api(`/api/v1/seasons/${seasonId}/opening`, { method: "PATCH", body: { prompt: proposal.improvedPrompt } }); } catch {}
+    }
+  }
+
   async function saveAndClose() {
     if (!openingId) return;
     setSaveBusy(true); setSaveErr(null);
@@ -154,6 +192,26 @@ export function OpeningWizard({
       onFinished(openingId);
     } catch (e) { setSaveErr((e as Error).message); }
     finally { setSaveBusy(false); }
+  }
+
+  // --- "Create video now" flow (step 5) --------------------------------
+  // Saves the settings AND kicks off the Sora/VEO generation before closing
+  // the wizard. User lands on the season page with a job already in flight.
+  const [generateBusy, setGenerateBusy] = useState(false);
+  async function saveAndGenerate() {
+    if (!openingId) return;
+    setSaveBusy(true); setGenerateBusy(true); setSaveErr(null);
+    try {
+      await api(`/api/v1/seasons/${seasonId}/opening`, {
+        method: "PATCH",
+        body: { prompt, duration, aspectRatio: aspect, model, includeCharacters: includeChars, characterIds: includeChars ? charIds : [] },
+      });
+      await api(`/api/v1/seasons/${seasonId}/opening/generate`, { method: "POST", body: {}, timeoutMs: 60_000 });
+      onFinished(openingId);
+    } catch (e) {
+      setSaveErr((e as Error).message || (he ? "שגיאה בהפעלת הייצור" : "Failed to start generation"));
+    }
+    finally { setSaveBusy(false); setGenerateBusy(false); }
   }
 
   return (
@@ -336,7 +394,51 @@ export function OpeningWizard({
                   {buildElapsed > 30 && <div className="text-xs">{he ? "לוקח קצת זמן — Gemini עמוס. עוד עד 75s ואז יהיה כפתור 'נסה שוב'." : "Taking a bit — Gemini busy. Up to 75s before retry."}</div>}
                 </div>
               ) : (
-                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onBlur={saveEditedPrompt} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm font-mono" />
+                <>
+                  <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onBlur={saveEditedPrompt} rows={10} className="w-full px-3 py-2 rounded-lg border border-bg-main text-sm font-mono" />
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={askBrainToImprove}
+                      disabled={improveBusy}
+                      className="px-3 py-1.5 rounded-lg bg-purple-500 hover:bg-purple-400 text-white text-xs font-semibold disabled:opacity-60"
+                      title={he ? "הבמאי יקרא את הפרומט ויציע שיפור על בסיס הידע שלו" : "The director reads the prompt and proposes an improvement"}
+                    >
+                      {improveBusy
+                        ? (he ? `🎬 הבמאי חושב… (${improveElapsed}s)` : `🎬 Director thinking… (${improveElapsed}s)`)
+                        : (he ? "🎬 תן לבמאי לשפר" : "🎬 Let the director improve")}
+                    </button>
+                    {improveErr && <span className="text-[11px] text-status-errText">⚠ {improveErr}</span>}
+                  </div>
+
+                  {proposal && (
+                    <div className="mt-3 bg-purple-500/10 border border-purple-500/40 rounded-lg p-3 text-xs space-y-3">
+                      <div>
+                        <div className="font-bold text-purple-300 mb-1">{he ? "🎬 ההצעה של הבמאי" : "🎬 Director's proposal"}</div>
+                        {proposal.summary && <div className="text-text-muted mb-2">{proposal.summary}</div>}
+                      </div>
+                      {proposal.changes.length > 0 && (
+                        <div>
+                          <div className="font-semibold mb-1">{he ? "מה שונה:" : "What changed:"}</div>
+                          <ul className="list-disc ms-5 space-y-0.5 text-text-secondary">
+                            {proposal.changes.map((c, i) => <li key={i}>{c}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-semibold mb-1">{he ? "פרומט חדש:" : "New prompt:"}</div>
+                        <div className="bg-bg-main rounded p-2 font-mono leading-relaxed max-h-48 overflow-y-auto">{proposal.improvedPrompt}</div>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        <button onClick={acceptProposal} className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-semibold">
+                          ✓ {he ? "קבל את ההצעה" : "Accept proposal"}
+                        </button>
+                        <button onClick={() => setProposal(null)} className="px-3 py-1.5 rounded-lg border border-bg-main text-xs font-semibold">
+                          ✕ {he ? "דחה והשאר ככה" : "Reject and keep"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -352,10 +454,21 @@ export function OpeningWizard({
                 <div><span className="text-text-muted">{he ? "עלות משוערת לייצור:" : "Est. generation cost:"}</span> <span className="num font-bold">${estUsd.toFixed(2)}</span></div>
               </div>
               <div className="bg-accent/10 rounded-lg p-3 text-xs text-accent mb-4">
-                ℹ {he ? "ההגדרות יישמרו. הסרטון עצמו לא ייווצר עכשיו — לחץ על 'צור וידאו' בכרטיס הפתיחה אחרי שתסגור את האשף." : "Settings will be saved. The video itself won't be rendered — click 'Generate video' on the opening card after closing the wizard."}
+                ℹ {he ? "שתי אפשרויות: 'צור וידאו' יתחיל את הייצור מיד (Sora/VEO — ~2-5 דק'). 'שמור וצא' רק ישמור הגדרות." : "Two options: 'Create video' starts generation now (Sora/VEO ~2-5 min). 'Save & close' only saves settings."}
               </div>
-              <button disabled={saveBusy} onClick={saveAndClose} className="w-full py-3 rounded-lg bg-accent text-white font-semibold disabled:opacity-50">
-                {saveBusy ? (he ? "שומר…" : "Saving…") : `💾 ${he ? "שמור וצא" : "Save & close"}`}
+              <button
+                disabled={saveBusy || generateBusy}
+                onClick={saveAndGenerate}
+                className="w-full py-3 rounded-lg bg-accent text-white font-bold disabled:opacity-50 text-base"
+              >
+                {generateBusy ? (he ? "🎬 שולח ל-Sora…" : "🎬 Sending to Sora…") : `🎬 ${he ? `צור וידאו (${duration}s · $${estUsd.toFixed(2)})` : `Create video (${duration}s · $${estUsd.toFixed(2)})`}`}
+              </button>
+              <button
+                disabled={saveBusy || generateBusy}
+                onClick={saveAndClose}
+                className="w-full py-2 mt-2 rounded-lg border border-bg-main text-sm font-semibold disabled:opacity-50"
+              >
+                {saveBusy && !generateBusy ? (he ? "שומר…" : "Saving…") : `💾 ${he ? "רק שמור וצא (בלי לייצר)" : "Just save & close (no generation)"}`}
               </button>
               {saveErr && <div className="bg-status-errBg text-status-errText rounded-lg p-3 text-sm mt-3">{saveErr}</div>}
             </div>

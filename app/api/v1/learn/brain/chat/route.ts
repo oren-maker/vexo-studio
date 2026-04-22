@@ -842,7 +842,7 @@ export async function POST(req: NextRequest) {
         try {
           grade = await gradeReply({ userMessage: currentQuery, ragHits: currentHits, brainReply: currentReply });
         } catch (e) {
-          console.warn("[self-heal] grader failed, passing through:", (e as Error).message);
+          console.error(`[self-heal] grader failed (attempt ${attempt}), passing through:`, (e as Error).message);
           finalVerdict = "pass"; // fail-open — don't block reply on grader errors
           break;
         }
@@ -885,7 +885,7 @@ export async function POST(req: NextRequest) {
           const next = await callGeminiWithFallback(retrySystem, retryHistory);
           currentReply = next.reply;
         } catch (e) {
-          console.warn("[self-heal] retry leg failed:", (e as Error).message);
+          console.error(`[self-heal] retry leg failed (attempt ${attempt}):`, (e as Error).message);
           currentReply = buildGiveUpReply(message, ragHits);
           gaveUp = true;
           break;

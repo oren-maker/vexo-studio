@@ -13,7 +13,10 @@ import { logUsage } from "./usage-tracker";
 import type { RagHit } from "./rag";
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const GRADER_MODEL = "gemini-3-flash-preview";
+// Fallback chain identical to the main brain call — preview models sometimes
+// 5xx or rate-limit, and without a fallback the grader silently fails and
+// self-heal decays to "always pass".
+const GRADER_MODELS = ["gemini-3-flash-preview", "gemini-flash-latest", "gemini-2.5-flash"];
 
 export type GraderVerdict = "pass" | "fail" | "n/a";
 
@@ -59,6 +62,46 @@ ${brainReply}
 }`;
 }
 
+async function callGraderGemini(prompt: string): Promise<{ raw: string; usage: any; model: string }> {
+  let lastErr: any = null;
+  for (const model of GRADER_MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.1, maxOutputTokens: 1000, responseMimeType: "application/json" },
+          }),
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (res.status === 503 || res.status === 429) {
+          lastErr = new Error(`grader ${model} ${res.status}`);
+          await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+          continue;
+        }
+        if (!res.ok) {
+          const t = await res.text();
+          lastErr = new Error(`grader ${model} ${res.status}: ${t.slice(0, 200)}`);
+          break; // non-transient, try next model
+        }
+        const json: any = await res.json();
+        const raw = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (!raw) {
+          lastErr = new Error(`grader ${model} returned empty`);
+          break;
+        }
+        return { raw, usage: json.usageMetadata, model };
+      } catch (e: any) {
+        lastErr = e;
+      }
+    }
+  }
+  throw lastErr || new Error("all grader models failed");
+}
+
 export async function gradeReply(params: {
   userMessage: string;
   ragHits: RagHit[];
@@ -68,28 +111,12 @@ export async function gradeReply(params: {
   const t0 = Date.now();
   const prompt = buildGraderPrompt(params.userMessage, params.ragHits, params.brainReply);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GRADER_MODEL}:generateContent?key=${API_KEY}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 1000, responseMimeType: "application/json" },
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
+  const { raw, usage, model } = await callGraderGemini(prompt);
   const latencyMs = Date.now() - t0;
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`grader ${res.status}: ${err.slice(0, 200)}`);
-  }
-  const json: any = await res.json();
-  const raw = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  if (!raw) throw new Error("grader returned empty");
 
   let parsed: any;
   try { parsed = JSON.parse(raw); }
-  catch { throw new Error(`grader returned non-JSON: ${raw.slice(0, 200)}`); }
+  catch { throw new Error(`grader ${model} returned non-JSON: ${raw.slice(0, 200)}`); }
 
   const verdict: GraderVerdict = parsed.verdict === "pass" || parsed.verdict === "fail" || parsed.verdict === "n/a" ? parsed.verdict : "fail";
   const reasoning = typeof parsed.reasoning === "string" ? parsed.reasoning.slice(0, 600) : "";
@@ -97,18 +124,18 @@ export async function gradeReply(params: {
     ? parsed.grounded_sources.filter((s: any) => typeof s === "string").slice(0, 20)
     : [];
 
-  const inputTokens = json.usageMetadata?.promptTokenCount ?? 0;
-  const outputTokens = json.usageMetadata?.candidatesTokenCount ?? 0;
+  const inputTokens = usage?.promptTokenCount ?? 0;
+  const outputTokens = usage?.candidatesTokenCount ?? 0;
 
   await logUsage({
-    model: GRADER_MODEL,
+    model,
     operation: "brain-chat-grade",
     inputTokens,
     outputTokens,
     meta: { verdict, ragHitCount: params.ragHits.length },
   });
 
-  // Gemini 3 Flash Preview pricing (approximate): $0.30/M input, $2.50/M output
+  // Gemini 3 Flash pricing (approximate): $0.30/M input, $2.50/M output
   const costUsd = (inputTokens / 1_000_000) * 0.30 + (outputTokens / 1_000_000) * 2.50;
 
   return { verdict, reasoning, groundedSources, latencyMs, costUsd, inputTokens, outputTokens };

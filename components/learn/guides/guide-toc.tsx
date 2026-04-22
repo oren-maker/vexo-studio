@@ -25,7 +25,7 @@ export default function GuideToc({ items }: { items: { id: string; title: string
   if (!items.length) return null;
 
   return (
-    <aside className="hidden lg:block w-64 shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
+    <aside className="hidden lg:block w-64 shrink-0 sticky top-6 self-start">
       <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4">
         <button
           onClick={() => setOpen(!open)}

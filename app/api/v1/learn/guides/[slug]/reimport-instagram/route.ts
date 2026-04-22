@@ -106,6 +106,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     analyzedImages: deep.analyses.filter((a) => a.type === "image" && !a.error).length,
     failedImages: deep.analyses.filter((a) => a.error).length,
     editUrl: `/learn/guides/${guide.slug}/edit`,
-    viewUrl: `/learn/guides/${guide.slug}`,
+    viewUrl: `/guides/${guide.slug}`,
   });
 }

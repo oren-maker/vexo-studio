@@ -35,10 +35,12 @@ export default async function GuideEditPage({
           ← ספריית מדריכים
         </Link>
         <Link
-          href={`/learn/guides/${params.slug}?lang=${lang}`}
+          href={`/guides/${params.slug}?lang=${lang}`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm flex items-center gap-2"
         >
-          👁 צפה במדריך המלא
+          👁 צפה במדריך (ציבורי)
         </Link>
       </div>
       <GuideEditor initialGuide={data.guide} initialLang={lang} />

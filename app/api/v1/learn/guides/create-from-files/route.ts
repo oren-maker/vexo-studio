@@ -224,6 +224,6 @@ export async function POST(req: NextRequest) {
       ? `gemini returned only ${stagePlans.length} stages — teacher-mode guides expect 13-20`
       : undefined,
     editUrl: `/learn/guides/${guide.slug}/edit`,
-    viewUrl: `/learn/guides/${guide.slug}?lang=${lang}`,
+    viewUrl: `/guides/${guide.slug}?lang=${lang}`,
   });
 }

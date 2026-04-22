@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function GuideToc({ items }: { items: { id: string; title: string }[] }) {
   const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
   const [open, setOpen] = useState(true);
+  const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!items.length) return;
@@ -22,10 +23,23 @@ export default function GuideToc({ items }: { items: { id: string; title: string
     return () => observer.disconnect();
   }, [items]);
 
+  // Auto-scroll the TOC so the active item is visible — the aside has
+  // max-h equal to viewport, so a long TOC would otherwise clip its
+  // bottom entries out of reach.
+  useEffect(() => {
+    if (!activeId || !navRef.current) return;
+    const link = navRef.current.querySelector<HTMLElement>(`a[href="#${CSS.escape(activeId)}"]`);
+    link?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activeId]);
+
   if (!items.length) return null;
 
   return (
-    <aside className="hidden lg:block w-64 shrink-0 sticky top-6 self-start">
+    <aside
+      ref={navRef}
+      className="hidden lg:block w-64 shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full"
+      style={{ scrollbarWidth: "thin", scrollbarColor: "rgb(51 65 85) transparent" }}
+    >
       <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4">
         <button
           onClick={() => setOpen(!open)}

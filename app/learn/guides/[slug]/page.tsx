@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { isValidLang, DEFAULT_LANG, isRtl } from "@/lib/learn/guide-languages";
 import LanguagePicker from "@/components/learn/guides/language-picker";
 import StageRenderer from "@/components/learn/guides/stage-renderer";
@@ -34,6 +34,14 @@ export default async function GuideViewPage({
   params: { slug: string };
   searchParams: { lang?: string };
 }) {
+  // Non-admin visitors (no vexo_at cookie) are redirected to the public
+  // /guides/<slug> route so an old bookmark doesn't dead-end at /login.
+  const vexoToken = cookies().get("vexo_at")?.value;
+  if (!vexoToken) {
+    const qs = searchParams.lang ? `?lang=${searchParams.lang}` : "";
+    redirect(`/guides/${params.slug}${qs}`);
+  }
+
   const lang = isValidLang(searchParams.lang || "") ? (searchParams.lang as string) : DEFAULT_LANG;
   const h = headers();
   const host = h.get("host") || "localhost:3000";

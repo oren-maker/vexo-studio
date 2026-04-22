@@ -19,7 +19,7 @@ const RECOMMENDED_SOURCES = [
   { name: "MDN Web Docs", url: "https://developer.mozilla.org/", desc: "Web platform reference" },
 ];
 
-type Tab = "manual" | "ai" | "url" | "instagram";
+type Tab = "manual" | "ai" | "url" | "instagram" | "files";
 
 export default function NewGuideTabs() {
   const router = useRouter();
@@ -132,6 +132,7 @@ export default function NewGuideTabs() {
     { key: "ai", label: "מ-AI", icon: "🤖" },
     { key: "url", label: "מ-URL", icon: "🔗" },
     { key: "instagram", label: "מ-Instagram", icon: "📷" },
+    { key: "files", label: "מקבצים", icon: "📁" },
   ];
 
   return (
@@ -210,6 +211,10 @@ export default function NewGuideTabs() {
           </>
         )}
 
+        {tab === "files" && (
+          <FilesToGuide lang={lang} titleHint={title} onTitleChange={setTitle} pending={pending} setPending={setPending} setErr={setErr} onSuccess={(slug) => router.push(`/learn/guides/${slug}/edit`)} />
+        )}
+
         {err && <div className="bg-red-500/10 border border-red-500/30 text-red-300 rounded p-2 text-xs">⚠ {err}</div>}
       </div>
     </div>
@@ -225,6 +230,125 @@ function Field({ label, value, onChange, multiline, placeholder }: { label: stri
       ) : (
         <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded text-white text-sm focus:border-cyan-500 focus:outline-none" />
       )}
+    </div>
+  );
+}
+
+function FilesToGuide({ lang, titleHint, onTitleChange, pending, setPending, setErr, onSuccess }: {
+  lang: string;
+  titleHint: string;
+  onTitleChange: (v: string) => void;
+  pending: boolean;
+  setPending: (b: boolean) => void;
+  setErr: (s: string) => void;
+  onSuccess: (slug: string) => void;
+}) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+
+  function addFiles(list: FileList | null) {
+    if (!list) return;
+    const arr = Array.from(list).filter((f) => {
+      if (f.type.startsWith("image/")) return true;
+      if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) return true;
+      if (f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || /\.docx$/i.test(f.name)) return true;
+      return false;
+    });
+    if (arr.length === 0) { setErr("פורמטים נתמכים: תמונות, PDF, DOCX"); return; }
+    setFiles((prev) => [...prev, ...arr]);
+    setErr("");
+  }
+
+  function removeAt(i: number) {
+    setFiles((prev) => prev.filter((_, j) => j !== i));
+  }
+
+  async function submit() {
+    if (files.length === 0) { setErr("הוסף לפחות קובץ אחד"); return; }
+    if (!getAdminKey()) { setErr("הגדר admin key ב-/admin תחילה"); return; }
+    setPending(true); setErr("");
+    try {
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f, f.name));
+      fd.append("lang", lang);
+      if (titleHint.trim()) fd.append("title", titleHint.trim());
+      const key = getAdminKey();
+      const res = await fetch("/api/v1/learn/guides/create-from-files", {
+        method: "POST",
+        headers: key ? { "x-vexo-admin-key": key } : {},
+        body: fd,
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      onSuccess(j.guide.slug);
+    } catch (e: any) {
+      setErr(e?.message || "שגיאה");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <Field
+        label="רמז לכותרת (אופציונלי — Gemini ימציא אם לא ניתן)"
+        value={titleHint}
+        onChange={onTitleChange}
+        placeholder="לדוגמה: איך לבנות מערכת RAG ריפוי-עצמי"
+      />
+
+      <label
+        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={(e) => { e.preventDefault(); setDragActive(false); addFiles(e.dataTransfer.files); }}
+        className={`block border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition
+          ${dragActive ? "border-cyan-400 bg-cyan-500/10"
+            : "border-slate-600 hover:border-slate-400 bg-slate-950/40"}`}
+      >
+        <div className="text-3xl mb-2">📁</div>
+        <div className="text-sm text-slate-200 font-semibold mb-1">גרור קבצים לכאן או לחץ לבחירה</div>
+        <div className="text-[11px] text-slate-500">תמונות (JPG/PNG/WEBP) · PDF · Word (.docx) — הסדר שלהם = הסדר במדריך</div>
+        <input
+          type="file"
+          multiple
+          accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,.pdf"
+          className="hidden"
+          onChange={(e) => addFiles(e.target.files)}
+          disabled={pending}
+        />
+      </label>
+
+      {files.length > 0 && (
+        <ul className="space-y-1 max-h-48 overflow-y-auto">
+          {files.map((f, i) => {
+            const kind = f.type.startsWith("image/") ? "🖼"
+              : /pdf/i.test(f.type) || /\.pdf$/i.test(f.name) ? "📄"
+              : "📝";
+            const sizeKb = Math.round(f.size / 1024);
+            return (
+              <li key={i} className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs">
+                <span>{kind}</span>
+                <span className="flex-1 truncate text-slate-200">{f.name}</span>
+                <span className="text-slate-500">{sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)}MB` : `${sizeKb}KB`}</span>
+                {!pending && (
+                  <button onClick={() => removeAt(i)} className="text-rose-400 hover:text-rose-200 w-5 h-5 flex items-center justify-center">×</button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <button
+        onClick={submit}
+        disabled={pending || files.length === 0}
+        className="bg-purple-500 hover:bg-purple-400 text-white font-semibold px-5 py-2 rounded-lg text-sm disabled:opacity-50 w-full"
+      >
+        {pending ? "🔄 בונה מדריך..." : `✨ צור מדריך מ-${files.length} קבצים`}
+      </button>
+      <p className="text-[11px] text-slate-500">
+        Gemini רואה את כל הקבצים בסדר שהעלית ובונה מדריך בעברית בסגנון קלוד·אינסטגרם־אודיט. בערך 20-40 שניות לכל 10 קבצים.
+      </p>
     </div>
   );
 }

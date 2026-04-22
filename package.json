@@ -32,6 +32,7 @@
     "html2pdf.js": "^0.14.0",
     "instagram-url-direct": "^2.0.7",
     "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.12.0",
     "next": "14.2.18",
     "otplib": "^12.0.1",
     "pdf-lib": "^1.17.1",

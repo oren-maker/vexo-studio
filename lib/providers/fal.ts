@@ -100,9 +100,27 @@ export async function generateImage(opts: { prompt: string; negativePrompt?: str
   const res = await fetch(`${FAL_RUN}/${model}`, { method: "POST", headers: headers(), body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`fal image ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
-  const url = data?.images?.[0]?.url ?? data?.image?.url ?? data?.url;
-  if (!url) throw new Error(`fal image: missing URL in ${JSON.stringify(data).slice(0, 200)}`);
-  return { imageUrl: url, raw: data };
+  const falUrl = data?.images?.[0]?.url ?? data?.image?.url ?? data?.url;
+  if (!falUrl) throw new Error(`fal image: missing URL in ${JSON.stringify(data).slice(0, 200)}`);
+
+  // Download from fal and re-host on Vercel Blob so the image survives
+  // fal.ai URL rotation / TTL. Falls back to the fal URL on persist failure
+  // so we never lose the artifact outright.
+  // See memory: lesson_persist_provider_media_immediately.md
+  try {
+    const imgRes = await fetch(falUrl);
+    if (!imgRes.ok) throw new Error(`fal image download ${imgRes.status}`);
+    const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+    const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+    const buf = Buffer.from(await imgRes.arrayBuffer());
+    const { put } = await import("@vercel/blob");
+    const key = `images/fal/${opts.model ?? "nano-banana"}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const blob = await put(key, buf, { access: "public", contentType });
+    return { imageUrl: blob.url, raw: data };
+  } catch (e) {
+    console.warn("[fal-image] blob persist failed, falling back to fal URL:", (e as Error).message);
+    return { imageUrl: falUrl, raw: data };
+  }
 }
 
 // ---------------------------------------------------------------------------

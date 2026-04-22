@@ -90,6 +90,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
 export async function DELETE(req: NextRequest, { params }: { params: { slug: string } }) {
   const unauth = await requireAdmin(req);
   if (unauth) return unauth;
-  await prisma.guide.delete({ where: { slug: params.slug } });
-  return NextResponse.json({ ok: true });
+  // Soft-delete: guide schema has `status`, and the library UI filters on
+  // status in ("draft", "published"). Flipping to "archived" removes it
+  // from the listing but keeps every stage + translation + image recoverable.
+  // See memory: feedback_never_delete_always_persist.
+  await prisma.guide.update({
+    where: { slug: params.slug },
+    data: { status: "archived" },
+  });
+  return NextResponse.json({ ok: true, archived: true });
 }

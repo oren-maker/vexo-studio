@@ -8,12 +8,15 @@ export default async function BrainChatLogsPage({ searchParams }: { searchParams
   const modeFilter: "vexo" | "obsidian" | "compare" | null =
     params.mode === "vexo" || params.mode === "obsidian" || params.mode === "compare" ? params.mode : null;
 
-  // compare filter shows only chats that belong to a compareGroupId
+  // compare filter shows only chats that belong to a compareGroupId.
+  // archivedAt is always excluded — the logs listing shows active chats only,
+  // soft-deleted rows stay in the DB but off the UI.
+  const baseWhere = { archivedAt: null };
   const where = modeFilter === "compare"
-    ? { compareGroupId: { not: null } }
+    ? { ...baseWhere, compareGroupId: { not: null } }
     : modeFilter
-    ? { brainMode: modeFilter }
-    : {};
+    ? { ...baseWhere, brainMode: modeFilter }
+    : baseWhere;
 
   const chats = await prisma.brainChat.findMany({
     where,

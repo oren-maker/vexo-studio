@@ -1802,10 +1802,12 @@ model BrainChat {
   messages       BrainMessage[]
   summarizedAt   DateTime? // set when the daily brain has read this chat
   summary        String?        @db.Text // constructive notes the brain extracted
+  archivedAt     DateTime? // soft-delete marker; UI hides archived chats from the list but never purges them
 
   @@index([createdAt])
   @@index([summarizedAt])
   @@index([compareGroupId])
+  @@index([archivedAt])
 }
 
 model BrainUpgradeRequest {

@@ -21,37 +21,60 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/[^\w֐-׿؀-ۿ\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 80);
 }
 
-const GUIDE_PROMPT = `אתה מקבל קבוצת קבצים (תמונות, PDF, Word) המסודרים לפי סדר. הם מייצגים מדריך אחד שלם — שקופיות של פוסט, צילומי מסך של טוטוריאל, או דפי תיעוד.
+function buildGuidePrompt(fileCount: number, titleHint: string): string {
+  return `אתה מקבל ${fileCount} קבצים (תמונות, PDF, Word) המסודרים לפי סדר. הם מייצגים מדריך אחד שלם — שקופיות של פוסט, צילומי מסך של טוטוריאל, או דפי תיעוד.
 
-המשימה שלך: לבנות מדריך איכותי בעברית, עם המבנה והסגנון הבאים. שמור על כל המידע שמופיע בקבצים — אל תסכם או תקצר.
+המשימה שלך: לבנות מדריך עברי מלא ויסודי — **כל המידע שמופיע בכל קובץ חייב להופיע במדריך**. אתה כותב מחדש את התוכן בעברית שוטפת, לא מסכם אותו.
 
-**סגנון כתיבה:**
-- עברית מקצועית ונגישה. מונחי מפתח באנגלית נשארים באנגלית (עם תרגום בסוגריים כשצריך).
-- פסקאות מלאות ולא רשימות יבשות. רק כשיש רשימת צעדים או הוראות מפורשות — השתמש ב-1. 2. 3. או bullets.
-- דגש חזותי: **מודגש** למונחים קריטיים, \`code\` ב-backticks, בלוקי קוד ב-\`\`\`code fences\`\`\`.
-- כותרות שלבים כמו "שלב 1: ..." או "שיטה א': ...".
+═══════════════════════════════════════════════════════════════════
+⛔ חוקים מוחלטים — הפרה שלהם = פלט פסול:
+═══════════════════════════════════════════════════════════════════
+
+1. **לפחות stage אחד לכל קובץ** — ${fileCount} קבצים ⇒ לפחות ${fileCount} stages. מותר יותר (אם קובץ אחד מכיל כמה רעיונות), אסור פחות. אל תמזג שקופיות. אל תדלג על אף אחת.
+
+2. **קוד — מילה במילה, בלי סיכום לעולם**: כל בלוק קוד שמופיע בתמונה/PDF (Python, JS, SQL, YAML, JSON, shell, כל שפה) חייב להופיע ב-content בתוך \`\`\`language
+...
+\`\`\` — בדיוק כמו שהוא במקור. שומר על הזחה, שורות ריקות, תגובות (#, //), שמות משתנים. אם יש 30 שורות קוד בשקופית — יש 30 שורות קוד ב-stage. אף פעם אל תכתוב "הקוד הבא..." בלי הקוד עצמו.
+
+3. **דיאגרמות / סכמות / flowcharts / ארכיטקטורה**: כשיש תרשים בתמונה (boxes, arrows, layers, pipeline) — תאר את המבנה **המלא** במילים: כל node, כל חיבור, כל תווית, סדר הזרימה. אם אפשר — שחזר את הדיאגרמה כ-ASCII art בתוך \`\`\`
+...
+\`\`\` block. אל תדלג. אל תכתוב "יש דיאגרמה של X" — תאר את X.
+
+4. **טבלאות**: שחזר כ-markdown table מלא (\`| col1 | col2 |\`). כל שורה, כל עמודה.
+
+5. **רשימות ממוספרות/נקודות**: שמור את הפורמט המקורי. אם יש 7 צעדים — יש 7 צעדים.
+
+6. **טקסט רץ**: תרגם/נסח מחדש בעברית שוטפת ומקצועית, אבל אל תוריד אף מושג, נתון, דוגמה, אזהרה, או הערה.
+
+═══════════════════════════════════════════════════════════════════
+
+**סגנון כתיבה (תוך שמירה על חוקי ה-⛔ למעלה):**
+- עברית מקצועית ונגישה. מונחי מפתח באנגלית נשארים באנגלית, לפעמים עם תרגום בסוגריים.
+- פסקאות מלאות + רשימות כשמתאים. **מודגש** למונחים קריטיים, \`code\` inline, \`\`\`fences\`\`\` לבלוקים.
+- כותרות stages: "שלב N: ...", "רכיב: ...", "רעיון: ..." — מה שמתאים לתוכן.
 
 **מבנה המדריך:**
-- כותרת ראשית + כותרת משנה (מופרדים בנקודתיים) — תיאורית, מדויקת ומושכת.
-- description — פסקה אחת או שתיים (250-500 תווים) שמתארת מה יילמד ובשביל מי.
-- stage ראשון (type=start): "מדוע X חשוב" או "איך זה עובד" — מוטיבציה + קונטקסט. 300-600 מילים.
-- stages אמצעיים (type=middle): שלב אחד לכל רעיון/פעולה עיקרי. 200-500 מילים לכל שלב. כולל code blocks / רשימות / דוגמאות אם היו במקור.
-- stage סיום (type=end): סיכום + המלצות יישום + pitfalls להיזהר מהם.
-- סה"כ 5-10 stages (תלוי במידע).
+- title: כותרת ראשית + משנה (נקודתיים באמצע), תיאורית ומדויקת.
+- description: 250-500 תווים — מה הקורא ילמד, לאיזה קהל זה מיועד.
+- stage ראשון (type=start): הקדמה — "מה זה X" / "למה זה חשוב" / בעיה שנפתרת. 400-800 מילים.
+- stages אמצעיים (type=middle): אחד על כל שקופית / רעיון / רכיב / צעד. **אין מקסימום אורך** — אם שקופית מכילה 40 שורות קוד, ה-stage יכיל 40 שורות קוד + הסבר.
+- stage אחרון (type=end): סיכום + המלצות יישום + pitfalls + next steps.
+- כמות מינימום: ${fileCount} (אחד לכל קובץ). כמות מותרת: ${fileCount} עד ${fileCount * 2}.
 
-**פלט — JSON בלבד, ללא markdown fence מסביב:**
+**פלט — JSON תקין בלבד (responseMimeType=application/json):**
 {
   "title": "...",
   "description": "...",
-  "category": "...",  // אופציונלי: AI / ML / שיווק / עיצוב / וכו'
+  "category": "...",
   "stages": [
     { "type": "start", "title": "...", "content": "..." },
-    { "type": "middle", "title": "שלב 1: ...", "content": "..." },
+    { "type": "middle", "title": "...", "content": "..." },
     ...
     { "type": "end", "title": "...", "content": "..." }
   ]
-}
+}${titleHint ? `\n\nרמז לכותרת/נושא: "${titleHint}"` : ""}
 `;
+}
 
 async function extractDocxToText(buf: Buffer): Promise<string> {
   const mammoth = await import("mammoth");
@@ -115,11 +138,7 @@ export async function POST(req: NextRequest) {
       parts.push({ text: p.text ?? "" });
     }
   });
-  parts.push({
-    text: titleHint
-      ? `${GUIDE_PROMPT}\n\nרמז לכותרת/נושא: "${titleHint}"`
-      : GUIDE_PROMPT,
-  });
+  parts.push({ text: buildGuidePrompt(prepared.length, titleHint) });
 
   const geminiRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_KEY}`,
@@ -128,9 +147,9 @@ export async function POST(req: NextRequest) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 20000, responseMimeType: "application/json" },
+        generationConfig: { temperature: 0.3, maxOutputTokens: 48000, responseMimeType: "application/json" },
       }),
-      signal: AbortSignal.timeout(240_000),
+      signal: AbortSignal.timeout(260_000),
     },
   );
   if (!geminiRes.ok) {
@@ -138,12 +157,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `gemini ${geminiRes.status}: ${err.slice(0, 300)}` }, { status: 502 });
   }
   const gj: any = await geminiRes.json();
-  const raw = gj.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  if (!raw) return NextResponse.json({ error: "gemini returned empty response" }, { status: 502 });
+  const cand = gj.candidates?.[0];
+  const raw = cand?.content?.parts?.[0]?.text?.trim();
+  const finishReason = cand?.finishReason;
+  if (!raw) return NextResponse.json({ error: "gemini returned empty response", finishReason, gj }, { status: 502 });
+  const truncated = finishReason === "MAX_TOKENS" || finishReason === "LENGTH";
 
   let parsed: { title?: string; description?: string; category?: string; stages?: { type?: string; title: string; content: string }[] };
   try { parsed = JSON.parse(raw); }
-  catch { return NextResponse.json({ error: "gemini returned non-JSON", preview: raw.slice(0, 400) }, { status: 502 }); }
+  catch {
+    return NextResponse.json({
+      error: truncated ? "gemini hit MAX_TOKENS — output was truncated mid-JSON" : "gemini returned non-JSON",
+      finishReason,
+      preview: raw.slice(0, 400),
+    }, { status: 502 });
+  }
 
   const finalTitle = (parsed.title ?? titleHint ?? "מדריך חדש").slice(0, 200);
   const finalDesc = parsed.description?.slice(0, 2000) ?? null;
@@ -193,6 +221,11 @@ export async function POST(req: NextRequest) {
     guide: { id: guide.id, slug: guide.slug, title: finalTitle },
     stages: stagePlans.length,
     filesProcessed: prepared.length,
+    warning: truncated
+      ? "gemini output was truncated (MAX_TOKENS) — last stage may be incomplete"
+      : stagePlans.length < prepared.length
+      ? `gemini returned ${stagePlans.length} stages but ${prepared.length} files were uploaded — some slides may be merged`
+      : undefined,
     editUrl: `/learn/guides/${guide.slug}/edit`,
     viewUrl: `/guides/${guide.slug}?lang=${lang}`,
   });

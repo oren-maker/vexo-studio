@@ -825,7 +825,8 @@ export async function POST(req: NextRequest) {
     //   - message too short (< 10 chars)
     //   - no RAG hits on the initial retrieval (nothing to ground against)
     // ════════════════════════════════════════════════════════════════
-    let selfHealing: { attempts: number; finalVerdict: GraderVerdict; gaveUp: boolean; gradingIds: string[] } | undefined;
+    let selfHealing: { attempts: number; finalVerdict: GraderVerdict; gaveUp: boolean; gradingIds: string[]; errors?: string[] } | undefined;
+    const selfHealErrors: string[] = [];
     const skipSelfHeal = !SELF_HEALING_ENABLED || brainMode !== "vexo" || message.trim().length < 10 || ragHits.length === 0;
     if (!skipSelfHeal) {
       let attempt = 1;
@@ -842,7 +843,9 @@ export async function POST(req: NextRequest) {
         try {
           grade = await gradeReply({ userMessage: currentQuery, ragHits: currentHits, brainReply: currentReply });
         } catch (e) {
-          console.error(`[self-heal] grader failed (attempt ${attempt}), passing through:`, (e as Error).message);
+          const em = (e as Error).message;
+          console.error(`[self-heal] grader failed (attempt ${attempt}), passing through:`, em);
+          selfHealErrors.push(`grader#${attempt}: ${em}`);
           finalVerdict = "pass"; // fail-open — don't block reply on grader errors
           break;
         }
@@ -885,7 +888,9 @@ export async function POST(req: NextRequest) {
           const next = await callGeminiWithFallback(retrySystem, retryHistory);
           currentReply = next.reply;
         } catch (e) {
-          console.error(`[self-heal] retry leg failed (attempt ${attempt}):`, (e as Error).message);
+          const em = (e as Error).message;
+          console.error(`[self-heal] retry leg failed (attempt ${attempt}):`, em);
+          selfHealErrors.push(`retry#${attempt}: ${em}`);
           currentReply = buildGiveUpReply(message, ragHits);
           gaveUp = true;
           break;
@@ -899,7 +904,7 @@ export async function POST(req: NextRequest) {
         reply = currentReply;
         await prisma.brainMessage.update({ where: { id: brainMsg.id }, data: { content: reply } }).catch(() => {});
       }
-      selfHealing = { attempts: attempt, finalVerdict, gaveUp, gradingIds };
+      selfHealing = { attempts: attempt, finalVerdict, gaveUp, gradingIds, ...(selfHealErrors.length > 0 ? { errors: selfHealErrors } : {}) };
     }
     // ════════════════════════════════════════════════════════════════
 
